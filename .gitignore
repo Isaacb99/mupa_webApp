@@ -1,0 +1,8 @@
+node_modules
+dist
+.env
+.env.*
+.DS_Store
+# .claude/launch.json se versiona (config del preview de Claude Code)
+design/
+tools/salida/

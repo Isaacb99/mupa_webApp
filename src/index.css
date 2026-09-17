@@ -1,0 +1,95 @@
+@import "tailwindcss";
+
+/*
+  Tokens de diseno.
+  - Tipografia: familias tomadas de las fuentes embebidas en "Landing Page - V01.ai" (Google Sans Flex para todo el
+    texto, Roboto Mono Bold solo para las etiquetas en mayusculas y el lema de Ciencia). El .ai no guarda el nombre
+    de la instancia (todas figuran como GoogleSansFlex-Regular), pero los avances de glifo de cada instancia
+    embebida la identifican sin ambiguedad. Pesos de Google Sans Flex leidos asi: titular (h1) y titulos de
+    Identidad y Obra 500; titulo de Areas, parrafos, textos de los ejes y anios de la linea de tiempo 400;
+    nombres de banda y textos de los hitos 300; palabras grandes Inspirar/Referente/Patrimonio 200 (por eso
+    index.html pide wght 200..700). Aplicados con font-medium / font-light / font-extralight en los componentes; en el texto de Ciencia, "el area
+    que sostiene, actualiza y proyecta el contenido del museo en el tiempo." y "Ciencia como sustento
+    institucional:" van en 600 (pendiente: son fragmentos dentro de las cadenas de content.js). El opsz esta
+    siempre en el default 18 (el disenador no uso tamano optico): por eso la fuente se pide sin el eje opsz y el
+    body fija font-optical-sizing: none.
+  - Colores: PROVISORIOS, estimados a partir del mockup en baja resolucion.
+  Cuando llegue el Figma del disenador, se reemplazan aca y nada mas.
+*/
+@theme {
+  --color-ink: #141414;          /* fondo principal, casi negro */
+  --color-ink-soft: #1f1f1f;     /* superficies apenas mas claras */
+  --color-paper: #f4f4f2;        /* texto principal sobre oscuro */
+  --color-muted: #9d9d99;        /* texto secundario */
+  --color-line: #2c2c2c;         /* divisores */
+
+  --color-ciencia: #2f62d8;      /* azul */
+  --color-educacion: #b4213b;    /* carmesi */
+  --color-espectaculo: #e0701c;  /* naranja */
+  --color-formalab: #3f9b3b;     /* verde */
+
+  --font-display: "Google Sans Flex", "GSF Fallback", "GSF Fallback Roboto", "GSF Fallback Arial", system-ui, sans-serif;
+  --font-body: "Google Sans Flex", "GSF Fallback", "GSF Fallback Roboto", "GSF Fallback Arial", system-ui, sans-serif;
+  /* Solo se carga el peso 700 de Roboto Mono (ver index.html): usar SIEMPRE junto con font-bold. Pedir 400 renderiza
+     la cara 700 en silencio (tambien en code/pre/kbd/samp, que heredan este token via el preflight de Tailwind).
+     Si hace falta mono regular, sumar 400 al pedido de Google Fonts. */
+  --font-mono: "Roboto Mono", ui-monospace, "Cascadia Mono", Menlo, Consolas, monospace;
+}
+
+/*
+  Fallbacks con metricas ajustadas para que el texto no salte cuando termina el swap de Google Sans Flex.
+  Con opsz fijo en 18 la relacion de ancho GSF / fuente del sistema es constante en todos los tamanos
+  (Segoe UI 1,0185; Roboto 1,0116; Arial 1,0103); size-adjust la compensa y las lineas cortan igual antes y despues
+  del swap. Verificado con Segoe UI: 0 px de diferencia en 375/390/414/768/1024/1280; en 360 quedan dos parrafos
+  que cortan una linea menos (-54 px), residuo de anchos por glifo que ningun size-adjust unico elimina (probado
+  101,5 a 102,5). Los valores de Roboto (Android) y Arial (iOS/macOS) son ratios medidos con el parrafo de Intro;
+  la paridad de lineas en esas plataformas no se verifico. Los overrides de ascent/descent (metricas de GSF, 0,97 y
+  0,29 em, divididas por el size-adjust porque Chrome los escala) solo alinean la linea base (1 px). local() solo
+  matchea la cara Regular: el "MuPa" en negrita del header sale en negrita sintetica durante el swap.
+*/
+@font-face {
+  font-family: "GSF Fallback";
+  src: local("Segoe UI");
+  size-adjust: 101.85%;
+  ascent-override: 95.24%;
+  descent-override: 28.47%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: "GSF Fallback Roboto";
+  src: local("Roboto");
+  size-adjust: 101.16%;
+  ascent-override: 95.89%;
+  descent-override: 28.67%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: "GSF Fallback Arial";
+  src: local("Arial");
+  size-adjust: 101.03%;
+  ascent-override: 96.01%;
+  descent-override: 28.70%;
+  line-gap-override: 0%;
+}
+
+/*
+  Estilos base DENTRO de @layer base: en Tailwind 4 una regla sin capa le gana a cualquier utilidad, asi que
+  un "p { max-width }" suelto anularia max-w-* en todos los parrafos. Dentro de la capa, las utilidades mandan.
+*/
+@layer base {
+  html { scroll-behavior: smooth; }
+  body {
+    @apply bg-ink text-paper font-body antialiased;
+    /* El mockup usa opsz 18 en todos los tamanos; ademas mantiene valida la calibracion de los fallbacks aunque
+       alguien vuelva a pedir el eje opsz en index.html. No hay utilidad Tailwind para esto. */
+    font-optical-sizing: none;
+  }
+  h1, h2, h3 { text-wrap: balance; }
+  /* En em y no en ch: el ancho del "0" cambia entre GSF y el fallback (42em equivale a 65ch de GSF a opsz 18). */
+  p { max-width: 42em; }
+
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  }
+}

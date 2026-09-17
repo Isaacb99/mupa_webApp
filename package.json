@@ -1,0 +1,23 @@
+{
+  "name": "mupa-web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.2.4",
+    "@vitejs/plugin-react": "^6.0.1",
+    "pdfjs-dist": "^5.7.284",
+    "sharp": "^0.35.4",
+    "tailwindcss": "^4.2.4",
+    "vite": "^8.0.9"
+  }
+}

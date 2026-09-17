@@ -1,0 +1,13 @@
+import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
+const pdf = await getDocument({ url: process.argv[2] || '../design/Landing Page - V01.ai', verbosity: 0 }).promise;
+const page = await pdf.getPage(1);
+const { height: H } = page.getViewport({ scale: 1 });
+const tc = await page.getTextContent();
+const items = tc.items.filter(it => it.str.trim()).map(it => ({ str: it.str.trim(), size: Math.round(Math.hypot(it.transform[0], it.transform[1])), x: Math.round(it.transform[4]), yTop: Math.round(H - it.transform[5]), w: Math.round(it.width) }));
+const titulo = items.filter(i => i.size === 84);
+console.log('Artboard alto:', Math.round(H), '\nTITULAR (x = izquierda, yTop = distancia desde arriba a la línea base, w = ancho del texto):');
+titulo.forEach(i => console.log(`  ${i.str.padEnd(14)} x=${i.x}  fin=${i.x + i.w}  base=${i.yTop}  w=${i.w}`));
+const yMin = Math.min(...titulo.map(i => i.yTop)), yMax = Math.max(...titulo.map(i => i.yTop));
+const cerca = items.filter(i => i.size === 30 && i.yTop > yMin - 50 && i.yTop < yMax + 700).slice(0, 2);
+console.log('PÁRRAFO INTRO (primeros items de 30px debajo del titular):');
+cerca.forEach(i => console.log(`  "${i.str.slice(0, 30)}" x=${i.x} base=${i.yTop} w=${i.w}`));
