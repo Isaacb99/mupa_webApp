@@ -44,7 +44,8 @@ export const hero = {
 }
 
 export const intro = {
-  titulo: 'un museo de sanjuaninos hecho por y para',
+  // Respaldo si faltara 'titular': la frase completa, no el estado estático del mockup.
+  titulo: 'un museo de sanjuaninos, hecho por sanjuaninos y para sanjuaninos',
   // Titular con parallax: las líneas fijas van en la columna izquierda y la palabra móvil baja de fila en fila con el scroll.
   // 'lectura' es lo que oyen los lectores de pantalla.
   titular: {

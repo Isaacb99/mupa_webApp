@@ -5,7 +5,11 @@ import useParallaxPalabra from '../hooks/useParallaxPalabra.js'
 // Titular con una palabra móvil que baja de fila en fila con el scroll:
 // "un museo de sanjuaninos" -> "hecho por sanjuaninos" -> "y para sanjuaninos".
 // Como en el mockup, las líneas fijas van alineadas a la derecha en la primera columna
-// y la palabra arranca en la segunda, un espacio después. En lg las columnas parten al centro.
+// y la palabra arranca en la segunda, un espacio después (0,36 em, como el mockup). En lg las columnas parten al centro.
+// Con prefers-reduced-motion la palabra no se mueve y aparecen copias fijas en las otras filas, para que las
+// tres frases se lean completas igual.
+
+const FILA = ['row-start-1', 'row-start-2', 'row-start-3', 'row-start-4']
 
 export default function TituloParallax({ id, className = '' }) {
   const { fijas = [], movil = '', lectura = '' } = intro.titular ?? {}
@@ -34,7 +38,7 @@ export default function TituloParallax({ id, className = '' }) {
       <span
         ref={bloque}
         aria-hidden="true"
-        className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 lg:grid-cols-2 lg:gap-x-6 lg:gap-y-3"
+        className="grid grid-cols-[auto_1fr] gap-x-[0.36em] gap-y-1 lg:grid-cols-2 lg:gap-y-3"
       >
         {fijas.map((linea, i) => (
           <span
@@ -45,9 +49,15 @@ export default function TituloParallax({ id, className = '' }) {
             {linea}
           </span>
         ))}
-        <span ref={palabra} className="col-start-2 row-start-1 whitespace-nowrap will-change-transform">
+        {/* wrap-anywhere: solo si el usuario fuerza espaciado de texto (WCAG 1.4.12) y la palabra no entra, se parte en vez de desbordar. */}
+        <span ref={palabra} className="col-start-2 row-start-1 wrap-anywhere">
           {movil}
         </span>
+        {fijas.slice(1).map((linea, i) => (
+          <span key={`copia-${linea}`} className={`hidden col-start-2 wrap-anywhere motion-reduce:block ${FILA[i + 1] ?? ''}`}>
+            {movil}
+          </span>
+        ))}
       </span>
     </h1>
   )
