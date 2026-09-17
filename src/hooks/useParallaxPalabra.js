@@ -26,8 +26,13 @@ export function conMesetas(p, paradas, meseta = 0.3) {
 
 export default function useParallaxPalabra(refs, { paradas = 3, activo = true } = {}) {
   useEffect(() => {
-    const { palabra, primera, ultima, bloque } = refs
-    if (!activo || !palabra.current || !primera.current || !ultima.current || !bloque.current) return
+    // Los nodos se copian una sola vez: React pone ref.current en null antes de ejecutar el cleanup, así que
+    // dentro del efecto se trabaja con los nodos, no con los refs.
+    const palabra = refs.palabra.current
+    const primera = refs.primera.current
+    const ultima = refs.ultima.current
+    const bloque = refs.bloque.current
+    if (!activo || !palabra || !primera || !ultima || !bloque) return
 
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)')
     let cancelado = false
@@ -38,7 +43,7 @@ export default function useParallaxPalabra(refs, { paradas = 3, activo = true } 
     let pedido = 0
 
     const medir = () => {
-      recorrido = ultima.current.getBoundingClientRect().top - primera.current.getBoundingClientRect().top
+      recorrido = ultima.getBoundingClientRect().top - primera.getBoundingClientRect().top
       // El alto solo se actualiza si cambió el ancho (rotación, ventana) o si el salto es grande: la barra de
       // direcciones del navegador móvil cambia innerHeight en pleno gesto y haría saltar la palabra.
       const h = window.innerHeight
@@ -58,15 +63,15 @@ export default function useParallaxPalabra(refs, { paradas = 3, activo = true } 
 
     const pintar = () => {
       pedido = 0
-      if (cancelado || !palabra.current || !bloque.current) return
+      if (cancelado) return
       if (reduce.matches) {
-        palabra.current.style.transform = ''
+        palabra.style.transform = ''
         return
       }
-      const p = progreso(bloque.current.getBoundingClientRect().top)
+      const p = progreso(bloque.getBoundingClientRect().top)
       // Redondeado a píxel entero para que el texto no quede desenfocado en las paradas.
       const y = Math.round(conMesetas(p, paradas) * recorrido)
-      palabra.current.style.transform = `translate(0, ${y}px)`
+      palabra.style.transform = `translate(0, ${y}px)`
     }
 
     // forzar: pintar aunque el bloque esté fuera de vista (cambios de tamaño, fuentes o reduced-motion).
@@ -86,14 +91,19 @@ export default function useParallaxPalabra(refs, { paradas = 3, activo = true } 
     const io = new IntersectionObserver(
       ([e]) => {
         visible = e.isIntersecting
-        pedir()
+        // Al volver a la vista se pinta en el acto (no en el próximo frame) para no mostrar la fila vieja
+        // tras un salto de ancla o un scroll instantáneo desde lejos.
+        if (visible) {
+          if (pedido) cancelAnimationFrame(pedido)
+          pintar()
+        }
       },
       { rootMargin: '50% 0px' },
     )
-    io.observe(bloque.current)
+    io.observe(bloque)
 
     const ro = new ResizeObserver(remedir)
-    ro.observe(bloque.current)
+    ro.observe(bloque)
 
     window.addEventListener('scroll', alScroll, { passive: true })
     window.addEventListener('resize', remedir)
@@ -109,7 +119,7 @@ export default function useParallaxPalabra(refs, { paradas = 3, activo = true } 
       window.removeEventListener('scroll', alScroll)
       window.removeEventListener('resize', remedir)
       reduce.removeEventListener('change', remedir)
-      if (palabra.current) palabra.current.style.transform = ''
+      palabra.style.transform = ''
     }
   }, [refs, paradas, activo])
 }
