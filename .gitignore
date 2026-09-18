@@ -4,5 +4,8 @@ dist
 .env.*
 .DS_Store
 # .claude/launch.json se versiona (config del preview de Claude Code)
+# Permisos locales de cada PC y copias aisladas del repo que crean los workflows de Claude Code
+.claude/settings.local.json
+.claude/worktrees/
 design/
 tools/salida/
