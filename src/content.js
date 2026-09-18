@@ -11,8 +11,9 @@ import fachada1920 from './assets/fachada-mupa-1920.webp'
 import fachada1280 from './assets/fachada-mupa-1280.webp'
 import fachada768 from './assets/fachada-mupa-768.webp'
 import hallCentral from './assets/hall-central-render.webp'
+import renderCupula800 from './assets/render-cupula-esqueletos-800.webp'
+import renderCupula1400 from './assets/render-cupula-esqueletos-1400.webp'
 import cupula from './assets/cupula-render.webp'
-import craneo from './assets/craneo-dinosaurio.webp'
 import cartel from './assets/cartel-fachada.webp'
 import montaje from './assets/montaje-sala.webp'
 import restauracion from './assets/restauracion-detalle.webp'
@@ -64,7 +65,9 @@ export const intro = {
 
 export const identidad = {
   titulo: 'Identidad Institucional',
-  // Tres columnas del mockup. La relación etiqueta -> texto se infirió por sentido y por la palabra grande de cada columna.
+  // Un panel por eje, que se desliza con el scroll (Figma 18/09/2026, frame "Institucional": solo está diseñado el
+  // primero). La relación etiqueta -> texto se infirió por sentido y por la palabra grande de cada columna del mockup;
+  // ojo: el panel del Figma pone "Eje narrativo" junto al texto de Misión y "Patrimonio" (¿texto de relleno?).
   ejesVerificar: true,
   ejes: [
     {
@@ -74,6 +77,13 @@ export const identidad = {
         'Inspirar vocaciones científicas, técnicas, artísticas y ocupacionales en las infancias y juventudes de San Juan, ' +
         'promoviendo la curiosidad, el pensamiento crítico y el deseo de comprender el pasado para transformar el futuro, ' +
         'desde una mirada socio-ambiental e inclusiva.',
+      // La foto del panel diseñado (render nuevo), con el recorte del Figma: se ve la parte derecha.
+      foto: {
+        src: renderCupula1400,
+        srcSet: `${renderCupula800} 800w, ${renderCupula1400} 1400w`,
+        alt: 'Render del hall central bajo la cúpula, con el esqueleto de un dinosaurio de cuello largo y el de un carnívoro',
+        encuadre: 'object-right',
+      },
     },
     {
       etiqueta: 'Visión',
@@ -81,6 +91,8 @@ export const identidad = {
       texto:
         'Consolidarse como el museo paleontológico más importante de Cuyo y un referente imprescindible en todo el ' +
         'territorio nacional e internacional.',
+      // Sin diseño todavía: foto de la selección del museo, a confirmar.
+      foto: { src: cartel, alt: 'Cartel "Museo Paleontológico" sobre la fachada curva del edificio', encuadre: 'object-center' },
     },
     {
       etiqueta: 'Misión',
@@ -88,6 +100,12 @@ export const identidad = {
       texto:
         'La institución está dedicada en exclusividad a la divulgación, educación y preservación del patrimonio del ' +
         'Período Triásico, principalmente proveniente del Parque Provincial Ischigualasto (Patrimonio de la Humanidad por la UNESCO).',
+      // Sin diseño todavía: foto de la selección del museo, a confirmar.
+      foto: {
+        src: cupula,
+        alt: 'Render de la cúpula del hall central, con un dinosaurio de gran porte visto desde abajo',
+        encuadre: 'object-center',
+      },
     },
   ],
   parrafo:
@@ -95,11 +113,6 @@ export const identidad = {
     'Gobierno de la Provincia de San Juan, la Universidad Nacional de San Juan (UNSJ) y Fiduciaria San Juan. ' +
     'Esta alianza estratégica no solo garantiza la validación científica y académica de nuestro patrimonio, sino que ' +
     'también consolida un modelo de gestión pública transparente, eficiente y profundamente comprometido con el futuro regional.',
-  fotos: [
-    { src: cupula, alt: 'Render de la cúpula del hall central, con un dinosaurio de gran porte visto desde abajo' },
-    { src: craneo, alt: 'Cráneo de un dinosaurio carnívoro montado en una sala del museo' },
-    { src: cartel, alt: 'Cartel "Museo Paleontológico" sobre la fachada curva del edificio' },
-  ],
   instituciones: [
     { nombre: 'Gobierno de San Juan', logo: null },
     { nombre: 'Universidad Nacional de San Juan', logo: null },

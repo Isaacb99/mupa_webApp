@@ -1,6 +1,19 @@
 @import "tailwindcss";
 
 /*
+  apilado: los paneles de Identidad no se enganchan ni se deslizan, van uno debajo del otro. Con reduced-motion y en
+  pantallas bajas (celular apaisado, menos de 30rem de alto), donde un panel no entra en la pantalla fija.
+*/
+@custom-variant apilado {
+  @media (prefers-reduced-motion: reduce) {
+    @slot;
+  }
+  @media (max-height: 30rem) {
+    @slot;
+  }
+}
+
+/*
   Tokens de diseno.
   - Tipografia: familias tomadas de las fuentes embebidas en "Landing Page - V01.ai" (Google Sans Flex para todo el
     texto, Roboto Mono Bold solo para las etiquetas en mayusculas y el lema de Ciencia). El .ai no guarda el nombre

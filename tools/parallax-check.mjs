@@ -1,9 +1,9 @@
-// Comprueba sin navegador la matemática del titular (src/hooks/useParallaxPalabra.js): los umbrales con histéresis de
-// filaDestino, la curva del easing y la duración y el arranque de cada viaje. Un error de un dígito ahí no rompe nada
-// visible con rueda (cada viaje termina igual en su fila) y solo aparece como un tirón al interrumpir un viaje con
-// trackpad o touch, que nadie vuelve a probar a mano.
+// Comprueba sin navegador la matemática de src/hooks/useScrollPorPasos.js, el motor del titular y de los ejes de
+// Identidad: los umbrales con histéresis de filaDestino, la curva del easing y la duración y el arranque de cada viaje.
+// Un error de un dígito ahí no rompe nada visible con rueda (cada viaje termina igual en su parada) y solo aparece
+// como un tirón al interrumpir un viaje con trackpad o touch, que nadie vuelve a probar a mano.
 // Uso: node tools/parallax-check.mjs   (sale con código 1 si algo falla)
-import { curva, easing, filaDestino, parametrosViaje, pendiente } from '../src/hooks/useParallaxPalabra.js';
+import { curva, easing, filaDestino, parametrosViaje, pendiente } from '../src/hooks/useScrollPorPasos.js';
 
 const fallas = [];
 const check = (ok, mensaje) => { if (!ok) fallas.push(mensaje); };
@@ -57,6 +57,10 @@ check(cerca(parametrosViaje(2 * paso, 0, paso).dur / base, Math.SQRT2, 1e-9), 'd
 check(cerca(parametrosViaje(-paso, 0, paso).dur, base, 1e-9), 'subir no tarda lo mismo que bajar');
 check(cerca(parametrosViaje(5, 0, paso).dur / base, 0.4, 1e-9), 'viaje de 5 px sin piso 0,4');
 check(cerca(parametrosViaje(10 * paso, 0, paso).dur / base, 1.5, 1e-9), 'viaje largo sin techo 1,5');
+// Paneles de Identidad: paso negativo (se deslizan a la izquierda) y otra duración base; mismo comportamiento.
+check(cerca(parametrosViaje(-1366, 0, -1366, 560).dur, 560, 1e-9), 'un panel no tarda la duración base');
+check(cerca(parametrosViaje(1366, 0, -1366, 560).dur, 560, 1e-9), 'volver un panel no tarda lo mismo');
+check(cerca(parametrosViaje(-2732, 0, -1366, 560).dur / 560, Math.SQRT2, 1e-9), 'dos paneles no tardan raíz de 2');
 // Arranque: a = vel·dur / (3·d), así la velocidad inicial de la curva (3·a·d/dur) es la que traía la palabra.
 for (const d of [paso, -paso, 2 * paso]) {
   const { dur } = parametrosViaje(d, 0, paso);
