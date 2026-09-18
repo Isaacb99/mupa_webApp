@@ -23,6 +23,8 @@ const send = (method, params = {}) => new Promise(r => { const i = ++id; pend.se
 const evalJs = async (expression) => { const r = await send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true }); if (r.result?.exceptionDetails) throw new Error(r.result.exceptionDetails.exception?.description || 'error en la expresión'); return r.result?.result?.value; };
 await send('Page.enable');
 await send('Emulation.setDeviceMetricsOverride', { width: w, height: h, deviceScaleFactor: 1, mobile: w < 768 });
+// Por debajo de 768 px emula touch: así (hover: none) es verdadero, como en un celular (sin esto Chrome responde hover).
+if (w < 768) await send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
 if (reduce) await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
 await send('Page.navigate', { url });
 for (let i = 0; i < 100 && !events.includes('Page.loadEventFired'); i++) await sleep(100);
