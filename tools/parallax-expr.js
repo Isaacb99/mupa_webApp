@@ -3,7 +3,8 @@
   const bloque = h1.querySelector('[aria-hidden]'); const spans = [...bloque.children];
   const fijas = spans.slice(0, 3), palabra = spans[3];
   const vh = innerHeight; const h1Top = h1.getBoundingClientRect().top + scrollY;
-  const inicio = Math.min(0.8 * vh, h1Top), fin = Math.max(inicio - Math.max(0.6 * vh, 480), 0.15 * vh);
+  const inicio = Math.min(0.8 * vh, h1Top); let fin = Math.max(inicio - Math.max(0.6 * vh, 480), 0.15 * vh);
+  if (matchMedia('(width < 64rem)').matches) fin = inicio - (inicio - fin) * 1.1; // debajo de lg, recorrido +10 %
   const rect = (el) => { const r = el.getBoundingClientRect(); return [Math.round(r.left), Math.round(r.top + scrollY), Math.round(r.width), Math.round(r.height)]; };
   const raf = () => new Promise(r => requestAnimationFrame(r));
   // El hook no anima hasta el primer gesto (rueda, tecla, toque): un wheel sintético lo habilita, así cada parada

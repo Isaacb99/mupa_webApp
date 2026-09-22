@@ -5,8 +5,11 @@ import Identidad from './components/Identidad.jsx'
 import ObraHistorica from './components/ObraHistorica.jsx'
 import Areas from './components/Areas.jsx'
 import Footer from './components/Footer.jsx'
+import useScrollSuave from './hooks/useScrollSuave.js'
 
 export default function App() {
+  useScrollSuave()
+
   return (
     <>
       <Header />

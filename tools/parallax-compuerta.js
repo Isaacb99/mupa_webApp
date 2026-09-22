@@ -15,7 +15,9 @@
   const raf = () => new Promise((r) => w.requestAnimationFrame(r));
   const b = d.querySelector('h1 [aria-hidden]'); const s = [...b.children]; const pal = s[3];
   const vh = w.innerHeight; const r0 = b.getBoundingClientRect(); const T0 = r0.top + w.scrollY;
-  const inicio = Math.min(0.8 * vh, T0), fin = Math.max(inicio - Math.max(0.6 * vh, 480), 0.15 * vh), T = (inicio - fin) / 2;
+  const inicio = Math.min(0.8 * vh, T0); let fin = Math.max(inicio - Math.max(0.6 * vh, 480), 0.15 * vh);
+  if (w.matchMedia('(width < 64rem)').matches) fin = inicio - (inicio - fin) * 1.1; // debajo de lg, recorrido +10 %
+  const T = (inicio - fin) / 2;
   const Y = (x) => Math.max(0, Math.round(T0 - inicio + x * T));
   const paso = Math.round((s[2].getBoundingClientRect().top - s[0].getBoundingClientRect().top) / 2);
   const dy = () => Math.round(pal.getBoundingClientRect().top - s[0].getBoundingClientRect().top);

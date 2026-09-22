@@ -1,48 +1,97 @@
 @import "tailwindcss";
 
 /*
-  apilado: los paneles de Identidad no se enganchan ni se deslizan, van uno debajo del otro. Con reduced-motion y en
-  pantallas bajas (celular apaisado, menos de 30rem de alto), donde un panel no entra en la pantalla fija.
+  apilado: los ejes de Identidad no se enganchan ni pasan como carrusel, van uno debajo del otro (y el collage no se
+  engancha). Con reduced-motion, al imprimir (si no, Visión y Misión no salen en el PDF) y en pantallas bajas, donde un
+  eje no entra en la pantalla fija: menos de 30rem de alto en general y, entre md y lg (768-1023 px de ancho, donde los
+  espaciados fijos son mayores), menos de 36rem (medido: a 853x493 la palabra grande quedaba cortada).
 */
 @custom-variant apilado {
   @media (prefers-reduced-motion: reduce) {
     @slot;
   }
+  @media print {
+    @slot;
+  }
   @media (max-height: 30rem) {
+    @slot;
+  }
+  @media (width >= 48rem) and (width < 64rem) and (max-height: 36rem) {
+    @slot;
+  }
+}
+
+/*
+  hitos-libres: la línea de tiempo de Obra histórica no se engancha (los hitos se iluminan al pasar por la línea de
+  lectura, con el scroll normal). Con reduced-motion, al imprimir (si no, el recorrido salía como una página en negro) y
+  cuando lo enganchado no entra en la pantalla con 2rem de margen arriba y abajo: la lista en lg, título + lista debajo
+  de lg. Eso último lo mide useHitoActivo y lo marca con data-hitos-libres en la sección (así vale también con la letra
+  agrandada o el espaciado de texto de WCAG 1.4.12, que un corte fijo por alto no veía).
+*/
+/*
+  obra-trio / obra-titulo: qué se engancha de Obra histórica debajo de lg, según lo que entra en la pantalla (lo mide
+  useHitoActivo y lo marca con data-obra en la sección): título, párrafo y lista juntos, o solo título y lista (el
+  párrafo pasa por debajo del título). Sin data-obra, nada (hitos-libres).
+*/
+@custom-variant obra-trio (&:where([data-obra="trio"] *));
+@custom-variant obra-titulo (&:where([data-obra="titulo"] *));
+
+@custom-variant hitos-libres {
+  @media (prefers-reduced-motion: reduce) {
+    @slot;
+  }
+  @media print {
+    @slot;
+  }
+  &:where([data-hitos-libres] *) {
     @slot;
   }
 }
 
 /*
   Tokens de diseno.
-  - Tipografia: familias tomadas de las fuentes embebidas en "Landing Page - V01.ai" (Google Sans Flex para todo el
-    texto, Roboto Mono Bold solo para las etiquetas en mayusculas y el lema de Ciencia). El .ai no guarda el nombre
-    de la instancia (todas figuran como GoogleSansFlex-Regular), pero los avances de glifo de cada instancia
-    embebida la identifican sin ambiguedad. Pesos de Google Sans Flex leidos asi: titular (h1) y titulos de
-    Identidad y Obra 500; titulo de Areas, parrafos, textos de los ejes y anios de la linea de tiempo 400;
-    nombres de banda y textos de los hitos 300; palabras grandes Inspirar/Referente/Patrimonio 200 (por eso
-    index.html pide wght 200..700). Aplicados con font-medium / font-light / font-extralight en los componentes; en el texto de Ciencia, "el area
-    que sostiene, actualiza y proyecta el contenido del museo en el tiempo." y "Ciencia como sustento
-    institucional:" van en 600 (pendiente: son fragmentos dentro de las cadenas de content.js). El opsz esta
-    siempre en el default 18 (el disenador no uso tamano optico): por eso la fuente se pide sin el eje opsz y el
-    body fija font-optical-sizing: none.
-  - Colores: PROVISORIOS, estimados a partir del mockup en baja resolucion.
-  Cuando llegue el Figma del disenador, se reemplazan aca y nada mas.
+  - Tipografia (Figma del disenador, archivo "MUPA", 21/09/2026): Geologica para todo el texto y Roboto Mono Bold solo
+    para las etiquetas en mayusculas (EJE NARRATIVO / VISION / MISION) y el lema de Ciencia. Pesos del Figma: Regular
+    400 para el titular, los titulos y los parrafos; Bold 700 para los fragmentos destacados dentro de los parrafos;
+    Thin 100 para las palabras grandes de los ejes (Inspirar / Referente / Patrimonio). Por eso index.html pide
+    wght 100..700. El Figma fija "CRSV" 0 y "SHRP" 0: el archivo que sirve Google (solo eje wght) da los mismos anchos
+    que el de todos los ejes con esos valores (medido en 100, 400 y 700), asi que no hace falta font-variation-settings.
+  - Colores: paleta MUPA del Figma (estilos de color del archivo). ink-soft y line no estan en el Figma: superficies y
+    divisores propios, apenas mas claros que el fondo. Colores de las bandas de Areas: ver Areas.jsx.
 */
 @theme {
-  --color-ink: #141414;          /* fondo principal, casi negro */
-  --color-ink-soft: #1f1f1f;     /* superficies apenas mas claras */
-  --color-paper: #f4f4f2;        /* texto principal sobre oscuro */
-  --color-muted: #9d9d99;        /* texto secundario */
+  --color-ink: #010101;          /* MUPA/black: fondo */
+  --color-ink-soft: #161616;     /* superficies apenas mas claras (placeholders) */
+  --color-paper: #ffffff;        /* Blanco: texto */
+  --color-muted: #88858e;        /* Neutros/Gris: texto secundario, hitos no activos */
   --color-line: #2c2c2c;         /* divisores */
 
-  --color-ciencia: #2f62d8;      /* azul */
-  --color-educacion: #b4213b;    /* carmesi */
-  --color-espectaculo: #e0701c;  /* naranja */
-  --color-formalab: #3f9b3b;     /* verde */
+  --color-crema: #eae2df;
+  --color-bordo: #8a1812;
+  --color-naranja: #eb622d;
+  --color-salmon: #cf7349;
+  --color-verde-oscuro: #204820;
+  --color-azul: #252a5a;
+  --color-verde-claro: #9cc551;
+  --color-celeste: #4e56a1;
 
-  --font-display: "Google Sans Flex", "GSF Fallback", "GSF Fallback Roboto", "GSF Fallback Arial", system-ui, sans-serif;
-  --font-body: "Google Sans Flex", "GSF Fallback", "GSF Fallback Roboto", "GSF Fallback Arial", system-ui, sans-serif;
+  /* Ancho maximo del contenido (max-w-sitio): con px-10 deja el texto a 102 px del borde en 1440, como el Figma. */
+  --container-sitio: 82.25rem;
+
+  /* Indicador de scroll del hero (Hero.jsx): cada flecha se enciende y se apaga en 2 s; la de abajo va medio segundo
+     detras (delay negativo, asi arranca ya desfasada). El indicador entero aparece un rato despues de cargar. */
+  --animate-flecha: flecha 2s ease-in-out infinite;
+  --animate-aparecer: aparecer 0.8s ease-out 0.8s both;
+  @keyframes flecha {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.06; }
+  }
+  @keyframes aparecer {
+    from { opacity: 0; }
+  }
+
+  --font-display: "Geologica", "Geologica Fallback", "Geologica Fallback Roboto", "Geologica Fallback Arial", system-ui, sans-serif;
+  --font-body: "Geologica", "Geologica Fallback", "Geologica Fallback Roboto", "Geologica Fallback Arial", system-ui, sans-serif;
   /* Solo se carga el peso 700 de Roboto Mono (ver index.html): usar SIEMPRE junto con font-bold. Pedir 400 renderiza
      la cara 700 en silencio (tambien en code/pre/kbd/samp, que heredan este token via el preflight de Tailwind).
      Si hace falta mono regular, sumar 400 al pedido de Google Fonts. */
@@ -50,39 +99,84 @@
 }
 
 /*
-  Fallbacks con metricas ajustadas para que el texto no salte cuando termina el swap de Google Sans Flex.
-  Con opsz fijo en 18 la relacion de ancho GSF / fuente del sistema es constante en todos los tamanos
-  (Segoe UI 1,0185; Roboto 1,0116; Arial 1,0103); size-adjust la compensa y las lineas cortan igual antes y despues
-  del swap. Verificado con Segoe UI: 0 px de diferencia en 375/390/414/768/1024/1280; en 360 quedan dos parrafos
-  que cortan una linea menos (-54 px), residuo de anchos por glifo que ningun size-adjust unico elimina (probado
-  101,5 a 102,5). Los valores de Roboto (Android) y Arial (iOS/macOS) son ratios medidos con el parrafo de Intro;
-  la paridad de lineas en esas plataformas no se verifico. Los overrides de ascent/descent (metricas de GSF, 0,97 y
-  0,29 em, divididas por el size-adjust porque Chrome los escala) solo alinean la linea base (1 px). local() solo
-  matchea la cara Regular: el "MuPa" en negrita del header sale en negrita sintetica durante el swap.
+  Fallbacks con metricas ajustadas para que el texto no salte cuando termina el swap de Geologica.
+  size-adjust = relacion de ancho Geologica / fuente del sistema en peso 400, medida en Chrome con los parrafos del
+  sitio (Segoe UI 1,0807; Roboto 1,0730; Arial 1,0697): asi las lineas cortan casi igual antes y despues del swap.
+  Verificado el 21/09/2026 en 375/414/768/1024/1280/1440: con Segoe UI 0 px de diferencia salvo el parrafo de Areas
+  en 375 y 414 (una linea menos); con Arial, un parrafo corta una linea mas en 768 y en 1024.
+  Los overrides de ascent/descent son las metricas de Geologica (0,975 y 0,275 em, sin line gap) divididas por el
+  size-adjust, porque Chrome los escala. local() solo matchea la cara Regular: durante el swap las palabras finas
+  (100) salen en regular y los destacados (700) en negrita sintetica.
 */
 @font-face {
-  font-family: "GSF Fallback";
+  font-family: "Geologica Fallback";
   src: local("Segoe UI");
-  size-adjust: 101.85%;
-  ascent-override: 95.24%;
-  descent-override: 28.47%;
+  size-adjust: 108.07%;
+  ascent-override: 90.22%;
+  descent-override: 25.45%;
   line-gap-override: 0%;
 }
 @font-face {
-  font-family: "GSF Fallback Roboto";
+  font-family: "Geologica Fallback Roboto";
   src: local("Roboto");
-  size-adjust: 101.16%;
-  ascent-override: 95.89%;
-  descent-override: 28.67%;
+  size-adjust: 107.3%;
+  ascent-override: 90.87%;
+  descent-override: 25.63%;
   line-gap-override: 0%;
 }
 @font-face {
-  font-family: "GSF Fallback Arial";
+  font-family: "Geologica Fallback Arial";
   src: local("Arial");
-  size-adjust: 101.03%;
-  ascent-override: 96.01%;
-  descent-override: 28.70%;
+  size-adjust: 106.97%;
+  ascent-override: 91.15%;
+  descent-override: 25.71%;
   line-gap-override: 0%;
+}
+
+/*
+  Degradé que va arriba de la foto del hero (capa "image 2" del Figma, un PNG negro con opacidad decreciente): mismo
+  color y la opacidad del PNG medida cada 5 % de su alto.
+*/
+@utility degrade-hero {
+  background-image: linear-gradient(
+    to bottom,
+    rgb(14 16 13 / 1) 0%,
+    rgb(14 16 13 / 0.843) 5%,
+    rgb(14 16 13 / 0.714) 10%,
+    rgb(14 16 13 / 0.588) 15%,
+    rgb(14 16 13 / 0.482) 20%,
+    rgb(14 16 13 / 0.388) 25%,
+    rgb(14 16 13 / 0.314) 30%,
+    rgb(14 16 13 / 0.247) 35%,
+    rgb(14 16 13 / 0.188) 40%,
+    rgb(14 16 13 / 0.141) 45%,
+    rgb(14 16 13 / 0.106) 50%,
+    rgb(14 16 13 / 0.075) 55%,
+    rgb(14 16 13 / 0.051) 60%,
+    rgb(14 16 13 / 0.031) 65%,
+    rgb(14 16 13 / 0.02) 70%,
+    rgb(14 16 13 / 0.012) 75%,
+    rgb(14 16 13 / 0.004) 85%,
+    rgb(14 16 13 / 0) 90%
+  );
+}
+
+/*
+  Cola del collage (Collage.jsx): el bloque enganchado centra la caja en la pantalla, asi que al soltarse quedarian
+  (100svh - alto de la caja) / 2 px de bloque vacio debajo de ella, antes del cierre. Este margen negativo los descuenta:
+  el cierre sigue justo debajo de la caja (y en los ultimos px del recorrido asoma por debajo de ella, como es normal en
+  una seccion enganchada). El alto de la caja se calcula con el ancho del contenedor (cqw: el envoltorio @container de
+  Collage.jsx) con las mismas formulas que su ancho: 628/1046 del ancho, con los mismos topes.
+*/
+@utility collage-cola {
+  --alto-caja: min(60.04cqw, 100svh - 6rem);
+  margin-bottom: calc((var(--alto-caja) - 100svh) / 2);
+  @media (width >= 48rem) {
+    --alto-caja: min((100cqw - 5rem) * 0.6004, 100svh - 6rem);
+  }
+  @media (width >= 64rem) {
+    --alto-caja: min(43.61cqw, 39.25rem, 100svh - 6rem);
+  }
 }
 
 /*
@@ -90,19 +184,20 @@
   un "p { max-width }" suelto anularia max-w-* en todos los parrafos. Dentro de la capa, las utilidades mandan.
 */
 @layer base {
-  html { scroll-behavior: smooth; }
+  /* Sin scroll-behavior: smooth en html: el scroll suave lo hace Lenis (useScrollSuave), rueda y anclas. Con smooth, al
+     recargar a mitad de pagina el navegador restauraba el scroll deslizandose ~1,3 s desde arriba, pasando por todos los
+     efectos (y una muesca en ese lapso cortaba la restauracion); hallazgo de la revision del 22/09/2026. */
+  /* Barra de scroll oculta (pedido del desarrollador, 21/09/2026, como en dhk.co.za); la pagina sigue scrolleando igual. */
+  html { scrollbar-width: none; }
+  html::-webkit-scrollbar { display: none; }
   body {
     @apply bg-ink text-paper font-body antialiased;
-    /* El mockup usa opsz 18 en todos los tamanos; ademas mantiene valida la calibracion de los fallbacks aunque
-       alguien vuelva a pedir el eje opsz en index.html. No hay utilidad Tailwind para esto. */
-    font-optical-sizing: none;
   }
   h1, h2, h3 { text-wrap: balance; }
-  /* En em y no en ch: el ancho del "0" cambia entre GSF y el fallback (42em equivale a 65ch de GSF a opsz 18). */
+  /* En em y no en ch: el ancho del "0" cambia entre Geologica y el fallback. */
   p { max-width: 42em; }
 
   @media (prefers-reduced-motion: reduce) {
-    html { scroll-behavior: auto; }
     *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
   }
 }

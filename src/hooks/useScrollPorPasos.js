@@ -5,17 +5,20 @@ import { useEffect } from 'react'
 // (Web Animations sobre transform) cuya duración no depende de la velocidad del scroll, así las transiciones se ven
 // iguales con rueda, trackpad o touch. Sin loop propio: el navegador anima y se apaga solo. Con
 // prefers-reduced-motion no se mueve (cada componente arma su versión estática con CSS).
-// Lo usan el titular (la palabra baja de fila en fila, eje y: useParallaxPalabra) y los ejes de Identidad (los paneles
-// se deslizan, eje x).
+// Lo usan el titular (la palabra baja de fila en fila, eje y: useParallaxPalabra), los ejes de Identidad (los paneles
+// se deslizan, eje x) y el collage de Identidad (con `aplicar`: cada parada saca una foto del montón).
 //
-// refs.elemento -> lo que se mueve.
+// refs.elemento -> lo que se mueve (no hace falta con `aplicar`).
 // refs.bloque   -> el contenedor que se observa: define la visibilidad y el progreso.
-// refs.*        -> cualquier otro nodo que necesite medir().
-// refs tiene que ser un objeto estable (useMemo), y medir/progreso funciones estables (definidas fuera del componente):
-// son dependencias del efecto.
+// refs.*        -> cualquier otro nodo que necesite medir() o aplicar().
+// refs tiene que ser un objeto estable (useMemo), y medir/progreso/aplicar funciones estables (definidas fuera del
+// componente): son dependencias del efecto.
 // medir(nodos, tramos) -> { paso, ... }: px con signo entre dos paradas, más lo que use progreso. Se llama al montar y
 //   con cada cambio de tamaño (nunca en el frame de scroll).
 // progreso(rectBloque, alto, medida) -> 0..1: dónde está el scroll dentro del efecto.
+// aplicar(nodos, fila, animar) -> opcional: en vez de trasladar refs.elemento, el componente aplica la parada `fila`
+//   (0..pasos-1) como quiera; con animar en false va directo (primer pintado, saltos, reentrada en vista). fila = -1:
+//   volver al estado sin efecto (reduced-motion y desmontaje). Se llama en cada pintado, también sin cambio de parada.
 
 // ms que tarda en recorrer un paso (con más distancia tarda más, pero menos que proporcional: ver parametrosViaje).
 export const DURACION = 360
@@ -59,14 +62,14 @@ export function parametrosViaje(d, vel, paso, duracion = DURACION) {
   return { dur, a }
 }
 
-export default function useScrollPorPasos(refs, { pasos = 3, medir, progreso, eje = 'y', duracion = DURACION, activo = true }) {
+export default function useScrollPorPasos(refs, { pasos = 3, medir, progreso, eje = 'y', duracion = DURACION, activo = true, aplicar }) {
   useEffect(() => {
     // Los nodos se copian una sola vez: React pone ref.current en null antes de ejecutar el cleanup, así que
     // dentro del efecto se trabaja con los nodos, no con los refs.
     const nodos = Object.fromEntries(Object.entries(refs).map(([nombre, ref]) => [nombre, ref.current]))
     const { elemento, bloque } = nodos
     const tramos = pasos - 1
-    if (!activo || tramos < 1 || Object.values(nodos).some((nodo) => !nodo)) return
+    if (!activo || tramos < 1 || Object.values(nodos).some((nodo) => !nodo) || (!elemento && !aplicar)) return
 
     const trasladar = eje === 'x' ? (px) => `translate(${px}px, 0)` : (px) => `translate(0, ${px}px)`
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)')
@@ -137,10 +140,15 @@ export default function useScrollPorPasos(refs, { pasos = 3, medir, progreso, ej
         parar()
         fila = -1
         reposo = 0
-        elemento.style.transform = ''
+        if (aplicar) aplicar(nodos, -1, false)
+        else elemento.style.transform = ''
         return
       }
       fila = filaDestino(progreso(bloque.getBoundingClientRect(), alto, medida), tramos, fila)
+      if (aplicar) {
+        aplicar(nodos, fila, animar)
+        return
+      }
       // Redondeado a píxel entero para que el texto no quede desenfocado en reposo.
       const destino = Math.round(fila * medida.paso)
       // Con animar y el mismo destino no se toca: mover() cortaría el viaje en curso.
@@ -233,7 +241,8 @@ export default function useScrollPorPasos(refs, { pasos = 3, medir, progreso, ej
       for (const evento of GESTOS) window.removeEventListener(evento, alGesto)
       window.removeEventListener('load', alCargar)
       reduce.removeEventListener('change', alCambiarMovimiento)
-      elemento.style.transform = ''
+      if (aplicar) aplicar(nodos, -1, false)
+      else elemento.style.transform = ''
     }
-  }, [refs, pasos, medir, progreso, eje, duracion, activo])
+  }, [refs, pasos, medir, progreso, eje, duracion, activo, aplicar])
 }

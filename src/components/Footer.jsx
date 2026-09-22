@@ -2,9 +2,9 @@ import { site, footer, ui } from '../content.js'
 
 const PENDIENTE = ui.pendiente
 
-function Institucion({ nombre, logo }) {
+function Institucion({ nombre, logo, ancho, alto }) {
   if (logo) {
-    return <img src={logo} alt={nombre} loading="lazy" className="h-8 w-auto" />
+    return <img src={logo} alt={nombre} width={ancho} height={alto} loading="lazy" className="h-8 w-auto" />
   }
   return (
     <span className="inline-flex h-8 items-center border border-line px-3 text-xs uppercase tracking-wider text-muted">
@@ -18,7 +18,7 @@ export default function Footer() {
 
   return (
     <footer className="border-t border-line">
-      <div className="mx-auto w-full max-w-7xl px-6 py-10 md:px-10">
+      <div className="mx-auto w-full max-w-sitio px-6 py-10 md:px-10">
         <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <p className={`font-display text-2xl tracking-tight ${site.nombre ? 'text-paper' : 'text-muted'}`}>
@@ -34,7 +34,7 @@ export default function Footer() {
             <ul aria-label={ui.instituciones} className="flex flex-wrap items-center gap-x-6 gap-y-3">
               {instituciones.map((inst) => (
                 <li key={inst.nombre}>
-                  <Institucion nombre={inst.nombre} logo={inst.logo} />
+                  <Institucion {...inst} />
                 </li>
               ))}
             </ul>
