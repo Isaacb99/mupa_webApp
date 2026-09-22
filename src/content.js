@@ -18,7 +18,8 @@ import hero1920 from './assets/hero-fachada-1920.webp'
 import hero2560 from './assets/hero-fachada-2560.webp'
 import renderCupula800 from './assets/render-cupula-esqueletos-800.webp'
 import renderCupula1400 from './assets/render-cupula-esqueletos-1400.webp'
-import cupula from './assets/cupula-render.webp'
+import ejeMision500 from './assets/eje-mision-500.webp'
+import ejeMision1000 from './assets/eje-mision-1000.webp'
 import cartel from './assets/cartel-fachada.webp'
 import preparacion from './assets/preparacion-fosil.webp'
 import areaEducacion570 from './assets/area-educacion-570.webp'
@@ -133,10 +134,11 @@ export const identidad = {
       texto:
         'La institución está dedicada en exclusividad a la divulgación, educación y preservación del patrimonio del ' +
         'Período Triásico, principalmente proveniente del Parque Provincial Ischigualasto (Patrimonio de la Humanidad por la UNESCO).',
-      // Sin diseño todavía: foto de la selección del museo, a confirmar.
+      // Foto que mandó el museo el 22/09/2026 (el panel de Misión todavía no tiene diseño).
       foto: {
-        src: cupula,
-        alt: 'Render de la cúpula del hall central, con un dinosaurio de gran porte visto desde abajo',
+        src: ejeMision1000,
+        srcSet: `${ejeMision500} 500w, ${ejeMision1000} 1000w`,
+        alt: 'Técnico del museo trabajando con una herramienta sobre un fósil, visto entre los huesos de un esqueleto',
         encuadre: 'object-center',
       },
     },
