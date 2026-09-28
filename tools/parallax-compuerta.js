@@ -13,14 +13,20 @@
   // Que se asiente la carga (primer aviso del IntersectionObserver, fuentes), sin llegar al segundo del temporizador.
   await new Promise((r) => setTimeout(r, 300));
   const raf = () => new Promise((r) => w.requestAnimationFrame(r));
-  const b = d.querySelector('h1 [aria-hidden]'); const s = [...b.children]; const pal = s[3];
+  // Las líneas fijas van en la primera columna y la palabra móvil en la segunda, fila 1 (el V03 dejó dos filas).
+  const b = d.querySelector('h1 [aria-hidden]'); const s = [...b.children];
+  const fijas = s.filter((n) => n.className.includes('col-start-1'));
+  const pal = s.find((n) => n.className.includes('col-start-2') && n.className.includes('row-start-1'));
+  const tramos = fijas.length - 1;
   const vh = w.innerHeight; const r0 = b.getBoundingClientRect(); const T0 = r0.top + w.scrollY;
-  const inicio = Math.min(0.8 * vh, T0); let fin = Math.max(inicio - Math.max(0.6 * vh, 480), 0.15 * vh);
+  // Recorrido por tramo, como useParallaxPalabra: max(0,3·alto, 240 px) por viaje.
+  const inicio = Math.min(0.8 * vh, T0); let fin = Math.max(inicio - Math.max(0.3 * vh, 240) * tramos, 0.15 * vh);
   if (w.matchMedia('(width < 64rem)').matches) fin = inicio - (inicio - fin) * 1.1; // debajo de lg, recorrido +10 %
-  const T = (inicio - fin) / 2;
+  // T: el scroll que ocupa un tramo (el viaje de una fila).
+  const T = (inicio - fin) / tramos;
   const Y = (x) => Math.max(0, Math.round(T0 - inicio + x * T));
-  const paso = Math.round((s[2].getBoundingClientRect().top - s[0].getBoundingClientRect().top) / 2);
-  const dy = () => Math.round(pal.getBoundingClientRect().top - s[0].getBoundingClientRect().top);
+  const paso = Math.round((fijas[fijas.length - 1].getBoundingClientRect().top - fijas[0].getBoundingClientRect().top) / tramos);
+  const dy = () => Math.round(pal.getBoundingClientRect().top - fijas[0].getBoundingClientRect().top);
   const aLaVista = (y) => T0 - y < vh && T0 - y + r0.height > 0;
   const ir = async (y) => { w.scrollTo({ top: y, behavior: 'instant' }); await raf(); await raf(); return pal.getAnimations().length };
   const asentar = async () => { await Promise.all(pal.getAnimations().map((a) => a.finished.catch(() => {}))); await raf(); await raf() };
@@ -42,6 +48,8 @@
   //    acumuló el scroll): la persona vio la fila vieja, así que viaja.
   const hasta = Y(0.2) + Math.ceil(vh / 2) + 10;
   const aplica = aLaVista(Y(0.2)) && aLaVista(hasta) && Math.abs(hasta - Y(0.2)) > vh / 2;
+  // Desde Y(0.2) (la parada de arriba), para que el salto cruce un umbral: si no, con dos filas quedaba en la misma.
+  await ir(Y(0.2)); await asentar();
   res.saltoALaVista = { aplica, delta: hasta - Y(0.2), viajes: await ir(hasta) };
   await asentar(); res.saltoALaVista.dy = dy();
   f.remove();

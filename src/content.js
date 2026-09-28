@@ -4,40 +4,46 @@
 // mockup V02 (Figma, 21/09/2026). El texto de las cuatro bandas de Áreas es el contenido oficial que mandó el museo el
 // 22/09/2026 ("Los 4 MuPa"), cargado tal cual salvo lo que decidió el desarrollador (ver areas.items). Las claves
 // "verificar" marcan lo único que no se pudo confirmar contra el archivo.
-// Destacados: lo que va entre **dobles asteriscos** sale en negrita (componente TextoDestacado).
+// Destacados: lo que va entre **dobles asteriscos** sale en negrita (componente TextoDestacado). Están tomados del
+// archivo .ai del V03 (25/09/2026), donde cada peso de la variable se embebe como un subconjunto distinto y la clave de
+// fuente cambia justo donde arranca y termina la negrita: así se comprobaron uno por uno.
 //
-// FOTOS: las del Figma del diseñador (hero, collage de Identidad, mosaico de Obra, render del primer eje) y, donde el
-// diseño todavía no tiene, la selección del Drive del museo ("Seleccion Fotográfica"). Todas en WebP; los originales no
-// se versionan. Ver src/assets/README.md.
+// FOTOS: las de la "Seleccion Fotográfica" del V04 de la diseñadora (28/09/2026: hero, carrusel, Visión, foto Mid, el
+// soldador del mosaico y los paneles de Ciencia y Producción), las del Figma donde el V04 no cambió nada (mosaico de
+// Obra) y las del museo para los otros paneles. Todas en WebP; los originales no se versionan. Ver src/assets/README.md.
 
 import logoMarca from './assets/logo-mupa-marca.svg'
 import logoTexto from './assets/logo-mupa-texto.svg'
+import logoFormalab from './assets/logo-formalab.svg'
 import hero768 from './assets/hero-fachada-768.webp'
 import hero1280 from './assets/hero-fachada-1280.webp'
 import hero1920 from './assets/hero-fachada-1920.webp'
 import hero2560 from './assets/hero-fachada-2560.webp'
-import renderCupula800 from './assets/render-cupula-esqueletos-800.webp'
-import renderCupula1400 from './assets/render-cupula-esqueletos-1400.webp'
-import ejeMision500 from './assets/eje-mision-500.webp'
-import ejeMision1000 from './assets/eje-mision-1000.webp'
-import cartel from './assets/cartel-fachada.webp'
-import preparacion from './assets/preparacion-fosil.webp'
+import ejeMision800 from './assets/eje-mision-800.webp'
+import ejeMision1400 from './assets/eje-mision-1400.webp'
+import ejeVision800 from './assets/eje-vision-800.webp'
+import ejeVision1400 from './assets/eje-vision-1400.webp'
+import ejeNarrativo800 from './assets/eje-narrativo-800.webp'
+import ejeNarrativo1400 from './assets/eje-narrativo-1400.webp'
+import areaCiencia570 from './assets/area-ciencia-570.webp'
 import areaEducacion570 from './assets/area-educacion-570.webp'
 import areaEducacion1140 from './assets/area-educacion-1140.webp'
 import areaProduccion570 from './assets/area-produccion-570.webp'
 import areaProduccion1140 from './assets/area-produccion-1140.webp'
 import areaFormalab570 from './assets/area-formalab-570.webp'
 import areaFormalab1140 from './assets/area-formalab-1140.webp'
-import collageEsqueleto500 from './assets/collage-esqueleto-hall-500.webp'
-import collageEsqueleto1000 from './assets/collage-esqueleto-hall-1000.webp'
-import collageRestaurador500 from './assets/collage-restaurador-500.webp'
-import collageRestaurador1000 from './assets/collage-restaurador-1000.webp'
-import collageFachada500 from './assets/collage-fachada-cartel-500.webp'
-import collageFachada1000 from './assets/collage-fachada-cartel-1000.webp'
-import collageRender500 from './assets/collage-render-hall-500.webp'
-import collageRender1000 from './assets/collage-render-hall-1000.webp'
-import collageExterior500 from './assets/collage-exterior-cupula-500.webp'
-import collageExterior1000 from './assets/collage-exterior-cupula-1000.webp'
+import carruselLamas700 from './assets/carrusel-lamas-700.webp'
+import carruselLamas1400 from './assets/carrusel-lamas-1400.webp'
+import carruselDremel700 from './assets/carrusel-dremel-700.webp'
+import carruselDremel1400 from './assets/carrusel-dremel-1400.webp'
+import carruselRestaurador700 from './assets/carrusel-restaurador-700.webp'
+import carruselRestaurador1400 from './assets/carrusel-restaurador-1400.webp'
+import carruselPincel700 from './assets/carrusel-pincel-700.webp'
+import carruselPincel1400 from './assets/carrusel-pincel-1400.webp'
+import carruselPatio700 from './assets/carrusel-patio-700.webp'
+import carruselPatio1400 from './assets/carrusel-patio-1400.webp'
+import midFachada1300 from './assets/mid-fachada-piedra-1300.webp'
+import midFachada2000 from './assets/mid-fachada-piedra-2000.webp'
 import obraRestauracion500 from './assets/obra-restauracion-500.webp'
 import obraRestauracion1000 from './assets/obra-restauracion-1000.webp'
 import obraCarnivoro600 from './assets/obra-carnivoro-hall-600.webp'
@@ -46,13 +52,13 @@ import obraFachada500 from './assets/obra-fachada-500.webp'
 import obraFachada1000 from './assets/obra-fachada-1000.webp'
 import obraMontaje500 from './assets/obra-montaje-sala-500.webp'
 import obraMontaje1000 from './assets/obra-montaje-sala-1000.webp'
-import obraPreparacion352 from './assets/obra-preparacion-352.webp'
-import obraPreparacion704 from './assets/obra-preparacion-704.webp'
+import obraSoldador390 from './assets/obra-soldador-390.webp'
+import obraSoldador780 from './assets/obra-soldador-780.webp'
 import logoGobierno from './assets/logo-gobierno-san-juan.svg'
 import logoUnsj from './assets/logo-unsj.svg'
 
-// srcSet de las fotos con versión de 500 y de 1000 px.
-const doble = (chica, grande) => `${chica} 500w, ${grande} 1000w`
+// srcSet de las fotos del carrusel, con versión de 700 y de 1400 px.
+const doble = (chica, grande) => `${chica} 700w, ${grande} 1400w`
 
 export const site = {
   nombre: 'MuPa',
@@ -70,7 +76,8 @@ export const ui = {
 }
 
 export const hero = {
-  // La foto del Figma (IMG_1524), con su mismo recorte.
+  // La foto del V04 (IMG_1526 v2, 28/09/2026), con el recorte del diseño: 1440x1195,5 a 1440. Hasta entonces, la
+  // IMG_1524 del Figma a 1440x852.
   imagen: {
     src: hero1920,
     srcSet: `${hero768} 768w, ${hero1280} 1280w, ${hero1920} 1920w, ${hero2560} 2560w`,
@@ -81,13 +88,14 @@ export const hero = {
 
 export const intro = {
   // Respaldo si faltara 'titular': la frase completa, no el estado estático del mockup.
-  titulo: 'un museo de sanjuaninos, hecho por sanjuaninos y para sanjuaninos',
+  titulo: 'un museo de sanjuaninos, hecho por sanjuaninos',
   // Titular con parallax: las líneas fijas van en la columna izquierda y la palabra móvil baja de fila en fila con el scroll.
   // 'lectura' es lo que oyen los lectores de pantalla.
+  // El V03 de la diseñadora (25/09/2026) sacó la tercera frase ("y para"): quedan dos filas y un solo viaje de la palabra.
   titular: {
-    fijas: ['un museo de', 'hecho por', 'y para'],
+    fijas: ['un museo de', 'hecho por'],
     movil: 'sanjuaninos',
-    lectura: 'un museo de sanjuaninos, hecho por sanjuaninos y para sanjuaninos',
+    lectura: 'un museo de sanjuaninos, hecho por sanjuaninos',
   },
   parrafo:
     'A través de una narrativa inmersiva y tecnológica, nos proponemos **inspirar vocaciones** en nuestras infancias, ' +
@@ -98,79 +106,87 @@ export const intro = {
 }
 
 export const identidad = {
-  titulo: 'Identidad Institucional',
-  // Un panel por eje, que se desliza con el scroll (Figma 18/09/2026, frame "Institucional": solo está diseñado el
-  // primero). La relación etiqueta -> texto se infirió por sentido y por la palabra grande de cada columna del mockup;
-  // ojo: el panel del Figma pone "Eje narrativo" junto al texto de Misión y "Patrimonio" (¿texto de relleno?).
-  ejesVerificar: true,
+  // Dos líneas, como en el V04 (whitespace-pre-line): el título va en la columna izquierda, arriba de la etiqueta.
+  titulo: 'Identidad\nInstitucional',
+  // Un eje por vez, en el carrusel (V03 de la diseñadora, 25/09/2026): ese PDF define por fin qué texto va con cada
+  // etiqueta y en qué orden (Misión, Visión, Eje narrativo), y saca las palabras grandes que tenía el mockup anterior
+  // ("Inspirar", "Referente", "Patrimonio"). Fotos del V03; la de Visión cambió en el V04 (28/09/2026): el cartel de
+  // la fachada en lugar de la cúpula desde abajo.
   ejes: [
     {
-      etiqueta: 'Eje narrativo',
-      palabra: 'Inspirar',
+      etiqueta: 'Misión',
       texto:
         'Inspirar vocaciones científicas, técnicas, artísticas y ocupacionales en las infancias y juventudes de San Juan, ' +
         'promoviendo la curiosidad, el pensamiento crítico y el deseo de comprender el pasado para transformar el futuro, ' +
         'desde una mirada socio-ambiental e inclusiva.',
-      // La foto del panel diseñado (render nuevo), con el recorte del Figma: se ve la parte derecha.
       foto: {
-        src: renderCupula1400,
-        srcSet: `${renderCupula800} 800w, ${renderCupula1400} 1400w`,
-        alt: 'Render del hall central bajo la cúpula, con el esqueleto de un dinosaurio de cuello largo y el de un carnívoro',
-        encuadre: 'object-right',
+        src: ejeMision1400,
+        srcSet: `${ejeMision800} 800w, ${ejeMision1400} 1400w`,
+        alt: 'Restauradora del museo trabajando con una herramienta sobre un fósil en el taller',
+        encuadre: 'object-center',
       },
     },
     {
       etiqueta: 'Visión',
-      palabra: 'Referente',
       texto:
         'Consolidarse como el museo paleontológico más importante de Cuyo y un referente imprescindible en todo el ' +
         'territorio nacional e internacional.',
-      // Sin diseño todavía: foto de la selección del museo, a confirmar.
-      foto: { src: cartel, alt: 'Cartel "Museo Paleontológico" sobre la fachada curva del edificio', encuadre: 'object-center' },
+      foto: {
+        src: ejeVision1400,
+        srcSet: `${ejeVision800} 800w, ${ejeVision1400} 1400w`,
+        alt: 'Cartel "Museo Paleontológico" con la marca MuPa sobre la entrada del edificio, contra el cielo',
+        encuadre: 'object-center',
+      },
     },
     {
-      etiqueta: 'Misión',
-      palabra: 'Patrimonio',
+      etiqueta: 'Eje narrativo',
       texto:
         'La institución está dedicada en exclusividad a la divulgación, educación y preservación del patrimonio del ' +
         'Período Triásico, principalmente proveniente del Parque Provincial Ischigualasto (Patrimonio de la Humanidad por la UNESCO).',
-      // Foto que mandó el museo el 22/09/2026 (el panel de Misión todavía no tiene diseño).
       foto: {
-        src: ejeMision1000,
-        srcSet: `${ejeMision500} 500w, ${ejeMision1000} 1000w`,
-        alt: 'Técnico del museo trabajando con una herramienta sobre un fósil, visto entre los huesos de un esqueleto',
+        src: ejeNarrativo1400,
+        srcSet: `${ejeNarrativo800} 800w, ${ejeNarrativo1400} 1400w`,
+        alt: 'Esqueleto de un dinosaurio carnívoro montado en una sala del museo, con las fauces abiertas',
         encuadre: 'object-center',
       },
     },
   ],
-  // Collage del Figma después de los paneles, en orden de capas: la primera va al fondo y la última adelante.
+  // Carrusel del V04 (28/09/2026; en el Figma era un collage de otras cinco fotos, después de los ejes): cinco fotos
+  // apiladas entre el párrafo de la intro y esta sección, en orden de capas: la primera va al fondo (y es la que queda)
+  // y la última adelante (la primera en salir con el scroll). Las mide Collage.jsx.
   collage: [
     {
-      src: collageExterior1000,
-      srcSet: doble(collageExterior500, collageExterior1000),
-      alt: 'Patio exterior del museo, con el edificio de la cúpula vidriada',
+      src: carruselLamas1400,
+      srcSet: doble(carruselLamas700, carruselLamas1400),
+      alt: 'Lamas metálicas curvas de la fachada del museo, vistas desde abajo contra el cielo',
     },
     {
-      src: collageRender1000,
-      srcSet: doble(collageRender500, collageRender1000),
-      alt: 'Render del hall circular del museo, con un gran esqueleto suspendido en el centro',
+      src: carruselDremel1400,
+      srcSet: doble(carruselDremel700, carruselDremel1400),
+      alt: 'Manos de un técnico puliendo con una herramienta rotativa la réplica de una garra de dinosaurio',
     },
     {
-      src: collageRestaurador1000,
-      srcSet: doble(collageRestaurador500, collageRestaurador1000),
-      alt: 'Restaurador trabajando con pincel sobre un esqueleto fósil',
+      src: carruselRestaurador1400,
+      srcSet: doble(carruselRestaurador700, carruselRestaurador1400),
+      alt: 'Restaurador con guantes revisando de cerca las vértebras de un esqueleto montado en el hall',
     },
     {
-      src: collageFachada1000,
-      srcSet: doble(collageFachada500, collageFachada1000),
-      alt: 'Fachada del museo con el cartel "MuPa Museo Paleontológico" contra el cielo',
+      src: carruselPincel1400,
+      srcSet: doble(carruselPincel700, carruselPincel1400),
+      alt: 'Manos de un restaurador pasando un pincel sobre un fósil',
     },
     {
-      src: collageEsqueleto1000,
-      srcSet: doble(collageEsqueleto500, collageEsqueleto1000),
-      alt: 'Esqueleto montado de un animal del Triásico de pico grande en el hall del museo, con el de un dinosaurio detrás',
+      src: carruselPatio1400,
+      srcSet: doble(carruselPatio700, carruselPatio1400),
+      alt: 'Patio del museo con el edificio de la cúpula y las lamas de la fachada',
     },
   ],
+  // Foto "Mid" del V04: sola, a todo el ancho del contenido, entre los ejes y el párrafo del cierre.
+  foto: {
+    src: midFachada1300,
+    srcSet: `${midFachada1300} 1300w, ${midFachada2000} 2000w`,
+    alt: 'Entrada del museo de día, con el muro de piedra y la cúpula vidriada',
+  },
   parrafo:
     'El MuPa nace como una institución moderna, fruto de la co-gestión y coparticipación estratégica entre el ' +
     'Gobierno de la Provincia de San Juan, la Universidad Nacional de San Juan (UNSJ) y Fiduciaria San Juan. ' +
@@ -179,14 +195,16 @@ export const identidad = {
   // Logos del Figma (SVG blancos): ancho y alto con que van en el diseño a 1440 (el alto reserva su lugar al cargar).
   // Primero la Universidad y después Gobierno (pedido del desarrollador el 22/09/2026; el Figma los tiene al revés). El
   // footer usa la misma lista.
+  // Anchos del V04 a 1440 (205 y 253,5; en el Figma eran 212 y 287), con el alto proporcional de cada SVG.
   instituciones: [
-    { nombre: 'Universidad Nacional de San Juan', logo: logoUnsj, ancho: 212, alto: 96.8 },
-    { nombre: 'Gobierno de San Juan', logo: logoGobierno, ancho: 287, alto: 82.71 },
+    { nombre: 'Universidad Nacional de San Juan', logo: logoUnsj, ancho: 205, alto: 93.6 },
+    { nombre: 'Gobierno de San Juan', logo: logoGobierno, ancho: 253.5, alto: 73.06 },
   ],
 }
 
 export const obra = {
-  titulo: 'Gestión de una obra histórica',
+  // El corte de línea es el del diseño (V03): dos líneas, pase lo que pase con el ancho (whitespace-pre-line).
+  titulo: 'Gestión de una\nobra histórica',
   parrafo:
     'Este proyecto representa la culminación exitosa de un anhelo provincial de larga data, superando ' +
     'contingencias históricas gracias a la continuidad y decisión política de la gestión:',
@@ -212,7 +230,7 @@ export const obra = {
     },
     { anio: '2026', texto: 'Inauguración oficial.' },
   ],
-  // Mosaico del Figma (capas "06" a "10"), en ese orden.
+  // Mosaico del Figma (capas "06" a "10"), en ese orden; el V04 (28/09/2026) cambió solo la quinta, la vertical.
   fotos: [
     {
       src: obraRestauracion1000,
@@ -235,25 +253,24 @@ export const obra = {
       alt: 'Esqueleto de dinosaurio sobre su base en una sala, con técnicos del montaje trabajando',
     },
     {
-      src: obraPreparacion704,
-      srcSet: `${obraPreparacion352} 352w, ${obraPreparacion704} 704w`,
-      alt: 'Manos de un preparador limpiando un fósil con un pincel fino',
+      src: obraSoldador390,
+      srcSet: `${obraSoldador390} 390w, ${obraSoldador780} 780w`,
+      alt: 'Soldador con máscara trabajando sobre la estructura metálica de un montaje, entre chispas',
     },
   ],
 }
 
 export const areas = {
-  // Dos párrafos, como en el mockup V02.
-  parrafos: [
-    'El MuPa no funciona como una sola pieza, sino como **un sistema de cuatro áreas que se retroalimentan.**',
-    'Pensar al museo en estos cuatro ejes permite entenderlo como una institución que produce conocimiento ' +
-      '(Ciencia), lo lleva a las aulas de toda la provincia (Educación), lo convierte en experiencia cultural y ' +
-      'artística (Producción) y cuenta con un equipo propio capaz de sostener y proyectar todo esto en el tiempo (Forma Lab).',
-  ],
-  // El título sigue en 'remate', la parte de la oración que aparece al llegar con el scroll (nota del diseño en el V02).
-  // \n = corte de línea del diseño.
-  titulo: 'Cuatro formas distintas\nde hacer una misma cosa:',
-  remate: 'que el MuPa nunca\ndeje de moverse',
+  // V04 de la diseñadora (28/09/2026): título en dos líneas (\n = corte del diseño), la segunda en negrita; se fueron
+  // el título viejo del V02 ("Cuatro formas distintas de hacer una misma cosa"), el remate ("que el MuPa nunca deje de
+  // moverse") y los dos párrafos.
+  titulo: 'El MuPa es una unidad integral conformada por\n**cuatro áreas que se complementan entre sí**',
+  // Las cuatro etiquetas en recuadros de color, a la derecha (no son botones: el desarrollador lo confirmó el
+  // 28/09/2026), y el párrafo que va debajo (peso 400 en el archivo, no 300 como los demás: se respeta).
+  etiquetas: ['MuPa CIENCIA', 'MuPa EDUCACIÓN', 'MuPa PRODUCCIÓN', 'MuPa FORMA LAB'],
+  parrafo:
+    'Esta articulación amplía la capacidad productiva del MuPa y genera recursos que contribuyen a su ' +
+    'sustentabilidad económica.',
   // Contenido oficial del museo ("Los 4 MuPa", 22/09/2026), cargado tal cual. Decisiones del desarrollador ese día: la
   // tercera banda sigue llamándose "Producción" (el texto dice "MuPa Producciones"); negrita en las frases que abren
   // tema (las de Ciencia ya venían del Figma, y con el mismo criterio "Integración curricular:", "Pre y post MuPa:" y "Es
@@ -278,15 +295,18 @@ export const areas = {
       lema:
         'Apostar a la ciencia como motor de la educación y la cultura es, en definitiva, lo que distingue a un museo ' +
         'vivo de uno estático',
-      // El V02 trae otra foto (un paleontólogo en el campo), solo en baja resolución: pendiente pedir el original.
-      foto: { src: preparacion, alt: 'Paleontólogo limpiando un fósil con pincel en el laboratorio' },
+      // En el V04 el lema de Ciencia va en Roboto Mono Regular (el de Forma Lab, en Medium).
+      lemaPeso: 'regular',
+      // Foto "Acordeon - Ciencia" de la selección del V04 (28/09/2026): viene en 920x633, así que no hay versión de
+      // 1140 px (pedir el original al museo).
+      foto: { src: areaCiencia570, alt: 'Paleontóloga registrando un hallazgo en el campo con una cuadrícula de hilos sobre el fósil' },
     },
     {
       id: 'educacion',
       nombre: 'Educación',
       color: 'educacion',
       parrafos: [
-        'Si MuPa Ciencia genera conocimiento, MuPa Educación lo transforma en experiencia pedagógica y lo lleva a cada ' +
+        'Si MuPa Ciencia genera conocimiento, **MuPa Educación lo transforma en experiencia pedagógica** y lo lleva a cada ' +
           'rincón de la provincia. Es el puente entre el museo y la escuela, la instancia que garantiza que ninguna ' +
           'infancia y adolescencia sanjuanina se quede afuera, sin importar cuán lejos esté su colegio de la ciudad de ' +
           'San Juan.',
@@ -296,7 +316,9 @@ export const areas = {
         '**Pre y post MuPa:** el programa se completa con talleres, material didáctico y capacitaciones para docentes, ' +
           'que se convierten en multiplicadores del contenido científico del museo durante todo el año.',
       ],
-      lema: '',
+      // Lema tomado del propio texto del museo ("Es el puente entre el museo y la escuela"), para que el panel cierre
+      // como los de Ciencia y Forma Lab (pedido del desarrollador, 28/09/2026). A validar con el museo.
+      lema: 'El puente entre el museo y la escuela',
       // Fotos de Educación, Producción y Forma Lab: las que mandó el museo el 22/09/2026, recortadas casi cuadradas.
       foto: {
         src: areaEducacion1140,
@@ -310,7 +332,7 @@ export const areas = {
       nombre: 'Producción',
       color: 'produccion',
       parrafos: [
-        'Es la unidad productiva del MuPa. Su función es transformar ideas y contenidos en proyectos posibles, ' +
+        'Es la unidad productiva del MuPa. Su función es **transformar ideas y contenidos en proyectos posibles,** ' +
           'articulando los recursos humanos, técnicos y materiales necesarios para llevarlos adelante.',
         'Desarrolla y gestiona proyectos de distinta naturaleza: espectáculos, muestras, audiovisuales, experiencias ' +
           'inmersivas, eventos institucionales y corporativos, entre otros formatos, ampliando las posibilidades de ' +
@@ -322,11 +344,15 @@ export const areas = {
           'ponerse al servicio de instituciones, empresas, organizaciones y proyectos externos que necesiten desarrollar ' +
           'una idea, logrando generar recursos que contribuyen a la sostenibilidad y al crecimiento del MuPa.',
       ],
-      lema: '',
+      // Lema tomado del propio texto del museo ("Es el nexo entre el conocimiento y la realización"), como el de
+      // Educación (28/09/2026). A validar con el museo.
+      lema: 'El nexo entre el conocimiento y la realización',
+      // Foto "Acordeon - Produccion" de la selección del V04 (28/09/2026); hasta entonces, la del taller que mandó el
+      // museo el 22/09.
       foto: {
         src: areaProduccion1140,
         srcSet: `${areaProduccion570} 570w, ${areaProduccion1140} 1140w`,
-        alt: 'Integrante del equipo del museo trabajando sobre la réplica de un dinosaurio en el taller, con andamios de fondo',
+        alt: 'Público sentado en el césped frente al museo, de noche, mirando una proyección de un dinosaurio en la fachada',
       },
     },
     {
@@ -337,10 +363,12 @@ export const areas = {
         'Representa el motor creativo, técnico y productivo del MuPa. Es el núcleo que hace posible el museo y, al ' +
           'mismo tiempo, se proyecta como una plataforma al servicio de proyectos comerciales, iniciativas ' +
           'institucionales, desarrollo de exhibiciones, producción de contenidos e innovación cultural.',
-        'Esto garantiza la sostenibilidad del museo, la generación de empleo especializado y enriquece la matriz ' +
-          'productiva de San Juan en la integración de ciencia y creatividad con tecnología única en el país.',
+        'Esto garantiza la sostenibilidad del museo, la generación de **empleo especializado y enriquece la matriz ' +
+          'productiva de San Juan** en la integración de ciencia y creatividad con tecnología única en el país.',
       ],
       lema: 'El corazón productivo',
+      // Logo FormaLAB del V04 (vectorial en el .ai: letras crema y el punto en rojo), arriba del texto del panel.
+      logo: { src: logoFormalab, alt: 'FormaLAB', ancho: 314, alto: 52.5 },
       foto: {
         src: areaFormalab1140,
         srcSet: `${areaFormalab570} 570w, ${areaFormalab1140} 1140w`,

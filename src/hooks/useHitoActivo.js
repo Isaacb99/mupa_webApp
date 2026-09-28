@@ -5,18 +5,17 @@ import { filaDestino } from './useScrollPorPasos.js'
 // Línea de lectura: fracción del alto de la pantalla (desde arriba) que marca el hito actual.
 const LINEA = 0.55
 // ms que queda encendido, como mínimo, cada hito (= lo que tarda en encenderse del todo: ObraHistorica.jsx).
-const PASO = 300
+const PASO = 350
 
-// Margen mínimo entre los bordes de la pantalla y lo enganchado.
+// Margen mínimo entre los bordes de la pantalla y lo enganchado. Con el trío de celular (título + párrafo + lista) es
+// más chico: con 32 no entraba en pantallas de 800 px por 21 px y el título se iba con el scroll.
 const MARGEN = 32
-// Debajo de lg, tope del título enganchado: arriba de él hay 128 px vacíos (el final de Identidad y el comienzo de la
-// sección) que tapa su fondo mientras el párrafo pasa por debajo (ObraHistorica.jsx), así que nunca queda más abajo.
-const TOPE_TITULO = 120
-// Entrada de título y párrafo (lg), dentro del bloque alineado: el título viene DESCENSO px más arriba de su lugar y
-// baja, y el párrafo SUBIDA px más abajo y sube, ligados al scroll durante los últimos ENTRADA px antes del enganche,
-// hasta encontrarse justo en el enganche; ahí queda todo quieto, con el título a la altura del primer hito, y arranca el
-// resaltado (pedido del desarrollador, 21/09/2026, en varios pasos: párrafo bajando desde el título; "a la inversa",
-// separados y juntándose; el título enganchado también; y el título entrando desde arriba).
+const MARGEN_TRIO = 16
+// Entrada de título y párrafo (lg): el título viene DESCENSO px más arriba de su lugar y baja, y el párrafo SUBIDA px
+// más abajo y sube, ligados al scroll durante los últimos ENTRADA px antes del enganche, hasta encontrarse justo cuando
+// la lista llega a su top; ahí queda todo quieto y arranca el resaltado (pedido del desarrollador el 21/09/2026 y otra
+// vez el 25/09, después de que el título pasara a cruzar las dos columnas: "que el título y el párrafo se muevan hasta
+// encontrarse con los hitos").
 const DESCENSO = 80
 const SUBIDA = 120
 const ENTRADA = 480
@@ -29,16 +28,16 @@ const ESPERA_CARGA = 1000
 // - Lista enganchada (`enganche.fijo` es sticky dentro de `enganche.bloque`, que mide la lista más un tramo de scroll
 //   por hito): el hito es la parada del recorrido, como en los paneles (umbral a mitad de cada tramo, con histéresis).
 //   Así el scroll no pasa la lista de largo: cada hito ocupa su tramo. El top del sticky lo pone el hook: centrada en la
-//   pantalla, a MARGEN como mínimo; `enganche.alineado` (título + párrafo, en lg) recibe el mismo top y el alto de la
-//   lista; `enganche.titulo` baja y `enganche.parrafo` sube hasta encontrarse antes del enganche.
-//   Debajo de lg se engancha también lo de arriba de la lista (pedidos del desarrollador del 22/09/2026: "que no se
-//   mueva hacia arriba sino que se quede, y cuando se terminan los hitos recién sube todo junto", y después que se quede
-//   también el párrafo): si entran título, párrafo y lista, el envoltorio de los dos (data-obra="trio"); si no, solo el
-//   título (data-obra="titulo") y el párrafo pasa por debajo. El hook pone los top y deja en la sección --cola, que
-//   ObraHistorica.jsx usa para que todo se suelte en el mismo scroll.
-// - Lista suelta (variante hitos-libres: reduced-motion, impresión, o si lo enganchado no entra en la pantalla con
-//   MARGEN arriba y abajo, que mide este hook y marca con data-hitos-libres en la sección): el último hito cuya parte de
-//   arriba ya pasó la línea de lectura; antes de que el primero llegue, el primero (como en el Figma).
+//   pantalla, a MARGEN como mínimo; `enganche.alineado` (título y párrafo, en lg) recibe el mismo top y el alto de la
+//   lista, y adentro `enganche.titulo` baja y `enganche.parrafo` sube hasta encontrarse antes del enganche.
+//   Debajo de lg, si el trío (título + párrafo + lista) entra en la pantalla, se engancha entero: el envoltorio con el
+//   top que pone el hook y la lista `hueco` px debajo (data-obra="trio" en la sección; pedidos del desarrollador del
+//   22/09/2026 y del 25/09, "el título y el párrafo deberían quedar"). Para que se suelten en el mismo scroll, el hook
+//   deja --cola = hueco + alto de la lista, que el bloque de la lista lleva como margen negativo y el mosaico devuelve.
+//   Si el trío no entra, se engancha solo la lista.
+// - Lista suelta (variante hitos-libres: reduced-motion, impresión, o si la lista no entra en la pantalla con MARGEN
+//   arriba y abajo, que mide este hook y marca con data-hitos-libres en la sección): el último hito cuya parte de arriba
+//   ya pasó la línea de lectura; antes de que el primero llegue, el primero (como en el Figma).
 // En los dos modos cada hito queda encendido al menos PASO ms: si el scroll va más rápido, el resaltado va detrás
 // recorriendo los hitos de a uno, así todos se ven iluminarse. Con reduced-motion va directo. Solo mide mientras la
 // lista está cerca de la pantalla, y como mucho una vez por frame.
@@ -107,8 +106,8 @@ export default function useHitoActivo(lista, enganche = {}) {
       setActivo(objetivo)
     }
 
-    // Encuentro de título y párrafo antes del enganche: separados a ENTRADA px o más, juntos (translate 0) cuando la
-    // lista llega a su top y de ahí en adelante.
+    // Encuentro de título y párrafo antes del enganche: a ENTRADA px o más están separados (el título arriba, el
+    // párrafo abajo) y en su lugar (translate 0) cuando la lista llega a su top y de ahí en adelante.
     const acercar = () => {
       if (!moviles.length || !medida.alineadoEnganchado) return
       const falta = fijo.getBoundingClientRect().top - medida.topFijo
@@ -149,65 +148,43 @@ export default function useHitoActivo(lista, enganche = {}) {
         const lista = fijo.offsetHeight
         // Centrado en la pantalla. Si con el alto cacheado no entraría en la pantalla de ahora (cambió solo el alto:
         // teclado en pantalla, ventana), el top se calcula con el alto vivo.
-        const centrar = (grupo) => {
-          const c = (h) => Math.max(MARGEN, Math.round((h - grupo) / 2))
+        const centrar = (grupo, margen = MARGEN) => {
+          const c = (h) => Math.max(margen, Math.round((h - grupo) / 2))
           const arriba = c(alto)
           return arriba + grupo > window.innerHeight ? c(window.innerHeight) : arriba
         }
         // ¿Entra con MARGEN arriba y abajo? Con el alto cacheado: en celular la barra del navegador no cambia el modo en
         // pleno gesto. Los altos no dependen del modo (el ancho de las columnas no cambia), así que no oscila.
-        const entra = (grupo) => grupo + 2 * MARGEN <= alto
-        if (escritorio.matches || !titulo) {
-          if (seccion) delete seccion.dataset.obra
-          seccion?.toggleAttribute('data-hitos-libres', !entra(lista))
-          seccion?.style.removeProperty('--cola')
-          if (titulo) titulo.style.top = ''
-          const top = centrar(lista)
-          fijo.style.top = `${top}px`
-          if (alineado) {
-            alineado.style.top = `${top}px`
-            // El párrafo enganchado (lg) se suelta junto con la lista: su bloque contenedor es su área de la grilla
-            // (lista más recorrido), así que sin esto seguiría enganchado hasta que su propio borde de abajo llegue al
-            // final, o sea (alto lista - alto párrafo) px de más. Solo mientras es sticky: suelto, un alto mínimo lo
-            // estiraría.
-            alineado.style.minHeight = getComputedStyle(alineado).position === 'sticky' ? `${lista}px` : ''
-          }
-        } else {
-          // Debajo de lg: título (con su margen de abajo), párrafo y el espacio hasta la lista (el margen de arriba del
-          // bloque, que colapsa con el de la lista).
-          const cabeza = titulo.offsetHeight + parseFloat(getComputedStyle(titulo).marginBottom)
-          const texto = parrafo ? parrafo.offsetHeight : 0
-          const hueco = Math.max(
-            parseFloat(getComputedStyle(bloque).marginTop) || 0,
-            parseFloat(getComputedStyle(el).marginTop) || 0,
-          )
-          const trio = cabeza + texto + hueco + lista
-          const modo = reduce.matches ? null : entra(trio) ? 'trio' : entra(cabeza + lista) ? 'titulo' : null
-          if (modo) seccion.dataset.obra = modo
+        const entra = (grupo, margen = MARGEN) => grupo + 2 * margen <= alto
+        seccion?.toggleAttribute('data-hitos-libres', !entra(lista))
+        // Debajo de lg: título + párrafo + lista juntos si entran (en lg el párrafo va al lado de la lista y el trío es
+        // la lista sola). El hueco es el margen de arriba del bloque de la lista, que colapsa con el de la lista.
+        const trio =
+          !escritorio.matches && alineado && titulo
+            ? alineado.offsetHeight +
+              Math.max(parseFloat(getComputedStyle(bloque).marginTop) || 0, parseFloat(getComputedStyle(el).marginTop) || 0) +
+              lista
+            : 0
+        const enTrio = trio > 0 && !reduce.matches && entra(trio, MARGEN_TRIO)
+        if (seccion) {
+          if (enTrio) seccion.dataset.obra = 'trio'
           else delete seccion.dataset.obra
-          seccion.toggleAttribute('data-hitos-libres', !modo)
-          if (alineado) alineado.style.minHeight = ''
-          if (modo === 'trio') {
-            // El envoltorio (título y párrafo) y la lista, a `hueco` px; se sueltan juntos si el contenedor termina
-            // hueco + lista antes que el bloque de la lista (--cola).
-            const top = centrar(trio)
-            titulo.style.top = ''
-            if (alineado) alineado.style.top = `${top}px`
-            fijo.style.top = `${top + cabeza + texto + hueco}px`
-            seccion.style.setProperty('--cola', `${hueco + lista}px`)
-          } else if (modo === 'titulo') {
-            // El título y la lista, a su margen de abajo; el título, con un tope (ver TOPE_TITULO).
-            const top = Math.min(centrar(cabeza + lista), TOPE_TITULO)
-            titulo.style.top = `${top}px`
-            fijo.style.top = `${top + cabeza}px`
-            if (alineado) alineado.style.top = ''
-            seccion.style.setProperty('--cola', `${lista}px`)
-          } else {
-            titulo.style.top = ''
-            if (alineado) alineado.style.top = ''
-            fijo.style.top = `${centrar(lista)}px`
-            seccion.style.removeProperty('--cola')
-          }
+        }
+        if (enTrio) seccion?.style.setProperty('--cola', `${trio - alineado.offsetHeight}px`)
+        else seccion?.style.removeProperty('--cola')
+        const top = enTrio ? centrar(trio, MARGEN_TRIO) : centrar(lista)
+        fijo.style.top = `${enTrio ? top + trio - lista : top}px`
+        if (alineado) {
+          alineado.style.top = `${top}px`
+          // El párrafo enganchado (lg) se suelta junto con la lista: su bloque contenedor es su área de la grilla
+          // (lista más recorrido), así que sin esto seguiría enganchado hasta que su propio borde de abajo llegue al
+          // final, o sea (alto lista - alto párrafo) px de más. Solo mientras es sticky: suelto, un alto mínimo lo
+          // estiraría.
+          // Solo en lg: ahí el envoltorio está al lado de la lista y sin este alto mínimo seguiría enganchado
+          // (alto lista - alto párrafo) px de más. En el trío de celular va arriba de la lista y estirarlo rompería
+          // la medida del propio trío (se hacía y deshacía solo).
+          alineado.style.minHeight =
+            escritorio.matches && getComputedStyle(alineado).position === 'sticky' ? `${lista}px` : ''
         }
       }
       medida = fijo ? medirEnganche(fijo) : { enganchado: false }
@@ -272,7 +249,6 @@ export default function useHitoActivo(lista, enganche = {}) {
       clearTimeout(reloj)
       if (alineado) alineado.style.minHeight = ''
       for (const nodo of moviles) nodo.style.translate = ''
-      if (titulo) titulo.style.top = ''
       if (alineado) alineado.style.top = ''
       seccion?.removeAttribute('data-hitos-libres')
       if (seccion) delete seccion.dataset.obra

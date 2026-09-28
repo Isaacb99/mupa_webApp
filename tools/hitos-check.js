@@ -1,8 +1,9 @@
 (async () => {
   // Expresión para measure.mjs: recorre la línea de tiempo de Obra histórica con cuatro gestos (rueda con scroll suave
   // de Chrome: muescas de 100 px repartidas en 12 frames con ease-in-out; muescas instantáneas; flicks de 500 px; un
-  // salto directo), muestreando cada frame qué hito está en blanco y el color real de cada uno. Comprueba que el
-  // resaltado pase por todos los hitos de a uno (nunca saltea), que cada uno llegue al blanco pleno (R >= 250) y quede
+  // salto directo), muestreando cada frame qué hito está encendido y el color real de cada uno. Comprueba que el
+  // resaltado pase por todos los hitos de a uno (nunca saltea), que cada uno llegue al verde pleno (V >= 190; el hito
+  // activo es verde claro #9cc551 desde el V03, antes era blanco) y quede
   // encendido al menos 280 ms (el piso de useHitoActivo es 300), y que termine en el hito que corresponde a la posición
   // final. Sirve en los dos modos: lista enganchada (el hito es la parada del recorrido del bloque; se comprueba además
   // que la lista quede enganchada a su top, que entre en la pantalla y que el top sea de al menos 32 px) y lista suelta
@@ -16,8 +17,11 @@
   const fijo = ol.parentElement;
   const bloque = fijo.parentElement;
   const enganchado = getComputedStyle(fijo).position === 'sticky';
-  const activo = () => items.findIndex((li) => li.className.includes('text-paper'));
-  const rojo = (li) => parseInt(getComputedStyle(li).color.match(/\d+/)[0], 10);
+  const activo = () => items.findIndex((li) => li.className.includes('text-verde-claro'));
+  // Canal verde del color REAL del texto del hito (#9cc551 llega a 197 y el gris #88858e se queda en 133). Se mide en el
+  // span del texto y no en el <li>: la transicion de color vive en las hojas (poner transition-colors en el <li>, con
+  // color heredada, obligaba a recalcular el estilo de los 7 nodos del hito en cada frame).
+  const rojo = (li) => parseInt(getComputedStyle(li.querySelector('p')).color.match(/\d+/g)[1], 10);
   const linea = innerHeight * 0.55;
   const topFijo = parseFloat(getComputedStyle(fijo).top) || 0;
   const recorrido = bloque.offsetHeight - fijo.offsetHeight;
@@ -63,11 +67,11 @@
     const [a, b] = [Math.min(secuencia[0], esperadoFinal), Math.max(secuencia[0], esperadoFinal)];
     const saltos = secuencia.slice(1).filter((v, i) => Math.abs(v - secuencia[i]) !== 1);
     const cortos = vistos.slice(1, -1).filter(([, ms]) => ms < 280);
-    const apagados = items.map((_, i) => i).filter((i) => i >= a && i <= b && maxRojo[i] < 250);
-    res.tramos.push(`${nombre}: ${vistos.map(([i, ms]) => `${i}(${ms}ms)`).join(' > ')} final esperado ${esperadoFinal}; rojo máx [${maxRojo.join(', ')}]`);
+    const apagados = items.map((_, i) => i).filter((i) => i >= a && i <= b && maxRojo[i] < 190);
+    res.tramos.push(`${nombre}: ${vistos.map(([i, ms]) => `${i}(${ms}ms)`).join(' > ')} final esperado ${esperadoFinal}; verde máx [${maxRojo.join(', ')}]`);
     if (saltos.length) res.fallas.push(`${nombre}: la secuencia saltea hitos (${secuencia.join('>')})`);
     if (cortos.length) res.fallas.push(`${nombre}: hitos intermedios de menos de 280 ms (${cortos.map(([i, ms]) => `${i}:${ms}`).join(', ')})`);
-    if (apagados.length) res.fallas.push(`${nombre}: hitos que no llegan al blanco (${apagados.map((i) => `${i}:${maxRojo[i]}`).join(', ')})`);
+    if (apagados.length) res.fallas.push(`${nombre}: hitos que no llegan al verde (${apagados.map((i) => `${i}:${maxRojo[i]}`).join(', ')})`);
     if (secuencia[secuencia.length - 1] !== esperadoFinal) res.fallas.push(`${nombre}: termina en ${secuencia[secuencia.length - 1]}, esperado ${esperadoFinal}`);
     if (seSolto) res.fallas.push(`${nombre}: el bloque no quedó enganchado durante el recorrido`);
   }

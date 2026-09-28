@@ -29,12 +29,10 @@
   agrandada o el espaciado de texto de WCAG 1.4.12, que un corte fijo por alto no veía).
 */
 /*
-  obra-trio / obra-titulo: qué se engancha de Obra histórica debajo de lg, según lo que entra en la pantalla (lo mide
-  useHitoActivo y lo marca con data-obra en la sección): título, párrafo y lista juntos, o solo título y lista (el
-  párrafo pasa por debajo del título). Sin data-obra, nada (hitos-libres).
+  obra-trio: debajo de lg, si entran en la pantalla, el titulo, el parrafo y la lista de Obra historica se enganchan
+  juntos (lo mide useHitoActivo y lo marca con data-obra="trio" en la seccion).
 */
 @custom-variant obra-trio (&:where([data-obra="trio"] *));
-@custom-variant obra-titulo (&:where([data-obra="titulo"] *));
 
 @custom-variant hitos-libres {
   @media (prefers-reduced-motion: reduce) {
@@ -50,19 +48,22 @@
 
 /*
   Tokens de diseno.
-  - Tipografia (Figma del disenador, archivo "MUPA", 21/09/2026): Geologica para todo el texto y Roboto Mono Bold solo
-    para las etiquetas en mayusculas (EJE NARRATIVO / VISION / MISION) y el lema de Ciencia. Pesos del Figma: Regular
-    400 para el titular, los titulos y los parrafos; Bold 700 para los fragmentos destacados dentro de los parrafos;
-    Thin 100 para las palabras grandes de los ejes (Inspirar / Referente / Patrimonio). Por eso index.html pide
-    wght 100..700. El Figma fija "CRSV" 0 y "SHRP" 0: el archivo que sirve Google (solo eje wght) da los mismos anchos
-    que el de todos los ejes con esos valores (medido en 100, 400 y 700), asi que no hace falta font-variation-settings.
+  - Tipografia (V03 de la disenadora, 25/09/2026): Google Sans Flex para todo el texto y Roboto Mono para las
+    etiquetas en mayusculas (EJE NARRATIVO / VISION / MISION), los anios de la linea de tiempo y el lema de Ciencia.
+    El PDF del V03 embebe esa familia (10 subconjuntos de GoogleSansFlex, medidos glifo a glifo) y no Geologica, que era
+    la del Figma V02 del 21/09; se publico en Google Fonts en noviembre de 2025 con licencia SIL OFL 1.1 sin Reserved
+    Font Names, asi que se puede usar. Pesos del V03: 100 en los titulos de seccion, 300 en los parrafos y en los textos
+    de los hitos, 400 en las lineas fijas del titular y en los textos de los ejes, 600 en el hito activo, 700 en los
+    destacados y ~755 en "sanjuaninos" (en el PDF ademas va con el eje de ancho en 130, que la API de Google Fonts no
+    sirve: el woff2 variable que manda trae solo wght, asi que la palabra queda un 10 % mas angosta que en el diseno).
+    Por eso index.html pide wght 100..1000.
   - Colores: paleta MUPA del Figma (estilos de color del archivo). ink-soft y line no estan en el Figma: superficies y
     divisores propios, apenas mas claros que el fondo. Colores de las bandas de Areas: ver Areas.jsx.
 */
 @theme {
-  --color-ink: #010101;          /* MUPA/black: fondo */
-  --color-ink-soft: #161616;     /* superficies apenas mas claras (placeholders) */
-  --color-paper: #ffffff;        /* Blanco: texto */
+  --color-ink: #0e100d;          /* fondo del V03 (el Figma V02 tenia #010101, negro puro: se veia mas duro) */
+  --color-ink-soft: #1b1d1a;     /* superficies apenas mas claras (placeholders) */
+  --color-paper: #eae2df;        /* crema del V03 y de la paleta del Figma: el texto no es blanco puro */
   --color-muted: #88858e;        /* Neutros/Gris: texto secundario, hitos no activos */
   --color-line: #2c2c2c;         /* divisores */
 
@@ -75,8 +76,13 @@
   --color-verde-claro: #9cc551;
   --color-celeste: #4e56a1;
 
-  /* Ancho maximo del contenido (max-w-sitio): con px-10 deja el texto a 102 px del borde en 1440, como el Figma. */
-  --container-sitio: 82.25rem;
+  /* Ancho maximo del contenido (max-w-sitio): con px-10 deja el texto a 112,5 px del borde en 1440 y terminando en
+     1327,5, que es el margen real del V03 (150/1920 medido sobre bordes duros del .ai: la primera foto del mosaico
+     arranca en 150, la ultima termina en 1771 y el recuadro naranja en 149; los 136/1920 del V02 eran solo la caja
+     del titulo de Identidad, que la disenadora cuelga a la izquierda para que la tinta de la "I" caiga en 150).
+     Hasta el 25/09/2026 eran 82,25rem = 102 px de margen, y el mosaico de Obra, que cuelga de su propia caja de
+     1440 con posiciones en %, ya caia en 112: convivian dos margenes distintos en la misma pagina. */
+  --container-sitio: 80.9375rem;
 
   /* Indicador de scroll del hero (Hero.jsx): cada flecha se enciende y se apaga en 2 s; la de abajo va medio segundo
      detras (delay negativo, asi arranca ya desfasada). El indicador entero aparece un rato despues de cargar. */
@@ -90,93 +96,182 @@
     from { opacity: 0; }
   }
 
-  --font-display: "Geologica", "Geologica Fallback", "Geologica Fallback Roboto", "Geologica Fallback Arial", system-ui, sans-serif;
-  --font-body: "Geologica", "Geologica Fallback", "Geologica Fallback Roboto", "Geologica Fallback Arial", system-ui, sans-serif;
-  /* Solo se carga el peso 700 de Roboto Mono (ver index.html): usar SIEMPRE junto con font-bold. Pedir 400 renderiza
-     la cara 700 en silencio (tambien en code/pre/kbd/samp, que heredan este token via el preflight de Tailwind).
-     Si hace falta mono regular, sumar 400 al pedido de Google Fonts. */
+  --font-display: "Google Sans Flex", "GSF Fallback", "GSF Fallback Roboto", "GSF Fallback Arial", system-ui, sans-serif;
+  --font-body: "Google Sans Flex", "GSF Fallback", "GSF Fallback Roboto", "GSF Fallback Arial", system-ui, sans-serif;
+  /* Roboto Mono variable 400..700 (ver index.html): 500 en las etiquetas, 400 en los anios y 700 en el anio activo. */
   --font-mono: "Roboto Mono", ui-monospace, "Cascadia Mono", Menlo, Consolas, monospace;
 }
 
 /*
-  Fallbacks con metricas ajustadas para que el texto no salte cuando termina el swap de Geologica.
-  size-adjust = relacion de ancho Geologica / fuente del sistema en peso 400, medida en Chrome con los parrafos del
-  sitio (Segoe UI 1,0807; Roboto 1,0730; Arial 1,0697): asi las lineas cortan casi igual antes y despues del swap.
-  Verificado el 21/09/2026 en 375/414/768/1024/1280/1440: con Segoe UI 0 px de diferencia salvo el parrafo de Areas
-  en 375 y 414 (una linea menos); con Arial, un parrafo corta una linea mas en 768 y en 1024.
-  Los overrides de ascent/descent son las metricas de Geologica (0,975 y 0,275 em, sin line gap) divididas por el
-  size-adjust, porque Chrome los escala. local() solo matchea la cara Regular: durante el swap las palabras finas
-  (100) salen en regular y los destacados (700) en negrita sintetica.
+  Fuentes del sitio, en el repo (tools/subset-fuente.mjs las regenera; licencias: Google Sans Flex y Roboto Mono, las dos
+  SIL Open Font License 1.1). Google Sans Flex va recortada a latin+latin-ext con los ejes de peso (100..1000) y de ancho
+  (100..130, para "sanjuaninos"), y con el tamano optico fijo en 20, que es la optica del V03: si quedara variable, el
+  navegador lo moveria con cada cuerpo y los anchos dejarian de coincidir con el diseno. De Roboto Mono guardamos el
+  woff2 variable de latin que sirve Google, tal cual.
 */
 @font-face {
-  font-family: "Geologica Fallback";
+  font-family: "Google Sans Flex";
+  src: url("./assets/fonts/google-sans-flex-latin.woff2") format("woff2");
+  font-weight: 100 1000;
+  font-stretch: 100% 130%;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Roboto Mono";
+  src: url("./assets/fonts/roboto-mono-latin.woff2") format("woff2");
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/*
+  Fallbacks con metricas ajustadas para que el texto no salte cuando termina el swap de Google Sans Flex.
+  size-adjust = relacion de ancho Google Sans Flex (en 300, el peso de los parrafos) / fuente del sistema, medida en
+  Chrome el 25/09/2026 con el parrafo de la intro a 1000 px: GSF 300 = 118,70 em, Segoe UI 117,73; Roboto 118,78;
+  Arial 118,96 (el local() solo matchea la cara Regular, asi que se compara contra su 400).
+  Los overrides de ascent/descent son las metricas usadas de Google Sans Flex (0,966 y 0,286 em, sin line gap; medidas
+  con canvas y comprobadas contra el alto de linea normal, 1,252 em) divididas por el size-adjust, porque Chrome los
+  escala. Durante el swap las palabras finas (100) salen en regular y los destacados (700) en negrita sintetica.
+*/
+@font-face {
+  font-family: "GSF Fallback";
   src: local("Segoe UI");
-  size-adjust: 108.07%;
-  ascent-override: 90.22%;
-  descent-override: 25.45%;
+  size-adjust: 100.82%;
+  ascent-override: 95.81%;
+  descent-override: 28.37%;
   line-gap-override: 0%;
 }
 @font-face {
-  font-family: "Geologica Fallback Roboto";
+  font-family: "GSF Fallback Roboto";
   src: local("Roboto");
-  size-adjust: 107.3%;
-  ascent-override: 90.87%;
-  descent-override: 25.63%;
+  size-adjust: 99.93%;
+  ascent-override: 96.67%;
+  descent-override: 28.62%;
   line-gap-override: 0%;
 }
 @font-face {
-  font-family: "Geologica Fallback Arial";
+  font-family: "GSF Fallback Arial";
   src: local("Arial");
-  size-adjust: 106.97%;
-  ascent-override: 91.15%;
-  descent-override: 25.71%;
+  size-adjust: 99.78%;
+  ascent-override: 96.81%;
+  descent-override: 28.66%;
   line-gap-override: 0%;
 }
 
 /*
-  Degradé que va arriba de la foto del hero (capa "image 2" del Figma, un PNG negro con opacidad decreciente): mismo
-  color y la opacidad del PNG medida cada 5 % de su alto.
+  Degradé que va arriba de la foto del hero (V04 de la disenadora, 28/09/2026: una mascara de luminosidad que oscurece
+  el cielo detras del logo). Opacidad medida fila por fila comparando el cielo del PDF con la foto original: llega a 0
+  al 40 % del alto del hero, que es lo que mide la capa (Hero.jsx). Hasta el V04 era el PNG "image 2" del Figma, que
+  bajaba hasta el 71 % con una curva casi igual.
 */
 @utility degrade-hero {
   background-image: linear-gradient(
     to bottom,
     rgb(14 16 13 / 1) 0%,
-    rgb(14 16 13 / 0.843) 5%,
-    rgb(14 16 13 / 0.714) 10%,
-    rgb(14 16 13 / 0.588) 15%,
-    rgb(14 16 13 / 0.482) 20%,
-    rgb(14 16 13 / 0.388) 25%,
-    rgb(14 16 13 / 0.314) 30%,
-    rgb(14 16 13 / 0.247) 35%,
-    rgb(14 16 13 / 0.188) 40%,
-    rgb(14 16 13 / 0.141) 45%,
-    rgb(14 16 13 / 0.106) 50%,
-    rgb(14 16 13 / 0.075) 55%,
-    rgb(14 16 13 / 0.051) 60%,
-    rgb(14 16 13 / 0.031) 65%,
-    rgb(14 16 13 / 0.02) 70%,
-    rgb(14 16 13 / 0.012) 75%,
-    rgb(14 16 13 / 0.004) 85%,
-    rgb(14 16 13 / 0) 90%
+    rgb(14 16 13 / 0.86) 6.25%,
+    rgb(14 16 13 / 0.74) 12.5%,
+    rgb(14 16 13 / 0.61) 18.75%,
+    rgb(14 16 13 / 0.52) 25%,
+    rgb(14 16 13 / 0.43) 31.25%,
+    rgb(14 16 13 / 0.34) 37.5%,
+    rgb(14 16 13 / 0.27) 44%,
+    rgb(14 16 13 / 0.21) 50%,
+    rgb(14 16 13 / 0.16) 56.5%,
+    rgb(14 16 13 / 0.12) 62.75%,
+    rgb(14 16 13 / 0.08) 69%,
+    rgb(14 16 13 / 0.06) 75%,
+    rgb(14 16 13 / 0.04) 81.5%,
+    rgb(14 16 13 / 0.03) 87.75%,
+    rgb(14 16 13 / 0.01) 94%,
+    rgb(14 16 13 / 0) 100%
   );
 }
 
 /*
-  Cola del collage (Collage.jsx): el bloque enganchado centra la caja en la pantalla, asi que al soltarse quedarian
-  (100svh - alto de la caja) / 2 px de bloque vacio debajo de ella, antes del cierre. Este margen negativo los descuenta:
-  el cierre sigue justo debajo de la caja (y en los ultimos px del recorrido asoma por debajo de ella, como es normal en
-  una seccion enganchada). El alto de la caja se calcula con el ancho del contenedor (cqw: el envoltorio @container de
-  Collage.jsx) con las mismas formulas que su ancho: 628/1046 del ancho, con los mismos topes.
+  Degradé sobre la mitad de abajo del mosaico de Obra (V04): las fotos de abajo se funden con el fondo. Opacidad del
+  negro medida sobre el PDF a lo largo de la capa (631 px a 1440, el 51 % del mosaico): casi nada hasta el 70 %, un
+  cuarto al 73 %, 70 % al 91 % y opaco en el borde.
+*/
+@utility degrade-mosaico {
+  background-image: linear-gradient(
+    to bottom,
+    rgb(14 16 13 / 0) 0%,
+    rgb(14 16 13 / 0.08) 55%,
+    rgb(14 16 13 / 0.27) 73.5%,
+    rgb(14 16 13 / 0.5) 85%,
+    rgb(14 16 13 / 0.7) 91%,
+    rgb(14 16 13 / 0.92) 97%,
+    rgb(14 16 13 / 1) 100%
+  );
+}
+
+/*
+  Patrones de piedritas del logo en los costados de la pagina (V04, 28/09/2026): tres SVG (src/assets/patron-*.svg,
+  sacados del .ai con pdf.js: un solo trazado crema de 2 px cada uno, el c ademas con la marca MuPa rellena) que salen
+  por el borde de la pantalla y se desvanecen con una mascara, como en el archivo (mascaras de luminosidad medidas sobre
+  el PDF por bandas de 16 px). a: a la izquierda del parrafo de la intro, ~56 % de opacidad del lado del texto y ~9 %
+  en el borde. b: a la derecha de los logos del cierre de Identidad, ~70 % del lado de los logos y ~25 % en el borde,
+  con el eje inclinado. c: a la izquierda de las etiquetas de Areas, opaco en el borde de la pantalla y transparente
+  antes de llegar a las etiquetas (los porcentajes son del ancho del SVG, que arranca 370 px fuera de la pantalla a 1440).
+*/
+@utility patron-a {
+  -webkit-mask-image: linear-gradient(to left, rgb(0 0 0 / 0.56), rgb(0 0 0 / 0.09));
+  mask-image: linear-gradient(to left, rgb(0 0 0 / 0.56), rgb(0 0 0 / 0.09));
+}
+@utility patron-b {
+  -webkit-mask-image: linear-gradient(70deg, rgb(0 0 0 / 0.7), rgb(0 0 0 / 0.25));
+  mask-image: linear-gradient(70deg, rgb(0 0 0 / 0.7), rgb(0 0 0 / 0.25));
+}
+@utility patron-c {
+  -webkit-mask-image: linear-gradient(to right, #000 21%, rgb(0 0 0 / 0.92) 32%, rgb(0 0 0 / 0.72) 43%, rgb(0 0 0 / 0.55) 48.4%, rgb(0 0 0 / 0.33) 54%, rgb(0 0 0 / 0.05) 59.3%, transparent 61%);
+  mask-image: linear-gradient(to right, #000 21%, rgb(0 0 0 / 0.92) 32%, rgb(0 0 0 / 0.72) 43%, rgb(0 0 0 / 0.55) 48.4%, rgb(0 0 0 / 0.33) 54%, rgb(0 0 0 / 0.05) 59.3%, transparent 61%);
+}
+
+/*
+  Cola del carrusel de fotos (Collage.jsx): el bloque enganchado centra la caja en la pantalla, asi que al soltarse
+  quedarian (100svh - alto de la caja) / 2 px de bloque vacio debajo de ella, antes de la seccion siguiente. Este margen
+  negativo los descuenta: lo que sigue va justo debajo de la caja (y en los ultimos px del recorrido asoma por debajo
+  de ella, como es normal en una seccion enganchada). El alto de la caja se calcula con el ancho del contenedor (cqw: el
+  envoltorio @container de Collage.jsx) con las mismas formulas que su ancho: 713/1006,6 del ancho (la caja del V04),
+  con los mismos topes.
 */
 @utility collage-cola {
-  --alto-caja: min(60.04cqw, 100svh - 6rem);
-  margin-bottom: calc((var(--alto-caja) - 100svh) / 2);
+  --alto-caja: min(70.83cqw, 100svh - 6rem);
+  /* Ademas descuenta el 43,5 % de abajo de la caja, que queda vacio cuando salieron las cuatro fotos de adelante (la
+     que queda, las lamas, termina en el 56,49 % de la caja): asi Identidad sigue a 284 px de esa foto y no de la caja,
+     y su titulo entra subiendo por debajo de ella mientras el bloque todavia esta enganchado, en vez de dejar media
+     pantalla en negro (pedido del desarrollador, 28/09/2026). En la variante apilado no aplica (mb-0): ahi se ven las
+     cinco fotos y la caja esta llena.
+     En celular la caja no va centrada sino a 10svh del borde de arriba (Collage.jsx): lo que queda vacio debajo de ella
+     es 90svh menos su alto, y de eso se descuenta el 43,5 % de la caja: 0,5649 alto - 90svh. */
+  margin-bottom: calc(0.5649 * var(--alto-caja) - 90svh);
   @media (width >= 48rem) {
-    --alto-caja: min((100cqw - 5rem) * 0.6004, 100svh - 6rem);
+    --alto-caja: min((100cqw - 5rem) * 0.7083, 100svh - 6rem);
+    margin-bottom: calc((var(--alto-caja) - 100svh) / 2 - 0.4351 * var(--alto-caja));
   }
   @media (width >= 64rem) {
-    --alto-caja: min(43.61cqw, 39.25rem, 100svh - 6rem);
+    --alto-caja: min(49.51cqw, 44.5625rem, 100svh - 6rem);
   }
+}
+
+/*
+  Recuadro de la etiqueta de Identidad (Identidad.jsx, V03 de la disenadora): arranca en el margen del contenido y
+  termina 110 px pasado el borde izquierdo de la foto, que esta en el 50,7 % del ancho de la pantalla (el marco mide
+  49,3 % y va pegado al borde derecho). En el V03, a 1920, el recuadro mide 969 px y se superpone 142 a la foto; 110 px
+  es esa medida llevada a 1440. Solo en lg: debajo, la foto va arriba y el recuadro ocupa la columna de texto.
+*/
+@utility etiqueta-ancha {
+  width: calc(50.7vw - max((100vw - var(--container-sitio)) / 2, 0px) - 2.5rem + 6.875rem);
+  /*
+    Y se pierde antes de la foto (pedido del desarrollador, 25/09/2026: "deberia perderse detras de la foto tipo
+    difuminando o degradado" y, despues, "que se difumine mucho mas, se siguen viendo las lineas del cuadro en las
+    fotos"): entero hasta 320 px del final, degradado largo de 200 px y del todo transparente 120 px antes del final,
+    o sea 10 px antes del borde izquierdo de la foto (el recuadro se le superpone 110). La mascara se lleva tambien el
+    borde naranja, asi que sobre la foto no queda ninguna linea.
+  */
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 20rem), transparent calc(100% - 7.5rem));
+  mask-image: linear-gradient(to right, #000 calc(100% - 20rem), transparent calc(100% - 7.5rem));
 }
 
 /*

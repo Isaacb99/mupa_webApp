@@ -15,15 +15,20 @@
   const n = fotos.length;
   const top0 = bloque.getBoundingClientRect().top + scrollY;
   const topFijo = parseFloat(getComputedStyle(fijo).top) || 0;
-  const recorrido = bloque.offsetHeight - fijo.offsetHeight;
+  // Recorrido de las fotos: el del bloque menos la cola (data-cola), en la que la última foto queda quieta antes de soltarse.
+  const cola = bloque.querySelector('[data-cola]')?.offsetHeight ?? 0;
+  const recorrido = bloque.offsetHeight - fijo.offsetHeight - cola;
   const cajaRect = caja.getBoundingClientRect();
   const res = {
-    ancho: innerWidth, alto: innerHeight, recorrido, fotos: n, caja: [Math.round(cajaRect.width), Math.round(cajaRect.height)],
+    ancho: innerWidth, alto: innerHeight, recorrido, cola, fotos: n, caja: [Math.round(cajaRect.width), Math.round(cajaRect.height)],
     overflowX: document.documentElement.scrollWidth > innerWidth, pasos: [], fallas: [],
   };
   if (cajaRect.height > innerHeight) res.fallas.push(`la caja (${Math.round(cajaRect.height)} px) no entra en la pantalla`);
+  if (cola < innerHeight * 0.25) res.fallas.push(`la cola mide ${cola} px (esperaba al menos el 25 % de la pantalla)`);
   // [progreso, fotos fuera esperadas, enganchado]. Los umbrales del motor están a 1/8, 3/8, 5/8 y 7/8 (con histéresis).
-  const casos = [[-0.2, 0, false], [0, 0, true], [0.2, 1, true], [0.3, 1, true], [0.45, 2, true], [0.7, 3, true], [0.95, 4, true], [1, 4, true], [1.2, 4, false], [0.45, 2, true], [0.05, 0, true]];
+  // Después del 1, la cola: sigue enganchado con la última foto hasta 1 + cola/recorrido.
+  const finCola = 1 + cola / recorrido;
+  const casos = [[-0.2, 0, false], [0, 0, true], [0.2, 1, true], [0.3, 1, true], [0.45, 2, true], [0.7, 3, true], [0.95, 4, true], [1, 4, true], [(1 + finCola) / 2, 4, true], [finCola - 0.02, 4, true], [finCola + 0.2, 4, false], [0.45, 2, true], [0.05, 0, true]];
   let fueraAntes = 0;
   for (const [p, esperadas, enganchado] of casos) {
     scrollTo({ top: Math.round(top0 - topFijo + p * recorrido), behavior: 'instant' });

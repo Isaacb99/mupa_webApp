@@ -11,8 +11,10 @@ export default function Hero() {
 
   return (
     <section aria-label={ui.portada} className="relative w-full bg-ink">
-      {/* Figma: 1440x852 desde md, nunca más alto que la pantalla; en celular, 4:3. */}
-      <div className="relative aspect-[4/3] w-full overflow-hidden md:aspect-[1440/852] md:max-h-svh">
+      {/* V04 de la diseñadora (28/09/2026): 1440x1195,5 desde md, nunca más alto que la pantalla (en 1440x900 la llena),
+          con las esquinas de abajo redondeadas (~64 px, medido sobre el PDF: el redondeo viene pegado en la foto). Hasta
+          el V04 era 1440x852 con esquinas rectas (Figma V02). En celular, 4:3 y esquinas de 32. */}
+      <div className="relative aspect-[4/3] w-full overflow-hidden rounded-b-[2rem] md:aspect-[1440/1195.5] md:max-h-svh md:rounded-b-[4rem]">
         {src ? (
           <img
             src={src}
@@ -26,8 +28,8 @@ export default function Hero() {
         ) : (
           <Placeholder alt={alt} className="h-full w-full" />
         )}
-        {/* Degradé del Figma ("image 2"): oscurece la parte de arriba, detrás del logo, y se desvanece al 71 % del alto. */}
-        <div aria-hidden="true" className="degrade-hero absolute inset-x-0 top-0 h-[71.2%]" />
+        {/* Degradé del V04: oscurece la parte de arriba, detrás del logo, y se desvanece al 40 % del alto (index.css). */}
+        <div aria-hidden="true" className="degrade-hero absolute inset-x-0 top-0 h-[40%]" />
         {/* Indicador de scroll (pedido del desarrollador el 22/09/2026, con un video de referencia: dos flechas apiladas
             que se encienden y se apagan en cascada, la de arriba primero, con un brillo suave). Blancas como en la
             referencia; abajo la foto es clara (vereda y escalera), así que un degradé negro desde el borde de abajo (85 %

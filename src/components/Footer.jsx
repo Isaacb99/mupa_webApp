@@ -19,7 +19,9 @@ export default function Footer() {
   return (
     <footer className="border-t border-line">
       <div className="mx-auto w-full max-w-sitio px-6 py-10 md:px-10">
-        <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:justify-between">
+        {/* lg:items-center: los logos miden 32 px y el bloque de la izquierda 76, así que alineados arriba se veían
+            más altos (lo notó el desarrollador el 25/09/2026); centrados quedan a la altura del bloque. */}
+        <div className="flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p className={`font-display text-2xl tracking-tight ${site.nombre ? 'text-paper' : 'text-muted'}`}>
               {site.nombre || PENDIENTE}

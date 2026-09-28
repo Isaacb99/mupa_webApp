@@ -8,7 +8,10 @@ import useParallaxPalabra from '../hooks/useParallaxPalabra.js'
 // segunda, 0,375 em después (24 px a 64). En lg el titular usa las columnas del bloque de Intro (subgrid): así el
 // párrafo de abajo arranca donde arranca la palabra.
 // Con prefers-reduced-motion la palabra no se mueve y aparecen copias fijas en las otras filas, para que las
-// tres frases se lean completas igual.
+// frases se lean completas igual.
+// La palabra móvil va en 755 y las líneas fijas en Regular (V03 de la diseñadora, 25/09/2026: medida glifo a glifo
+// contra Google Sans Flex, la palabra está en wght 755 y wdth 130; el eje de ancho existe porque la fuente va
+// autoalojada y recortada con ese eje, ver tools/subset-fuente.mjs).
 
 const FILA = ['row-start-1', 'row-start-2', 'row-start-3', 'row-start-4']
 
@@ -52,11 +55,11 @@ export default function TituloParallax({ id, className = '' }) {
           </span>
         ))}
         {/* wrap-anywhere: solo si el usuario fuerza espaciado de texto (WCAG 1.4.12) y la palabra no entra, se parte en vez de desbordar. */}
-        <span ref={palabra} className="col-start-2 row-start-1 wrap-anywhere">
+        <span ref={palabra} className="col-start-2 row-start-1 font-[weight:755] [font-stretch:130%] wrap-anywhere">
           {movil}
         </span>
         {fijas.slice(1).map((linea, i) => (
-          <span key={`copia-${linea}`} className={`hidden col-start-2 wrap-anywhere motion-reduce:block ${FILA[i + 1] ?? ''}`}>
+          <span key={`copia-${linea}`} className={`hidden col-start-2 font-[weight:755] [font-stretch:130%] wrap-anywhere motion-reduce:block ${FILA[i + 1] ?? ''}`}>
             {movil}
           </span>
         ))}

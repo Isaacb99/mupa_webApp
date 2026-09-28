@@ -1,9 +1,13 @@
 (async () => {
   const h1 = document.querySelector('h1'); if (!h1) return { error: 'sin h1 (¿error de render?)', root: document.getElementById('root').innerHTML.slice(0, 200) };
   const bloque = h1.querySelector('[aria-hidden]'); const spans = [...bloque.children];
-  const fijas = spans.slice(0, 3), palabra = spans[3];
+  // Las líneas fijas van en la primera columna y la palabra móvil en la segunda, fila 1 (las demás de la segunda
+  // columna son las copias estáticas de reduced-motion). El V03 dejó dos filas; antes eran tres.
+  const fijas = spans.filter(s => s.className.includes('col-start-1'));
+  const palabra = spans.find(s => s.className.includes('col-start-2') && s.className.includes('row-start-1'));
   const vh = innerHeight; const h1Top = h1.getBoundingClientRect().top + scrollY;
-  const inicio = Math.min(0.8 * vh, h1Top); let fin = Math.max(inicio - Math.max(0.6 * vh, 480), 0.15 * vh);
+  // Recorrido por tramo (ver useParallaxPalabra): max(0,3·alto, 240 px) por cada viaje de la palabra.
+  const inicio = Math.min(0.8 * vh, h1Top); let fin = Math.max(inicio - Math.max(0.3 * vh, 240) * (fijas.length - 1), 0.15 * vh);
   if (matchMedia('(width < 64rem)').matches) fin = inicio - (inicio - fin) * 1.1; // debajo de lg, recorrido +10 %
   const rect = (el) => { const r = el.getBoundingClientRect(); return [Math.round(r.left), Math.round(r.top + scrollY), Math.round(r.width), Math.round(r.height)]; };
   const raf = () => new Promise(r => requestAnimationFrame(r));
