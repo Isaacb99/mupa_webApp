@@ -5,6 +5,27 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MuPa - Museo Paleontológico de San Juan</title>
     <meta name="description" content="Museo Paleontológico de San Juan: un museo de sanjuaninos, hecho por sanjuaninos." />
+    <!-- __SITIO_URL__ lo reemplaza vite.config.js según el build: https://mupa.ar/ en producción y
+         https://mupa.ar/preview/ en la vista previa (las etiquetas OG necesitan URL absolutas). -->
+    <link rel="canonical" href="__SITIO_URL__" />
+    <!-- Íconos (public/): la marca MuPa en crema sobre el fondo del sitio. SVG para los navegadores modernos, ICO de 32 px
+         para los viejos y PNG de 180 para la pantalla de inicio de iOS. -->
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="./favicon.ico" sizes="32x32" />
+    <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+    <meta name="theme-color" content="#0e100d" />
+    <!-- Tarjeta al compartir el link (WhatsApp, Instagram, X): foto del hero con el logo, 1200x630 (public/og.jpg). -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="MuPa - Museo Paleontológico de San Juan" />
+    <meta property="og:title" content="MuPa - Museo Paleontológico de San Juan" />
+    <meta property="og:description" content="Un museo de sanjuaninos, hecho por sanjuaninos." />
+    <meta property="og:url" content="__SITIO_URL__" />
+    <meta property="og:image" content="__SITIO_URL__og.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Fachada del Museo Paleontológico de San Juan con el logo MuPa" />
+    <meta property="og:locale" content="es_AR" />
+    <meta name="twitter:card" content="summary_large_image" />
     <!-- Las fuentes van en el repo (src/assets/fonts, ver src/index.css y tools/subset-fuente.mjs): sin pedidos a
          fonts.googleapis.com, que demoraba ~530 ms el primer texto, y con el eje de ancho que la API no sirve. -->
   </head>

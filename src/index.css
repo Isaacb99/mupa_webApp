@@ -189,24 +189,6 @@
 }
 
 /*
-  Degradé sobre la mitad de abajo del mosaico de Obra (V04): las fotos de abajo se funden con el fondo. Opacidad del
-  negro medida sobre el PDF a lo largo de la capa (631 px a 1440, el 51 % del mosaico): casi nada hasta el 70 %, un
-  cuarto al 73 %, 70 % al 91 % y opaco en el borde.
-*/
-@utility degrade-mosaico {
-  background-image: linear-gradient(
-    to bottom,
-    rgb(14 16 13 / 0) 0%,
-    rgb(14 16 13 / 0.08) 55%,
-    rgb(14 16 13 / 0.27) 73.5%,
-    rgb(14 16 13 / 0.5) 85%,
-    rgb(14 16 13 / 0.7) 91%,
-    rgb(14 16 13 / 0.92) 97%,
-    rgb(14 16 13 / 1) 100%
-  );
-}
-
-/*
   Patrones de piedritas del logo en los costados de la pagina (V04, 28/09/2026): tres SVG (src/assets/patron-*.svg,
   sacados del .ai con pdf.js: un solo trazado crema de 2 px cada uno, el c ademas con la marca MuPa rellena) que salen
   por el borde de la pantalla y se desvanecen con una mascara, como en el archivo (mascaras de luminosidad medidas sobre

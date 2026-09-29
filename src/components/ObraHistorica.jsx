@@ -270,9 +270,9 @@ export default function ObraHistorica() {
           textos", primero a 384 y después "un poco más"; en celular 128 y en tablet 160, eran 64 y 96); en pantallas
           de más de 1440, centrado con ese ancho. Las
           fotos aparecen de a una con el scroll (ver aplicarMosaico); al imprimir y con reduced-motion se ven todas.
-          Esquinas de 14,3 px (V04; eran 10). El envoltorio lleva el degradé del V04 que funde la mitad de abajo del
-          mosaico con el fondo (index.css: degrade-mosaico), fuera de la lista para que el motor no lo cuente como una
-          foto. */}
+          Esquinas de 14,3 px (V04; eran 10). Sin el degradé negro que el V04 pone sobre la mitad de abajo del mosaico:
+          se aplicó el 28/09/2026 y el desarrollador lo sacó ese mismo día, primero en celular y después también en
+          escritorio, porque las fotos de abajo "se cortan cuando suben" al aparecer bajo la sombra. */}
       <div className="relative mx-auto w-full max-w-[90rem] mt-[calc(8rem+var(--cola,0px))] md:mt-[calc(10rem+var(--cola,0px))] lg:mt-[30rem]">
         <ul ref={mosaico} data-mosaico role="list" className="relative aspect-[1440/1230] w-full">
         {obra.fotos.map((foto, i) => (
@@ -296,9 +296,6 @@ export default function ObraHistorica() {
           </li>
         ))}
         </ul>
-        {/* Solo en lg: en el celular el mosaico mide ~320 px de alto, el degradé tapaba la mitad y las dos fotos de abajo
-            se veían cortadas al aparecer (lo vio el desarrollador en el teléfono el 28/09/2026). */}
-        <div aria-hidden="true" className="degrade-mosaico pointer-events-none absolute inset-x-0 bottom-0 hidden h-[51.2%] lg:block print:hidden" />
       </div>
     </section>
   )

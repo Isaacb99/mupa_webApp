@@ -21,7 +21,8 @@ para `srcset`), ya recortado al aspecto de su celda cuando hizo falta. Tres orí
 | eje-vision-{800,1400} | V04 "Id. Vision - IMG_1676" (el cartel de la fachada), entera | Identidad, eje Visión (srcset) |
 | eje-narrativo-{800,1400} | V03 (PDF, 25/09/2026), 2016×1344 | Identidad, eje Eje narrativo (srcset) |
 | mid-fachada-piedra-{1300,2000} | V04 "Mid - IMG_1613", recorte x 0,7..87,4 %, y 1..87,7 % (3:2) | Foto sola entre los ejes y el cierre de Identidad |
-| logo-gobierno-san-juan.svg, logo-unsj.svg | Figma "Group 2" y "Group 3" (2392:192) | Cierre de Identidad y footer |
+| logo-gobierno-san-juan.svg | Figma "Group 2" (2392:192) | Cierre de Identidad y footer |
+| logo-unsj.svg | PDF oficial de la universidad ("Logo UNSJ.pdf", Illustrator, 28/09/2026), convertido a SVG con pdf.js (79 trazados blancos, viewBox recortado a la tinta); hasta entonces el "Group 3" del Figma, que era el mismo dibujo | Cierre de Identidad y footer |
 | obra-restauracion-{500,1000} | Figma "06 1" | Mosaico de Obra, foto 1 (arriba a la izquierda) |
 | obra-carnivoro-hall-{600,1200} | Figma "07 1" | Mosaico, foto 2 (la grande) |
 | obra-fachada-{500,1000} | Figma "08 1" | Mosaico, foto 3 (derecha) |

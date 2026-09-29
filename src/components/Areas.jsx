@@ -1,6 +1,7 @@
 import { useMemo, useRef } from 'react'
 import patronC from '../assets/patron-c.svg'
 import { areas, site, ui } from '../content.js'
+import { medirEnganche, progresoEnganche } from '../hooks/enganche.js'
 import useAcordeonScroll from '../hooks/useAcordeonScroll.js'
 import useScrollPorPasos from '../hooks/useScrollPorPasos.js'
 import { PIEDRAS, VIEWBOX } from './marcaPatron.js'
@@ -59,29 +60,60 @@ const PENDIENTE = ui.pendiente
 // Las etiquetas de arriba se encienden con el scroll, de a una y en orden (Ciencia, Educación, Producción, Forma Lab),
 // y con cada una se enciende (de gris a crema) la piedra correspondiente de la marca MuPa del patrón (M, u, P, a): al
 // final la marca queda entera encendida; al subir se apagan en el orden inverso (idea del desarrollador, 28/09/2026).
-// Mismo motor por pasos que el mosaico de Obra (useScrollPorPasos con `aplicar`, sin enganche): el scroll elige
-// cuántas están encendidas, con histéresis, compuerta de gestos y saltos directos, y el cambio es un fundido de CSS
-// (350 ms al encender, 500 al apagar; sin transición cuando el motor pinta directo: data-directo). Estado en el DOM
-// (data-activa en cada etiqueta y en cada piedra), sin estado de React. Con reduced-motion y al imprimir, todas
-// encendidas (CSS).
-function medirEtiquetas({ bloque }) {
-  return { paso: 1, lista: bloque.offsetHeight }
+// Mismo motor por pasos que el mosaico de Obra (useScrollPorPasos con `aplicar`): el scroll elige cuántas están
+// encendidas, con histéresis, compuerta de gestos y saltos directos, y el cambio es un fundido de CSS (350 ms al
+// encender, 500 al apagar; sin transición cuando el motor pinta directo: data-directo). Estado en el DOM (data-activa
+// en cada etiqueta y en cada piedra), sin estado de React. Con reduced-motion y al imprimir, todas encendidas (CSS).
+// Debajo de lg el bloque (franja del patrón + etiquetas) se engancha en la pantalla mientras se encienden, como la
+// línea de tiempo de Obra (pedido del desarrollador el 28/09/2026): centrado en el alto, mínimo 2 rem del borde, con un
+// recorrido de 7,5 rem por etiqueta; si no entra con ese margen, queda suelto (data-libre) y se enciende al pasar por la
+// pantalla. En lg no se engancha: cuelga del diseño del V04 (patrón a la izquierda, etiquetas a la derecha).
+const MARGEN_ENGANCHE = 32
+
+// Alto del viewport "estable", como en useScrollPorPasos y useHitoActivo: sin hover (celulares y tablets) la barra
+// de direcciones cambia innerHeight en pleno gesto y, si el top del bloque fijo se recalculara con cada cambio, el
+// bloque saltaría (el desarrollador vio "un pequeño salto" en el teléfono el 28/09/2026); ahí el alto solo se actualiza
+// con cambios grandes o de ancho. Con mouse cada cambio cuenta.
+const sinHover = typeof matchMedia === 'function' ? matchMedia('(hover: none)') : { matches: false }
+let altoEstable = 0
+let anchoEstable = 0
+function altoViewport() {
+  const h = window.innerHeight
+  if (!altoEstable || window.innerWidth !== anchoEstable || !sinHover.matches || Math.abs(h - altoEstable) > 200) altoEstable = h
+  anchoEstable = window.innerWidth
+  return altoEstable
 }
 
-// 0 cuando el borde de arriba de la lista pasa el 75 % de la pantalla (era el 90 %: la primera se encendía casi en el
-// borde de abajo y el desarrollador pidió que arranque "un poco después", 28/09/2026); 1 tras recorrer el 55 % de la
-// pantalla (o 1,2 veces el alto de la lista si es más), así las cuatro se encienden mientras la lista sigue entera a la
-// vista (a 900 de alto, la primera con la lista a 613 px del borde de arriba y la última a 241).
-function progresoEtiquetas({ top }, alto, { lista }) {
+function medirEtiquetas({ bloque, fijo, lista }) {
+  delete bloque.dataset.libre
+  fijo.style.top = ''
+  const alto = altoViewport()
+  if (fijo.offsetHeight + 2 * MARGEN_ENGANCHE > alto) bloque.dataset.libre = ''
+  else fijo.style.top = `${Math.max(MARGEN_ENGANCHE, Math.round((alto - fijo.offsetHeight) / 2))}px`
+  const enganche = medirEnganche(fijo)
+  // desfase: dónde arranca la lista dentro del bloque (para el progreso sin enganche; ahí el bloque no está corrido).
+  return { paso: 1, ...enganche, lista: lista.offsetHeight, desfase: lista.getBoundingClientRect().top - bloque.getBoundingClientRect().top }
+}
+
+// Enganchado: 0 al engancharse y 1 al soltarse (el recorrido es el espaciador que sigue al bloque fijo). Suelto (lg o
+// pantalla baja): 0 cuando el borde de arriba de la lista pasa el 75 % de la pantalla (era el 90 %: la primera se
+// encendía casi en el borde de abajo y el desarrollador pidió que arranque "un poco después", 28/09/2026); 1 tras
+// recorrer el 55 % de la pantalla (o 1,2 veces el alto de la lista si es más), así las cuatro se encienden mientras la
+// lista sigue entera a la vista (a 900 de alto, la primera con la lista a 613 px del borde de arriba y la última a 241).
+function progresoEtiquetas(rect, alto, medida) {
+  if (medida.enganchado) return progresoEnganche(rect, alto, medida)
+  const top = rect.top + medida.desfase
   const inicio = alto * 0.75
-  const recorrido = Math.max(alto * 0.55, lista * 1.2)
+  const recorrido = Math.max(alto * 0.55, medida.lista * 1.2)
   return Math.min(Math.max((inicio - top) / recorrido, 0), 1)
 }
 
 // Parada `fila` = cuántas etiquetas están encendidas, desde la primera; -1: sin efecto (reduced-motion, desmontaje).
-function aplicarEtiquetas({ bloque, marca }, fila, animar) {
+// `cabecera` contiene la lista y las dos marcas (la de escritorio y la de celular: cada piedra lleva data-i con su
+// orden); `directo` es la lista, donde vive el selector que apaga las transiciones.
+function aplicarEtiquetas({ bloque, cabecera }, fila, animar) {
   const etiquetas = [...bloque.querySelectorAll('li')]
-  const piedras = marca ? [...marca.querySelectorAll('path')] : []
+  const piedras = cabecera ? [...cabecera.querySelectorAll('svg[data-marca] path')] : []
   const nodos = [...etiquetas, ...piedras]
   if (fila < 0) {
     for (const nodo of nodos) delete nodo.dataset.activa
@@ -89,19 +121,19 @@ function aplicarEtiquetas({ bloque, marca }, fila, animar) {
   }
   // Sin animar (primer pintado, saltos, reentrada en vista): las transiciones se apagan durante la escritura y vuelven
   // en el frame siguiente, ya con el estado nuevo aplicado.
-  if (!animar) bloque.dataset.directo = ''
+  if (!animar) cabecera.dataset.directo = ''
   etiquetas.forEach((li, i) => {
     if (i < fila) li.dataset.activa = ''
     else delete li.dataset.activa
   })
-  piedras.forEach((p, i) => {
-    if (i < fila) p.dataset.activa = ''
+  for (const p of piedras) {
+    if (Number(p.dataset.i) < fila) p.dataset.activa = ''
     else delete p.dataset.activa
-  })
+  }
   if (!animar) {
     // Forzar el recálculo con las transiciones apagadas antes de volver a habilitarlas.
-    void bloque.offsetWidth
-    requestAnimationFrame(() => delete bloque.dataset.directo)
+    void cabecera.offsetWidth
+    requestAnimationFrame(() => delete cabecera.dataset.directo)
   }
 }
 
@@ -109,19 +141,27 @@ function aplicarEtiquetas({ bloque, marca }, fila, animar) {
 // del patrón ya no las trae). Apagadas van en gris (el gris de los textos secundarios al 40 %) y encendidas en crema,
 // sin los colores de las bandas (pedido del desarrollador el 28/09/2026: "grises pero con la misma función de
 // encendido"; primero se pintaban del color de cada área).
-function MarcaPatron({ referencia, className }) {
+function MarcaPatron({ className }) {
   return (
-    <svg ref={referencia} viewBox={VIEWBOX} aria-hidden="true" className={className}>
+    <svg data-marca viewBox={VIEWBOX} aria-hidden="true" className={className}>
       {PIEDRAS.map((d, i) => (
         <path
           key={i}
           d={d}
+          data-i={i}
           className="fill-muted opacity-40 transition-[fill,opacity] duration-500 ease-out data-activa:fill-paper data-activa:opacity-100 data-activa:duration-[350ms] motion-reduce:fill-paper motion-reduce:opacity-100 print:fill-paper print:opacity-100"
         />
       ))}
     </svg>
   )
 }
+
+// Clases compartidas por el SVG del patrón y la marca superpuesta: en lg cuelgan de la lista de etiquetas (caja de
+// 1756x415 px a 1440 cuyo borde izquierdo arranca 1148 px a la izquierda de las etiquetas, 370 fuera de la pantalla); en
+// celular y tablet van en una franja aparte, arriba de las etiquetas, con el patrón a 900 px de ancho y la marca
+// arrancando en el margen del contenido (la marca empieza en el 28,4 % del patrón: 255 px).
+const PATRON_LG = 'pointer-events-none absolute top-1/2 -left-[71.75rem] hidden w-[109.74rem] max-w-none -translate-y-1/2 lg:block'
+const PATRON_CHICO = 'pointer-events-none absolute top-0 -left-[14.45rem] w-[56.25rem] max-w-none md:-left-[13.45rem]'
 
 // Marca MuPa (el SVG blanco del header) en el color del texto: el SVG se usa como máscara sobre bg-current, así toma el
 // color de cada banda sin tocar el archivo.
@@ -276,8 +316,10 @@ export default function Areas() {
   const { abiertos, alternar, cerca } = useAcordeonScroll(bandas, areas.items.length)
   const etiquetas = areas.etiquetas ?? []
   const lista = useRef(null)
-  const marca = useRef(null)
-  const refsEtiquetas = useMemo(() => ({ bloque: lista, marca }), [])
+  const cabecera = useRef(null)
+  const bloqueEtiquetas = useRef(null)
+  const fijoEtiquetas = useRef(null)
+  const refsEtiquetas = useMemo(() => ({ bloque: bloqueEtiquetas, fijo: fijoEtiquetas, lista, cabecera }), [])
   const estilos = etiquetas.map((_, i) => BANDA[areas.items[i]?.color] ?? BANDA_DEFAULT)
 
   // Una parada más que etiquetas: de ninguna encendida a todas.
@@ -290,16 +332,17 @@ export default function Areas() {
   })
 
   return (
-    /* Padding de arriba: el aire entre el mosaico de Obra y el título. 560 px en lg (el V04 tiene 464 y hasta el
-       28/09/2026 eran 290; ese día el desarrollador pidió más aire arriba y abajo del mosaico, primero a 464 y después
-       "un poco más"), 128 en celular y 160 en tablet (eran 64 y 96). */
-    <section id="areas" aria-labelledby="areas-titulo" className="pt-32 pb-16 md:pt-40 md:pb-24 lg:pt-[35rem]">
+    /* Padding de arriba: el aire entre el mosaico de Obra y el título. 384 px en lg (el V04 tiene 464 y hasta el
+       28/09/2026 eran 290; ese día el desarrollador pidió más aire arriba y abajo del mosaico, subió a 464 y a 560, y
+       en escritorio lo vio "muy abajo": bajó a 464 y después "un poco más arriba", 384; arriba del mosaico quedaron los
+       480), 128 en celular y 160 en tablet (eran 64 y 96). */
+    <section id="areas" aria-labelledby="areas-titulo" className="pt-32 pb-16 md:pt-40 md:pb-24 lg:pt-[24rem]">
       {/* Cabecera del V04 (28/09/2026; hasta entonces el mockup V02, con dos párrafos, título centrado y el remate "que
           el MuPa nunca deje de moverse", que la diseñadora sacó): título en dos líneas a la izquierda (48,75 px,
           interlineado 1,38, la segunda línea en negrita) y, 112 px más abajo, a la derecha (desde el 54,8 % del contenido)
           las cuatro etiquetas de las áreas en recuadros con el borde de su color, y debajo el párrafo. A la izquierda de
           las etiquetas, el patrón c de piedritas con la marca MuPa rellena. overflow-x-clip: el patrón sale por el borde. */}
-      <div className="overflow-x-clip">
+      <div ref={cabecera} className="overflow-x-clip [&[data-directo]_*]:!transition-none">
         <div className="mx-auto w-full max-w-sitio px-6 md:px-10">
           <h2
             id="areas-titulo"
@@ -308,28 +351,37 @@ export default function Areas() {
             {areas.titulo ? <TextoDestacado texto={areas.titulo} /> : PENDIENTE}
           </h2>
 
-          <div className="mt-10 md:mt-16 lg:mt-[7rem] lg:grid lg:grid-cols-[minmax(0,1fr)_34.34375rem]">
+          <div className="mt-8 md:mt-16 lg:mt-[7rem] lg:grid lg:grid-cols-[minmax(0,1fr)_34.34375rem]">
             <div className="lg:col-start-2">
+              {/* Bloque que se engancha debajo de lg (ver medirEtiquetas): la franja del patrón y las etiquetas quedan
+                  fijas (top puesto por el hook) mientras el scroll recorre el espaciador de abajo, 7,5 rem por
+                  etiqueta; con data-libre (no entra en la pantalla), reduced-motion o al imprimir, suelto y sin
+                  recorrido. En lg es un div común. */}
+              <div ref={bloqueEtiquetas} className="relative">
+                <div
+                  ref={fijoEtiquetas}
+                  className="max-lg:sticky [[data-libre]_&]:static motion-reduce:static print:static"
+                >
+                  {/* Celular y tablet: la franja del patrón con la marca, arriba de las etiquetas (el patrón entero no
+                      entra; en escritorio cuelga de la lista). 213 px de alto, que es lo que mide el patrón a 900 px de
+                      ancho; la marca se enciende igual que en escritorio (pedido del desarrollador el 28/09/2026). */}
+                  <div aria-hidden="true" className="relative mb-8 h-[13.3125rem] lg:hidden">
+                    <img src={patronC} alt="" className={`patron-c ${PATRON_CHICO}`} />
+                    <MarcaPatron className={`h-auto ${PATRON_CHICO}`} />
+                  </div>
               {/* Las etiquetas no son botones (el desarrollador lo confirmó el 28/09/2026): una lista. Recuadros de
                   549,5x56,4 px a 1440, borde de 2,25 px, esquinas de 3,7, 40 px entre sí, Roboto Mono Regular 24 crema
                   a 21,5 px del borde. Se encienden con el scroll (ver aplicarEtiquetas): la encendida se rellena con
-                  el par de colores de su banda. data-directo apaga las transiciones cuando el motor pinta directo. */}
-              <ul ref={lista} role="list" className="relative flex flex-col gap-6 lg:gap-10 [&[data-directo]_*]:!transition-none">
+                  el par de colores de su banda. data-directo (en la cabecera) apaga las transiciones cuando el motor
+                  pinta directo. */}
+              <ul ref={lista} role="list" className="relative flex flex-col gap-6 lg:gap-10">
                 {/* Patrón c (V04), colgado de la lista para quedar centrado con ella: caja de 1756x415 px a 1440 cuyo
                     borde izquierdo arranca 1148 px a la izquierda de las etiquetas (370 fuera de la pantalla a 1440); la
                     máscara (index.css: patron-c) lo deja opaco en el borde de la pantalla y transparente antes de llegar
                     a las etiquetas. Encima, con la misma caja, las cuatro piedras de la marca, grises y sin máscara,
                     que se encienden en crema (MarcaPatron). Solo en lg. */}
-                <img
-                  src={patronC}
-                  alt=""
-                  aria-hidden="true"
-                  className="patron-c pointer-events-none absolute top-1/2 -left-[71.75rem] hidden w-[109.74rem] max-w-none -translate-y-1/2 lg:block"
-                />
-                <MarcaPatron
-                  referencia={marca}
-                  className="pointer-events-none absolute top-1/2 -left-[71.75rem] hidden h-auto w-[109.74rem] max-w-none -translate-y-1/2 lg:block"
-                />
+                <img src={patronC} alt="" aria-hidden="true" className={`patron-c ${PATRON_LG}`} />
+                <MarcaPatron className={`h-auto ${PATRON_LG}`} />
                 {etiquetas.map((etiqueta, i) => {
                   const estilo = estilos[i]
                   return (
@@ -342,6 +394,14 @@ export default function Areas() {
                   )
                 })}
               </ul>
+                </div>
+                {/* Recorrido del enganche: lo que se desplaza la página con el bloque fijo, 7,5 rem por etiqueta. */}
+                <div
+                  aria-hidden="true"
+                  className="h-[calc(var(--etiquetas)*7.5rem)] lg:h-0 [[data-libre]_&]:h-0 motion-reduce:h-0 print:h-0"
+                  style={{ '--etiquetas': etiquetas.length }}
+                />
+              </div>
               {/* Párrafo del V04: 452 px, 22,5/36, peso 400 (como en el archivo; los demás párrafos van en 300). */}
               <p className="mt-10 text-base leading-relaxed md:text-lg lg:mt-[5.6rem] lg:max-w-[28.25rem] lg:text-[1.40625rem] lg:leading-9">
                 {areas.parrafo || PENDIENTE}

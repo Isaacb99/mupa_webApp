@@ -1,0 +1,30 @@
+# Hostinger (Apache/LiteSpeed). Vite copia esta carpeta (public/) tal cual a la raíz del build, así que este archivo
+# llega a public_html/ con el index.html. Ojo con FileZilla: los archivos que empiezan con punto solo se ven con
+# "Forzar mostrar archivos ocultos" (menú Servidor).
+
+# 1) Siempre HTTPS y sin www: mupa.ar es el dominio canónico (también en <link rel="canonical"> y en las etiquetas OG).
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteCond %{HTTPS} off
+  RewriteRule (.*) https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
+  RewriteCond %{HTTP_HOST} ^www\.(.+)$ [NC]
+  RewriteRule (.*) https://%1%{REQUEST_URI} [R=301,L]
+</IfModule>
+
+# 2) Caché: el index.html se revalida siempre (es el único archivo que cambia de nombre nunca); las imágenes y el
+# favicon de la raíz, un día. Los archivos de assets/ llevan hash en el nombre y tienen su propio .htaccess (un año).
+<IfModule mod_headers.c>
+  <FilesMatch "\.html$">
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
+  <FilesMatch "\.(jpg|png|svg|ico|webmanifest)$">
+    Header set Cache-Control "public, max-age=86400"
+  </FilesMatch>
+</IfModule>
+
+# 3) Tipos que a veces faltan en el servidor.
+<IfModule mod_mime.c>
+  AddType font/woff2 .woff2
+  AddType image/webp .webp
+  AddType image/svg+xml .svg
+</IfModule>

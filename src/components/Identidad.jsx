@@ -360,10 +360,12 @@ export default function Identidad() {
       </div>
 
       {/* Cierre: párrafo a la izquierda y los logos en columna (64,5 px entre sí en el V04; eran 73) anclados a la
-          derecha, alineados a la izquierda entre sí y con el más ancho (Gobierno, 253,5 px) terminando a 148,5 px del
-          margen del contenido: así los dos arrancan en x 925,5 a 1440, donde los pone el V04 (en el V03, con logos más
-          anchos, el bloque terminaba a 110 del margen). En lg arranca a 375 px de la foto Mid, como en el archivo.
-          overflow-x-clip: el patrón b sale por el borde derecho. */}
+          derecha, alineados entre sí por el eje de sus emblemas redondos (el sello de la UNSJ y la flor de Gobierno:
+          el V04 los alinea por el borde izquierdo y el desarrollador los vio "desfasados", 28/09/2026; cada logo trae en
+          content.js el centro de su círculo y el que lo tiene más a la izquierda se corre la diferencia), y con el
+          más ancho (Gobierno, 253,5 px) terminando a 148,5 px del margen del contenido, donde lo pone el V04 (en el
+          V03, con logos más anchos, el bloque terminaba a 110 del margen). En lg arranca a 375 px de la foto Mid, como
+          en el archivo. overflow-x-clip: el patrón b sale por el borde derecho. */}
       <div className="overflow-x-clip">
         <div className="mx-auto w-full max-w-sitio px-6 pt-12 pb-16 md:px-10 md:pb-24 lg:flex lg:items-center lg:gap-12 lg:pt-[23rem]">
           <p
@@ -378,10 +380,16 @@ export default function Identidad() {
 
           <ul
             aria-label={ui.instituciones}
-            className="relative mt-12 flex flex-col items-start gap-10 lg:mt-0 lg:ml-auto lg:mr-[9.28125rem] lg:shrink-0 lg:gap-[4.03rem]"
+            className="relative mt-12 flex w-fit flex-col items-start gap-10 lg:mt-0 lg:ml-auto lg:mr-[9.28125rem] lg:shrink-0 lg:gap-[4.03rem]"
           >
-            {instituciones.map(({ nombre, logo, ancho, alto }, i) => (
-              <li key={nombre} className="relative">
+            {instituciones.map(({ nombre, logo, ancho, alto, circulo = 0 }, i) => (
+              /* --desfase: lo que se corre este logo a la derecha para que su emblema quede en el eje del que lo tiene
+                 más a la derecha (a 1440; por debajo de lg, al 70 % como los logos). */
+              <li
+                key={nombre}
+                className="relative ml-[calc(var(--desfase)*0.7)] lg:ml-(--desfase)"
+                style={{ '--desfase': `${(Math.max(...instituciones.map((inst) => inst.circulo ?? 0)) - circulo) / 16}rem` }}
+              >
                 {logo ? (
                   /* Ancho del diseño a 1440 (--ancho); por debajo de lg, al 70 %. width/height reservan la proporción antes
                      de que cargue el SVG, así no empuja la página. */
@@ -401,15 +409,16 @@ export default function Identidad() {
                 )}
                 {/* Patrón b (V04): piedritas en contorno a la derecha de los logos, saliendo por el borde de la pantalla
                     y bajando hasta la tinta del título de Obra (por eso Obra lleva tanto padding arriba en lg). Cuelga
-                    del segundo logo (Gobierno): su caja arranca 12 px por encima de él y 230,5 px a su derecha (617x606
-                    px a 1440; el archivo la pone en 1156..1773 x 5577..6183 de la página); la máscara que lo desvanece
-                    hacia el borde está en index.css (patron-b). Solo en lg. */}
+                    del segundo logo (Gobierno): su caja arranca 12 px por encima de él y 219,8 px a su derecha (230,5
+                    menos los 10,7 que ese logo se corre para alinear los emblemas; 617x606 px a 1440, el archivo la
+                    pone en 1156..1773 x 5577..6183 de la página); la máscara que lo desvanece hacia el borde está en
+                    index.css (patron-b). Solo en lg. */}
                 {i === instituciones.length - 1 && (
                   <img
                     src={patronB}
                     alt=""
                     aria-hidden="true"
-                    className="patron-b pointer-events-none absolute -top-3 left-[14.40625rem] hidden w-[38.58rem] max-w-none lg:block"
+                    className="patron-b pointer-events-none absolute -top-3 left-[13.7375rem] hidden w-[38.58rem] max-w-none lg:block"
                   />
                 )}
               </li>

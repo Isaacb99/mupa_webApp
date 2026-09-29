@@ -195,10 +195,13 @@ export const identidad = {
   // Logos del Figma (SVG blancos): ancho y alto con que van en el diseño a 1440 (el alto reserva su lugar al cargar).
   // Primero la Universidad y después Gobierno (pedido del desarrollador el 22/09/2026; el Figma los tiene al revés). El
   // footer usa la misma lista.
-  // Anchos del V04 a 1440 (205 y 253,5; en el Figma eran 212 y 287), con el alto proporcional de cada SVG.
+  // Anchos del V04 a 1440 (205 y 253,5; en el Figma eran 212 y 287), con el alto proporcional de cada SVG. El de la
+  // UNSJ es el oficial (PDF de la universidad, 28/09/2026: mismo dibujo que el del Figma, proporción 2,17).
+  // circulo: centro del emblema redondo de cada logo, en px desde su borde izquierdo a ese ancho (medido sobre el SVG):
+  // los dos se alinean por ese eje (pedido del desarrollador el 28/09/2026).
   instituciones: [
-    { nombre: 'Universidad Nacional de San Juan', logo: logoUnsj, ancho: 205, alto: 93.6 },
-    { nombre: 'Gobierno de San Juan', logo: logoGobierno, ancho: 253.5, alto: 73.06 },
+    { nombre: 'Universidad Nacional de San Juan', logo: logoUnsj, ancho: 205, alto: 94.4, circulo: 47.3 },
+    { nombre: 'Gobierno de San Juan', logo: logoGobierno, ancho: 253.5, alto: 73.06, circulo: 36.6 },
   ],
 }
 
