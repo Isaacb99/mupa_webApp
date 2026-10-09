@@ -201,6 +201,12 @@ export default function useScrollPorPasos(refs, { pasos = 3, medir, progreso, ej
       sinAnimar = true
       remedir()
     }
+    // La barra del navegador móvil cambia solo el alto (y menos de 200 px): el alto va cacheado y no hay nada que
+    // remedir; remedirlo igual forzaba layouts en pleno gesto (ver Compatibilidad entre navegadores en CLAUDE.md).
+    const alRedimensionar = () => {
+      if (sinHover.matches && alto && window.innerWidth === ancho && Math.abs(window.innerHeight - alto) <= 200) return
+      remedir()
+    }
 
     const io = new IntersectionObserver(
       (entradas) => {
@@ -221,7 +227,7 @@ export default function useScrollPorPasos(refs, { pasos = 3, medir, progreso, ej
     ro.observe(bloque)
 
     window.addEventListener('scroll', alScroll, { passive: true })
-    window.addEventListener('resize', remedir)
+    window.addEventListener('resize', alRedimensionar)
     for (const evento of GESTOS) window.addEventListener(evento, alGesto, { passive: true })
     if (document.readyState === 'complete') alCargar()
     else window.addEventListener('load', alCargar, { once: true })
@@ -237,7 +243,7 @@ export default function useScrollPorPasos(refs, { pasos = 3, medir, progreso, ej
       io.disconnect()
       ro.disconnect()
       window.removeEventListener('scroll', alScroll)
-      window.removeEventListener('resize', remedir)
+      window.removeEventListener('resize', alRedimensionar)
       for (const evento of GESTOS) window.removeEventListener(evento, alGesto)
       window.removeEventListener('load', alCargar)
       reduce.removeEventListener('change', alCambiarMovimiento)

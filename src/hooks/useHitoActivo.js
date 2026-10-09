@@ -34,7 +34,11 @@ const ESPERA_CARGA = 1000
 //   top que pone el hook y la lista `hueco` px debajo (data-obra="trio" en la sección; pedidos del desarrollador del
 //   22/09/2026 y del 25/09, "el título y el párrafo deberían quedar"). Para que se suelten en el mismo scroll, el hook
 //   deja --cola = hueco + alto de la lista, que el bloque de la lista lleva como margen negativo y el mosaico devuelve.
-//   Si el trío no entra, se engancha solo la lista.
+//   Si el trío no entra con los tamaños normales se prueba con los compactos (data-obra="trio-compacto", variante
+//   obra-compacto: título a 28 px, párrafo e hitos a 13 px, menos aire), que es lo que hace falta en los iPhone: Safari
+//   deja ~664 px de alto con sus barras y el trío normal necesita 716 a 375-390 px de ancho (el 30/09/2026 el
+//   desarrollador vio en su iPhone que el título y el párrafo se iban y quedaba la lista sola; en Chrome de Android hay
+//   ~780 y entra). Si tampoco entra compacto, se engancha solo la lista.
 // - Lista suelta (variante hitos-libres: reduced-motion, impresión, o si la lista no entra en la pantalla con MARGEN
 //   arriba y abajo, que mide este hook y marca con data-hitos-libres en la sección): el último hito cuya parte de arriba
 //   ya pasó la línea de lectura; antes de que el primero llegue, el primero (como en el Figma).
@@ -145,7 +149,6 @@ export default function useHitoActivo(lista, enganche = {}) {
       if (!alto || !sinHover || window.innerWidth !== ancho) alto = window.innerHeight
       ancho = window.innerWidth
       if (fijo) {
-        const lista = fijo.offsetHeight
         // Centrado en la pantalla. Si con el alto cacheado no entraría en la pantalla de ahora (cambió solo el alto:
         // teclado en pantalla, ventana), el top se calcula con el alto vivo.
         const centrar = (grupo, margen = MARGEN) => {
@@ -156,20 +159,34 @@ export default function useHitoActivo(lista, enganche = {}) {
         // ¿Entra con MARGEN arriba y abajo? Con el alto cacheado: en celular la barra del navegador no cambia el modo en
         // pleno gesto. Los altos no dependen del modo (el ancho de las columnas no cambia), así que no oscila.
         const entra = (grupo, margen = MARGEN) => grupo + 2 * margen <= alto
-        seccion?.toggleAttribute('data-hitos-libres', !entra(lista))
         // Debajo de lg: título + párrafo + lista juntos si entran (en lg el párrafo va al lado de la lista y el trío es
-        // la lista sola). El hueco es el margen de arriba del bloque de la lista, que colapsa con el de la lista.
-        const trio =
-          !escritorio.matches && alineado && titulo
-            ? alineado.offsetHeight +
-              Math.max(parseFloat(getComputedStyle(bloque).marginTop) || 0, parseFloat(getComputedStyle(el).marginTop) || 0) +
-              lista
-            : 0
-        const enTrio = trio > 0 && !reduce.matches && entra(trio, MARGEN_TRIO)
+        // la lista sola), primero con los tamaños normales y si no con los compactos; se decide con el alto cacheado,
+        // así no cambia en pleno gesto. El hueco es el margen de arriba del bloque de la lista, que colapsa con el de
+        // la lista. Cada intento se mide con su variante puesta (cambia los tamaños), así que el alto de la lista se
+        // lee después de decidir.
+        const medirTrio = () =>
+          alineado.offsetHeight +
+          Math.max(parseFloat(getComputedStyle(bloque).marginTop) || 0, parseFloat(getComputedStyle(el).marginTop) || 0) +
+          fijo.offsetHeight
+        let modo = ''
+        let trio = 0
+        if (seccion && !escritorio.matches && alineado && titulo && !reduce.matches) {
+          for (const candidato of ['trio', 'trio-compacto']) {
+            seccion.dataset.obra = candidato
+            trio = medirTrio()
+            if (entra(trio, MARGEN_TRIO)) {
+              modo = candidato
+              break
+            }
+          }
+        }
+        const enTrio = Boolean(modo)
         if (seccion) {
-          if (enTrio) seccion.dataset.obra = 'trio'
+          if (enTrio) seccion.dataset.obra = modo
           else delete seccion.dataset.obra
         }
+        const lista = fijo.offsetHeight
+        seccion?.toggleAttribute('data-hitos-libres', !entra(lista))
         if (enTrio) seccion?.style.setProperty('--cola', `${trio - alineado.offsetHeight}px`)
         else seccion?.style.removeProperty('--cola')
         const top = enTrio ? centrar(trio, MARGEN_TRIO) : centrar(lista)
@@ -194,10 +211,16 @@ export default function useHitoActivo(lista, enganche = {}) {
       if (!medida.alineadoEnganchado) for (const nodo of moviles) nodo.style.translate = ''
       pedir()
     }
+    // La barra del navegador móvil cambia solo el alto (y menos de 200 px): el alto va cacheado y no hay nada que
+    // remedir; remedirlo igual forzaba layouts en pleno gesto (ver Compatibilidad entre navegadores en CLAUDE.md).
+    const alRedimensionar = () => {
+      if (sinHover && alto && window.innerWidth === ancho && Math.abs(window.innerHeight - alto) <= 200) return
+      remedir()
+    }
     const escuchar = (si) => {
       const metodo = si ? 'addEventListener' : 'removeEventListener'
       window[metodo]('scroll', pedir, { passive: true })
-      window[metodo]('resize', remedir)
+      window[metodo]('resize', alRedimensionar)
     }
     // Si activan "reducir movimiento" con la página abierta, corta el recorrido en curso.
     const alCambiarMovimiento = () => {

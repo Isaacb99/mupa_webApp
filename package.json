@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
-    "build:preview": "vite build --mode vista-previa --outDir dist-preview --emptyOutDir",
+    "build": "vite build && node tools/prerender.mjs dist",
+    "build:preview": "vite build --mode vista-previa --outDir dist-preview --emptyOutDir && node tools/prerender.mjs dist-preview vista-previa",
     "preview": "vite preview"
   },
   "dependencies": {

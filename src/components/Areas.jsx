@@ -1,7 +1,8 @@
-import { useMemo, useRef } from 'react'
+import { memo, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import patronC from '../assets/patron-c.svg'
 import { areas, site, ui } from '../content.js'
 import { medirEnganche, progresoEnganche } from '../hooks/enganche.js'
+import { deslizarAparicion, detenerDeslizamiento } from '../hooks/deslizarAparicion.js'
 import useAcordeonScroll from '../hooks/useAcordeonScroll.js'
 import useScrollPorPasos from '../hooks/useScrollPorPasos.js'
 import { PIEDRAS, VIEWBOX } from './marcaPatron.js'
@@ -182,17 +183,19 @@ function Marca({ className = '' }) {
 // pantalla (cargar). Los paneles del V04 no traen fotos, pero el desarrollador pidió mantenerlas (28/09/2026) con las
 // dos nuevas de la selección ("Acordeon - Ciencia" y "Acordeon - Produccion").
 // srcSet: dos tamaños (570 y 1140 px); en lg la foto mide 569 px, y en celular el ancho del contenido.
-function Foto({ src, srcSet, alt, cargar, className = '' }) {
+function Foto({ src, srcSet, alt, cargar, className = '', ...resto }) {
   const marco = `aspect-[569/566] w-full overflow-hidden rounded-[0.625rem] lg:max-w-[35.5625rem] lg:justify-self-end ${className}`
   if (src) {
     return (
-      <div className={marco}>
+      <div className={marco} {...resto}>
         <img
           src={src}
           srcSet={srcSet}
           sizes={srcSet ? '(min-width: 1024px) 36rem, (min-width: 768px) calc(100vw - 5rem), calc(100vw - 3rem)' : undefined}
           alt={alt}
           loading={cargar ? 'eager' : 'lazy'}
+          decoding="async"
+          onLoad={decodificar}
           className="h-full w-full object-cover"
         />
       </div>
@@ -201,13 +204,43 @@ function Foto({ src, srcSet, alt, cargar, className = '' }) {
   return <Placeholder alt={alt || PENDIENTE} className={marco} />
 }
 
-function Banda({ item, abierto, onToggle, cargar }) {
+// La foto se decodifica apenas carga (fuera del cuadro en que se abre el panel, que ya lleva el render de las bandas,
+// las capas nuevas y el primer pintado del texto; revisión de rendimiento en iPhone, 30/09/2026).
+const decodificar = (e) => e.currentTarget.decode?.().catch(() => {})
+
+// memo: abrir una banda no vuelve a renderizar las otras tres (cada una parsea sus párrafos con TextoDestacado).
+const Banda = memo(function Banda({ item, abierto, indice, alternar, cargar }) {
   const tabId = `tab-${item.id}`
   const panelId = `panel-${item.id}`
   const estilo = BANDA[item.color] ?? BANDA_DEFAULT
+  const nodo = useRef(null)
+  const panel = useRef(null)
+
+  // Aparición (data-aparicion: la pone useAcordeonScroll antes de abrir por scroll en el iPhone): antes de pintar, lo que
+  // estaba a la vista debajo de la cabecera baja deslizándose (hooks/deslizarAparicion.js). La marca vale solo para el
+  // cambio de estado que la trajo: se saca dos cuadros después, cuando las transiciones ya arrancaron con sus tiempos,
+  // así un cierre posterior (clic) vuelve a animar el alto. Si la banda se cierra mientras lo de abajo baja, se corta.
+  useLayoutEffect(() => {
+    const li = nodo.current
+    if (!li) return
+    if (!abierto) {
+      detenerDeslizamiento(li)
+      return
+    }
+    if (!li.hasAttribute('data-aparicion')) return
+    deslizarAparicion(li, panel.current)
+    let cuadro = requestAnimationFrame(() => {
+      cuadro = requestAnimationFrame(() => li.removeAttribute('data-aparicion'))
+    })
+    return () => cancelAnimationFrame(cuadro)
+  }, [abierto])
+  useEffect(() => {
+    const li = nodo.current
+    return () => detenerDeslizamiento(li)
+  }, [])
 
   return (
-    <li>
+    <li ref={nodo}>
       {/* Banda: 102 px de alto a 1440 (V02 y V04), nombre a 48,75 px (V04; el V02 lo tenía a 52) y la marca MuPa a la
           derecha. */}
       <h3
@@ -219,7 +252,7 @@ function Banda({ item, abierto, onToggle, cargar }) {
           id={tabId}
           aria-expanded={abierto}
           aria-controls={panelId}
-          onClick={onToggle}
+          onClick={() => alternar(indice)}
           className={`flex min-h-11 w-full items-center text-left transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 ${estilo.boton}`}
         >
           <span className="mx-auto flex w-full max-w-sitio items-center justify-between gap-6 px-6 py-4 md:px-10 md:py-5 lg:py-[1.3125rem]">
@@ -237,7 +270,11 @@ function Banda({ item, abierto, onToggle, cargar }) {
           antes arrancaba de golpe); cerrado queda invisible (fuera del orden de tabulación y del lector de pantalla).
           Al abrir, el texto sube 32 px y aparece, y la foto sube 48 px un poco después y más lento: la diferencia da la
           profundidad, como el párrafo de la intro. Al imprimir, abierto siempre. */}
+      {/* Aparición (solo aperturas por scroll en el iPhone; data-aparicion en el <li>, ver el hook): el panel toma su
+          alto de una vez (regla en la lista de bandas), lo que estaba debajo baja deslizándose como cuando crecía y el
+          texto y la foto suben y aparecen con sus tiempos de siempre. */}
       <div
+        ref={panel}
         id={panelId}
         data-panel
         role="region"
@@ -251,6 +288,7 @@ function Banda({ item, abierto, onToggle, cargar }) {
         <div className="min-h-0 overflow-hidden">
           <div className="mx-auto grid w-full max-w-sitio gap-10 px-6 py-12 md:px-10 md:py-16 lg:grid-cols-[minmax(0,36.25rem)_minmax(0,35.5625rem)] lg:justify-between lg:py-32">
             <div
+              data-texto
               className={`flex flex-col transition ease-out print:translate-y-0 print:opacity-100 ${
                 abierto
                   ? 'translate-y-0 opacity-100 delay-200 duration-[900ms] lg:delay-150 lg:duration-700'
@@ -265,6 +303,7 @@ function Banda({ item, abierto, onToggle, cargar }) {
                   alt={item.logo.alt}
                   width={item.logo.ancho}
                   height={item.logo.alto}
+                  loading={cargar ? 'eager' : 'lazy'}
                   className="mb-8 w-[13rem] lg:-mt-[1.4375rem] lg:mb-[5rem] lg:w-[19.625rem]"
                 />
               )}
@@ -298,6 +337,7 @@ function Banda({ item, abierto, onToggle, cargar }) {
               srcSet={item.foto.srcSet}
               alt={item.foto.alt}
               cargar={cargar}
+              data-foto
               className={`transition ease-out print:translate-y-0 print:opacity-100 ${
                 abierto
                   ? 'translate-y-0 opacity-100 delay-[350ms] duration-[1100ms] lg:delay-[250ms] lg:duration-[900ms]'
@@ -309,7 +349,7 @@ function Banda({ item, abierto, onToggle, cargar }) {
       </div>
     </li>
   )
-}
+})
 
 export default function Areas() {
   const bandas = useRef(null)
@@ -366,7 +406,7 @@ export default function Areas() {
                       entra; en escritorio cuelga de la lista). 213 px de alto, que es lo que mide el patrón a 900 px de
                       ancho; la marca se enciende igual que en escritorio (pedido del desarrollador el 28/09/2026). */}
                   <div aria-hidden="true" className="relative mb-8 h-[13.3125rem] lg:hidden">
-                    <img src={patronC} alt="" className={`patron-c ${PATRON_CHICO}`} />
+                    <img src={patronC} alt="" loading="lazy" className={`patron-c ${PATRON_CHICO}`} />
                     <MarcaPatron className={`h-auto ${PATRON_CHICO}`} />
                   </div>
               {/* Las etiquetas no son botones (el desarrollador lo confirmó el 28/09/2026): una lista. Recuadros de
@@ -380,7 +420,7 @@ export default function Areas() {
                     máscara (index.css: patron-c) lo deja opaco en el borde de la pantalla y transparente antes de llegar
                     a las etiquetas. Encima, con la misma caja, las cuatro piedras de la marca, grises y sin máscara,
                     que se encienden en crema (MarcaPatron). Solo en lg. */}
-                <img src={patronC} alt="" aria-hidden="true" className={`patron-c ${PATRON_LG}`} />
+                <img src={patronC} alt="" aria-hidden="true" loading="lazy" className={`patron-c ${PATRON_LG}`} />
                 <MarcaPatron className={`h-auto ${PATRON_LG}`} />
                 {etiquetas.map((etiqueta, i) => {
                   const estilo = estilos[i]
@@ -419,10 +459,10 @@ export default function Areas() {
           cierran fuera de la pantalla). */}
       <ul
         ref={bandas}
-        className="mt-12 flex w-full flex-col md:mt-16 lg:mt-[12.875rem] [&_[data-directo]_*]:!transition-none [&[data-directo]_*]:!transition-none"
+        className="mt-12 flex w-full flex-col md:mt-16 lg:mt-[12.875rem] [&_[data-directo]_*]:!transition-none [&[data-directo]_*]:!transition-none [&_[data-aparicion]_[data-panel]]:!duration-0"
       >
         {areas.items.map((item, i) => (
-          <Banda key={item.id} item={item} abierto={abiertos[i]} onToggle={() => alternar(i)} cargar={cerca} />
+          <Banda key={item.id} item={item} abierto={abiertos[i]} indice={i} alternar={alternar} cargar={cerca} />
         ))}
       </ul>
     </section>

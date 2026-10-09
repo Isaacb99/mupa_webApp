@@ -30,9 +30,14 @@
 */
 /*
   obra-trio: debajo de lg, si entran en la pantalla, el titulo, el parrafo y la lista de Obra historica se enganchan
-  juntos (lo mide useHitoActivo y lo marca con data-obra="trio" en la seccion).
+  juntos (lo mide useHitoActivo y lo marca con data-obra="trio" en la seccion). Si no entran con los tamanos normales
+  prueba con los compactos, obra-compacto (data-obra="trio-compacto": titulo a 28 px, parrafo e hitos a 13 px y menos
+  aire), que es lo que hace falta en los iPhone: Safari deja ~664 px de alto con sus barras (Chrome en Android, ~780) y
+  el trio normal necesita 716 a 375-390 px de ancho; el 30/09/2026 el desarrollador vio en su iPhone que el titulo y el
+  parrafo se iban con el scroll y quedaba la lista sola. Compacto, el trio mide ~574 px a 390 y ~610 a 375.
 */
-@custom-variant obra-trio (&:where([data-obra="trio"] *));
+@custom-variant obra-trio (&:where([data-obra^="trio"] *));
+@custom-variant obra-compacto (&:where([data-obra="trio-compacto"] *));
 
 @custom-variant hitos-libres {
   @media (prefers-reduced-motion: reduce) {

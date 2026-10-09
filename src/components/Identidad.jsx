@@ -418,6 +418,7 @@ export default function Identidad() {
                     src={patronB}
                     alt=""
                     aria-hidden="true"
+                    loading="lazy"
                     className="patron-b pointer-events-none absolute -top-3 left-[13.7375rem] hidden w-[38.58rem] max-w-none lg:block"
                   />
                 )}

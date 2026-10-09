@@ -4,7 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MuPa - Museo Paleontológico de San Juan</title>
-    <meta name="description" content="Museo Paleontológico de San Juan: un museo de sanjuaninos, hecho por sanjuaninos." />
+    <!-- Descripción para los buscadores: armada con las palabras del propio museo (el texto del eje narrativo de
+         Identidad), en 160 caracteres, que es lo que Google llega a mostrar. A validar con el museo. -->
+    <meta
+      name="description"
+      content="Museo Paleontológico de San Juan: divulgación, educación y preservación del patrimonio del Período Triásico, principalmente del Parque Provincial Ischigualasto."
+    />
     <!-- __SITIO_URL__ lo reemplaza vite.config.js según el build: https://mupa.ar/ en producción y
          https://mupa.ar/preview/ en la vista previa (las etiquetas OG necesitan URL absolutas). -->
     <link rel="canonical" href="__SITIO_URL__" />
@@ -26,6 +31,38 @@
     <meta property="og:image:alt" content="Fachada del Museo Paleontológico de San Juan con el logo MuPa" />
     <meta property="og:locale" content="es_AR" />
     <meta name="twitter:card" content="summary_large_image" />
+    <!-- Datos estructurados (schema.org) para los buscadores: el nombre del sitio que Google muestra arriba del
+         resultado (WebSite) y la ficha del museo (Museum). Solo datos que el museo ya publicó: faltan la dirección, los
+         horarios, el teléfono, el mail y las redes, que se agregan acá cuando el museo los pase (address.streetAddress,
+         openingHoursSpecification, telephone, email, sameAs). El logo es el ícono de 180 px: Google lo pide de 112 px o
+         más y que se vea bien sobre blanco. -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebSite",
+            "@id": "__SITIO_URL__#sitio",
+            "url": "__SITIO_URL__",
+            "name": "MuPa",
+            "alternateName": ["Museo Paleontológico de San Juan", "MuPa - Museo Paleontológico de San Juan"],
+            "inLanguage": "es-AR",
+            "publisher": { "@id": "__SITIO_URL__#museo" }
+          },
+          {
+            "@type": "Museum",
+            "@id": "__SITIO_URL__#museo",
+            "name": "Museo Paleontológico de San Juan",
+            "alternateName": "MuPa",
+            "url": "__SITIO_URL__",
+            "logo": "__SITIO_URL__apple-touch-icon.png",
+            "image": "__SITIO_URL__og.jpg",
+            "description": "Institución dedicada en exclusividad a la divulgación, educación y preservación del patrimonio del Período Triásico, principalmente proveniente del Parque Provincial Ischigualasto (Patrimonio de la Humanidad por la UNESCO).",
+            "address": { "@type": "PostalAddress", "addressRegion": "San Juan", "addressCountry": "AR" }
+          }
+        ]
+      }
+    </script>
     <!-- Las fuentes van en el repo (src/assets/fonts, ver src/index.css y tools/subset-fuente.mjs): sin pedidos a
          fonts.googleapis.com, que demoraba ~530 ms el primer texto, y con el eje de ancho que la API no sirve. -->
   </head>

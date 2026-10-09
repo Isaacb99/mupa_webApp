@@ -23,7 +23,10 @@ export function scrollSuaveEnCurso() {
 // scroll, así la inercia de la rueda sigue su curva desde el lugar nuevo (con reset se cortaba de golpe).
 export function mantenerEnPantalla(referencia, topAntes, yAntes) {
   const falta = referencia.getBoundingClientRect().top - topAntes
-  if (Math.abs(falta) >= 0.5) window.scrollTo({ top: window.scrollY + falta, behavior: 'instant' })
+  // scrollBy y no scrollTo: en WebKit el pedido viaja como delta y el proceso de UI lo suma a la posición real del
+  // UIScrollView; scrollTo manda una posición absoluta calculada con el scrollY del proceso web, que durante un gesto
+  // va uno o dos cuadros atrás (iOS, 30/09/2026). En Chrome y Firefox es idéntico.
+  if (Math.abs(falta) >= 0.5) window.scrollBy({ top: falta, behavior: 'instant' })
   const movido = window.scrollY - yAntes
   if (lenisActual && movido) {
     lenisActual.animatedScroll += movido
@@ -37,6 +40,7 @@ export function mantenerEnPantalla(referencia, topAntes, yAntes) {
       animacion.to += movido
     }
   }
+  return movido
 }
 
 // Scroll suavizado en toda la página (pedido del desarrollador el 21/09/2026, con https://www.dhk.co.za/ de referencia,

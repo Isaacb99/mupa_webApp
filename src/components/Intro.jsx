@@ -45,6 +45,7 @@ export default function Intro() {
             <img
               src={patronA}
               alt=""
+              loading="lazy"
               className="patron-a pointer-events-none absolute -top-[6.6875rem] -left-[17.03rem] w-[38.58rem] max-w-none"
             />
           </div>

@@ -177,7 +177,7 @@ export default function ObraHistorica() {
             <h2
               ref={tituloHitos}
               id="obra-titulo"
-              className={`mb-4 font-display text-[length:clamp(2rem,4.27vw,3.84375rem)] leading-[1.16] font-thin whitespace-pre-line md:mb-8 lg:mt-[calc(0.73125rem-0.2012em)] lg:mb-12 print:static! print:translate-none! ${obra.titulo ? '' : 'text-muted'}`}
+              className={`mb-4 font-display text-[length:clamp(2rem,4.27vw,3.84375rem)] leading-[1.16] font-thin whitespace-pre-line obra-compacto:mb-3 obra-compacto:text-[1.75rem] md:mb-8 lg:mt-[calc(0.73125rem-0.2012em)] lg:mb-12 print:static! print:translate-none! ${obra.titulo ? '' : 'text-muted'}`}
             >
               {obra.titulo || PENDIENTE}
             </h2>
@@ -185,7 +185,7 @@ export default function ObraHistorica() {
               ref={parrafoHitos}
               className={
                 obra.parrafo
-                  ? 'font-light text-sm leading-[1.5] md:text-lg md:leading-relaxed lg:max-w-[26.1875rem] lg:text-[1.40625rem] lg:leading-9 print:translate-none!'
+                  ? 'font-light text-sm leading-[1.5] obra-compacto:text-[0.8125rem] obra-compacto:leading-[1.45] md:text-lg md:leading-relaxed lg:max-w-[26.1875rem] lg:text-[1.40625rem] lg:leading-9 print:translate-none!'
                   : 'text-muted'
               }
             >
@@ -212,21 +212,22 @@ export default function ObraHistorica() {
                encendido al menos 300 ms, así llega al blanco pleno antes de pasar al siguiente. */
             <div
               ref={bloqueHitos}
-              className="relative mt-10 max-lg:mb-[calc(-1*var(--cola,0px))] md:mt-12 lg:mt-0"
+              className="relative mt-10 max-lg:mb-[calc(-1*var(--cola,0px))] obra-compacto:mt-6 md:mt-12 lg:mt-0"
               style={{ '--hitos': obra.hitos.length }}
             >
               <div ref={fijoHitos} className="sticky hitos-libres:static">
-                <ol ref={lista} role="list" className="mt-4 flex w-full flex-col gap-[0.9375rem] lg:mt-0">
+                {/* El espacio entre hitos va en una variable: la línea que une los puntos lo usa para llegar al punto siguiente. */}
+                <ol ref={lista} role="list" className="mt-4 flex w-full flex-col gap-(--hueco-hitos) [--hueco-hitos:0.9375rem] obra-compacto:[--hueco-hitos:0.625rem] lg:mt-0">
                   {obra.hitos.map((hito, i) => (
                     <li
                       key={`${hito.anio}-${i}`}
-                      className={`flex gap-[1.15em] text-sm leading-5 md:text-lg md:leading-7 lg:text-[1.3125rem] lg:leading-[2.0625rem] ${i === activo ? 'text-verde-claro' : 'text-muted'}`}
+                      className={`flex gap-[1.15em] text-sm leading-5 obra-compacto:text-[0.8125rem] obra-compacto:leading-[1.125rem] md:text-lg md:leading-7 lg:text-[1.3125rem] lg:leading-[2.0625rem] ${i === activo ? 'text-verde-claro' : 'text-muted'}`}
                     >
                       {/* Punto del hito y línea que lo une con el siguiente: el punto toma el color del hito (bg-current) y
                           queda centrado en la primera línea del texto (0,5lh: media línea, sea cual sea el interlineado). */}
                       <span aria-hidden="true" className="relative w-[1em] shrink-0">
                         {i < obra.hitos.length - 1 && (
-                          <span className="absolute top-[0.5lh] bottom-[calc(-0.9375rem-0.5lh)] left-1/2 w-px -translate-x-1/2 bg-muted/40" />
+                          <span className="absolute top-[0.5lh] bottom-[calc(-1*var(--hueco-hitos)-0.5lh)] left-1/2 w-px -translate-x-1/2 bg-muted/40" />
                         )}
                         {/* El punto activo es el doble de grande, pero no cambia de tamano sino de escala: con
                             transition-all sobre size el navegador rehacia el layout en cada frame de la transicion. */}
