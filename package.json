@@ -3,16 +3,27 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "engines": {
+    "node": ">=22.9"
+  },
   "scripts": {
-    "dev": "vite",
-    "build": "vite build && node tools/prerender.mjs dist",
-    "build:preview": "vite build --mode vista-previa --outDir dist-preview --emptyOutDir && node tools/prerender.mjs dist-preview vista-previa",
-    "preview": "vite preview"
+    "dev": "node --env-file-if-exists=.env server/dev.js",
+    "dev:vite": "vite --port 5302",
+    "prebuild": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
+    "build": "vite build --outDir dist/client && vite build --ssr src/entry-server.jsx --outDir dist/server",
+    "start": "node --env-file-if-exists=.env server/servidor.js",
+    "test": "node --env-file-if-exists=.env --test --test-concurrency=1 \"server/pruebas/**/*.test.js\""
   },
   "dependencies": {
+    "express": "~5.2.1",
+    "helmet": "^8.3.0",
     "lenis": "^1.3.26",
+    "pg": "^8.23.1",
+    "pg-hstore": "^2.3.4",
     "react": "^19.2.5",
-    "react-dom": "^19.2.5"
+    "react-dom": "^19.2.5",
+    "sequelize": "^6.37.8",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.2.4",

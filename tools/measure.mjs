@@ -1,20 +1,21 @@
-// Uso: node measure.mjs <ancho> <alto> "<expresión JS>" [--shot salida.png] [--url http://127.0.0.1:5173/] [--reduce]
+// Uso: node measure.mjs <ancho> <alto> "<expresión JS>" [--shot salida.png] [--url http://127.0.0.1:5300/] [--reduce]
 // Emula el viewport por CDP (sirve para <500px), espera fonts.ready, evalúa la expresión y opcionalmente captura página completa.
 import { spawn } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 const argv = process.argv.slice(2);
 const opt = (k, d) => { const i = argv.indexOf(k); return i >= 0 ? argv.splice(i, 2)[1] : d; };
-const shot = opt('--shot', null), url = opt('--url', 'http://127.0.0.1:5173/');
+const shot = opt('--shot', null), url = opt('--url', 'http://127.0.0.1:5300/');
 const reduceIdx = argv.indexOf('--reduce'); const reduce = reduceIdx >= 0; if (reduce) argv.splice(reduceIdx, 1);
 const [w, h, expr = '1'] = [Number(argv[0]), Number(argv[1]), argv[2]];
-const port = 9300 + (process.pid % 900);
 const profile = mkdtempSync(join(tmpdir(), 'cdp-'));
-const chrome = spawn(process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe', ['--headless=new', '--enable-automation', '--disable-gpu', '--hide-scrollbars', `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, '--window-size=1280,900', 'about:blank'], { stdio: 'ignore' });
+// Puerto 0: Chrome elige uno libre y lo anota en DevToolsActivePort, dentro de su perfil. Con un puerto calculado, dos
+// corridas en paralelo podían chocar (una no levantaba y la otra respondía por las dos).
+const chrome = spawn(process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe', ['--headless=new', '--enable-automation', '--disable-gpu', '--hide-scrollbars', '--remote-debugging-port=0', `--user-data-dir=${profile}`, '--window-size=1280,900', 'about:blank'], { stdio: 'ignore' });
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let wsUrl;
-for (let i = 0; i < 50 && !wsUrl; i++) { try { const l = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json(); wsUrl = l.find(t => t.type === 'page')?.webSocketDebuggerUrl; } catch { await sleep(200); } }
+for (let i = 0; i < 50 && !wsUrl; i++) { try { const port = readFileSync(join(profile, 'DevToolsActivePort'), 'utf8').split('\n')[0].trim(); const l = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json(); wsUrl = l.find(t => t.type === 'page')?.webSocketDebuggerUrl; } catch { await sleep(200); } }
 if (!wsUrl) { chrome.kill(); throw new Error('Chrome no respondió por CDP'); }
 const ws = new WebSocket(wsUrl); await new Promise(r => ws.onopen = r);
 let id = 0; const pend = new Map(); const events = [];

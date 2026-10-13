@@ -11,6 +11,7 @@
 // Uso: node tools/analitica-check.mjs [--url http://127.0.0.1:5183/] [--ancho 1440] [--alto 900] [--ver-envios]
 import { spawn } from 'node:child_process'
 import { mkdtempSync, rmSync } from 'node:fs'
+import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -26,6 +27,18 @@ const verEnvios = argv.includes('--ver-envios')
 const BLOQUEADOS = ['*googletagmanager.com*', '*google-analytics.com*', '*analytics.google.com*', '*doubleclick.net*']
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+// Un puerto libre que da el sistema, para la depuración de Chrome (un puerto al azar podía chocar con otra corrida en
+// paralelo y hablar con el Chrome ajeno). No --remote-debugging-port=0 como measure.mjs: con el puerto 0 Chrome pone
+// navigator.webdriver en true y la página no mide.
+const puertoLibre = () =>
+  new Promise((resolver, rechazar) => {
+    const s = createServer()
+    s.once('error', rechazar)
+    s.listen(0, '127.0.0.1', () => {
+      const { port } = s.address()
+      s.close(() => resolver(port))
+    })
+  })
 
 // Recorre la página de a media pantalla, abre con un clic la primera banda cerrada y devuelve la cola de gtag.
 const RECORRIDO = `(async () => {
@@ -72,7 +85,7 @@ const RECORRIDO = `(async () => {
 })()`
 
 async function probar() {
-  const port = 9300 + Math.floor(Math.random() * 900)
+  const port = await puertoLibre()
   const profile = mkdtempSync(join(tmpdir(), 'cdp-'))
   const chrome = spawn(
     process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe',

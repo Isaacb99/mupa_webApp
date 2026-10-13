@@ -5,9 +5,16 @@
 // (1,6 Mbps de bajada, 150 ms de latencia, CPU x4). Son medidas de laboratorio: sirven para comparar un build con otro
 // en la misma máquina, no como valor absoluto.
 // Uso: node tools/vitals.mjs [--url http://127.0.0.1:5181/] [--perfil movil|escritorio] [--veces 3] [--consola]
-//   --consola agrega los errores y avisos de la consola (p. ej. los de hidratación de React).
+//   --consola agrega:
+//   - consola: los errores y avisos de la consola (p. ej. los de hidratación de React) y los del navegador que no
+//     pasan por console (dominio Log de CDP: los de seguridad, como las violaciones de CSP, y los de JavaScript);
+//     los de red no, que ya están en fallidos;
+//   - csp: las violaciones de la Content-Security-Policy (evento securitypolicyviolation, desde antes de que cargue
+//     la página).
+//   Las dos listas tienen que venir vacías. Si el documento respondió 500 o más, sale con código 1: no se hidrató
+//   nada y una consola vacía no prueba nada. documento: el estado HTTP de la página (una 404 a propósito da 404).
 import { spawn } from 'node:child_process'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -37,7 +44,10 @@ if (!p) throw new Error(`perfil desconocido: ${perfil}`)
 
 // Se instala antes de que cargue la página: junta las entradas de rendimiento a medida que ocurren.
 const OBSERVADORES = `(() => {
-  const v = (window.__vitals = { lcp: null, cls: 0, tbt: 0, tareasLargas: 0 })
+  const v = (window.__vitals = { lcp: null, cls: 0, tbt: 0, tareasLargas: 0, csp: [] })
+  document.addEventListener('securitypolicyviolation', (e) => {
+    v.csp.push((e.effectiveDirective || e.violatedDirective) + ' ' + (e.blockedURI || '') + (e.sourceFile ? ' (' + (e.sourceFile.split('/').pop() || 'documento') + ':' + e.lineNumber + ')' : ''))
+  })
   const describir = (el) => {
     if (!el) return null
     const clase = typeof el.className === 'string' ? el.className.trim().split(/\\s+/).slice(0, 3).join('.') : ''
@@ -60,17 +70,18 @@ const mediana = (xs) => {
 }
 
 async function medir() {
-  const port = 9300 + Math.floor(Math.random() * 900)
   const profile = mkdtempSync(join(tmpdir(), 'cdp-'))
+  // Puerto 0: Chrome elige uno libre y lo anota en DevToolsActivePort (un puerto al azar podía chocar con otra corrida).
   const chrome = spawn(
     process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe',
-    ['--headless=new', '--enable-automation', '--disable-gpu', '--hide-scrollbars', `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, '--window-size=1280,900', 'about:blank'],
+    ['--headless=new', '--enable-automation', '--disable-gpu', '--hide-scrollbars', '--remote-debugging-port=0', `--user-data-dir=${profile}`, '--window-size=1280,900', 'about:blank'],
     { stdio: 'ignore' },
   )
   try {
     let wsUrl
     for (let i = 0; i < 50 && !wsUrl; i++) {
       try {
+        const port = readFileSync(join(profile, 'DevToolsActivePort'), 'utf8').split('\n')[0].trim()
         const l = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json()
         wsUrl = l.find((t) => t.type === 'page')?.webSocketDebuggerUrl
       } catch {
@@ -108,6 +119,11 @@ async function medir() {
       if (m.method === 'Runtime.exceptionThrown') {
         consola.push(`excepción: ${(d.exceptionDetails.exception?.description ?? d.exceptionDetails.text).slice(0, 600)}`)
       }
+      // Lo que el navegador informa sin pasar por console: violaciones de CSP (source security), errores de
+      // JavaScript, intervenciones. Los de red (404 de un recurso) ya están en fallidos.
+      if (m.method === 'Log.entryAdded' && ['error', 'warning'].includes(d.entry.level) && d.entry.source !== 'network') {
+        consola.push(`${d.entry.level} ${d.entry.source}: ${d.entry.text.slice(0, 600)}`)
+      }
     }
     const send = (method, params = {}) =>
       new Promise((r) => {
@@ -120,6 +136,7 @@ async function medir() {
     await send('Page.enable')
     await send('Network.enable')
     await send('Runtime.enable')
+    if (conConsola) await send('Log.enable')
     await send('Network.setCacheDisabled', { cacheDisabled: true })
     await send('Emulation.setDeviceMetricsOverride', { width: p.ancho, height: p.alto, deviceScaleFactor: p.dpr, mobile: p.movil })
     if (p.movil) await send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 })
@@ -148,6 +165,7 @@ async function medir() {
         ...window.__vitals,
       }
     })()`)
+    const documento = [...pedidos.values()].find((q) => q.tipo === 'Document')?.estado ?? null
     const porTipo = {}
     let total = 0
     for (const q of pedidos.values()) {
@@ -160,6 +178,7 @@ async function medir() {
     ws.close()
     return {
       ...r,
+      documento,
       cls: Math.round(r.cls * 1000) / 1000,
       tbt: Math.round(r.tbt),
       pedidos: pedidos.size,
@@ -193,6 +212,7 @@ const ultima = corridas.at(-1)
 const salida = {
   url,
   perfil,
+  documento: ultima.documento,
   corridas: corridas.length,
   ttfb: mediana(corridas.map((c) => c.ttfb)),
   fcp: mediana(corridas.map((c) => c.fcp)),
@@ -209,5 +229,12 @@ const salida = {
   fallidos: ultima.fallidos,
   cadaCorrida: corridas.map((c) => ({ fcp: c.fcp, lcp: c.lcp?.ms, cls: c.cls, tbt: c.tbt })),
 }
-if (conConsola) salida.consola = [...new Set(corridas.flatMap((c) => c.consola))]
+if (conConsola) {
+  salida.consola = [...new Set(corridas.flatMap((c) => c.consola))]
+  salida.csp = [...new Set(corridas.flatMap((c) => c.csp ?? []))]
+}
 console.log(JSON.stringify(salida, null, 2))
+if (conConsola && corridas.some((c) => c.documento >= 500)) {
+  console.error(`El documento respondió ${corridas.find((c) => c.documento >= 500).documento}: la consola vacía no prueba nada.`)
+  process.exitCode = 1
+}

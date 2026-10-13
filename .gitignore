@@ -1,8 +1,12 @@
 node_modules
 dist
 dist-preview
+# build de desarrollo para la prueba de hidratación (plan 13.3)
+dist-dev
 .env
 .env.*
+# la plantilla de variables sí se versiona (sin valores secretos)
+!.env.example
 .DS_Store
 # .claude/launch.json se versiona (config del preview de Claude Code)
 # Permisos locales de cada PC y copias aisladas del repo que crean los workflows de Claude Code

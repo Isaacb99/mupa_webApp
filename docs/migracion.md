@@ -23,7 +23,7 @@ Abrí en Claude Code la carpeta `mupa-web` directamente, no una carpeta padre: a
 ## En la PC nueva
 1. Instalar Git, Node 24 LTS, Google Chrome (lo usa `tools/measure.mjs`) y Claude Code; iniciar sesión con la misma cuenta.
 2. Clonar `mupa-web` (por HTTPS es lo más simple si esa PC no tiene clave SSH).
-3. `npm install` y `npm run dev`; abrir http://localhost:5173 y comprobar que "sanjuaninos" baja de fila al hacer scroll.
+3. `npm install` y `npm run dev`; abrir http://localhost:5300 y comprobar que "sanjuaninos" baja de fila al hacer scroll.
 4. Descomprimir el zip: el `.ai` a `mupa-web/design/`, `settings.local.json` a `mupa-web/.claude/`, `settings.global.json` a `~/.claude/settings.json`.
 5. Abrir `mupa-web` en Claude Code, escribir cualquier cosa para que se cree `~/.claude/projects/<slug>/`, y copiar los 15 archivos de `memoria/` a `~/.claude/projects/<slug>/memory/`.
 6. Prueba final: pedir "leé tu memoria y CLAUDE.md y contame en qué estamos". Si nombra el presupuesto, el dominio mupa.ar, el parallax y los pendientes, la migración está completa.

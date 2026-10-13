@@ -1,4 +1,6 @@
-@import "tailwindcss";
+/* source("."): Tailwind busca clases solo en src/ (esta carpeta). Sin eso escaneaba todo el proyecto y sumaba clases
+   que aparecen en docs/, tools/, server/ o CLAUDE.md (plan 2.3). */
+@import "tailwindcss" source(".");
 
 /*
   apilado: los ejes de Identidad no se enganchan ni pasan como carrusel, van uno debajo del otro (y el collage no se

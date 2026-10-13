@@ -7,13 +7,14 @@
 const GA4_ID = 'G-KX4G76DL91'
 
 // No mide:
-// - en desarrollo ni en la vista previa del museo (solo en el build de producción);
+// - si el servidor no lo pide (estado.medir): solo se mide en producción y con el host público (mupa.ar). En
+//   desarrollo, en la prueba local sin NODE_ENV=production y en mupa-web.onrender.com antes del corte, no (plan 6.6);
 // - en las pruebas automáticas (tools/measure.mjs y tools/vitals.mjs abren Chrome con --enable-automation, igual que
 //   Lighthouse y compañía): las recetas contra mupa.ar no cuentan como visitas;
 // - si la persona pidió que no la rastreen (Do Not Track o Global Privacy Control del navegador).
-const activa = () =>
+const activa = (estado) =>
   Boolean(GA4_ID) &&
-  import.meta.env.MODE === 'production' &&
+  estado?.medir === true &&
   !navigator.webdriver &&
   navigator.doNotTrack !== '1' &&
   !navigator.globalPrivacyControl
@@ -102,7 +103,7 @@ function medirAreas() {
   }
 }
 
-function arrancar() {
+function arrancar(estado) {
   window.dataLayer = window.dataLayer || []
   gtag('js', new Date())
   gtag('config', GA4_ID, {
@@ -115,17 +116,20 @@ function arrancar() {
   script.async = true
   script.src = `https://www.googletagmanager.com/gtag/js?id=${GA4_ID}`
   document.head.append(script)
+  // Las secciones y las bandas son de la Home: en otra página (la 404, y desde E4 las internas, que son cortas)
+  // cualquier <footer> dispararía ver_pie (plan 6.6). page_view sale en todas.
+  if (estado.pagina !== 'home') return
   medirSecciones()
   medirAreas()
 }
 
 // Arranca con la página ya cargada y el navegador en reposo: el script de Google (~150 kB) no compite con la foto del
-// hero ni con el arranque de los efectos.
-export default function iniciarAnalitica() {
-  if (!activa()) return
+// hero ni con el arranque de los efectos. Recibe el estado de la página (src/main.jsx).
+export default function iniciarAnalitica(estado) {
+  if (!activa(estado)) return
   const enReposo = () => {
-    if (typeof requestIdleCallback === 'function') requestIdleCallback(arrancar, { timeout: 4000 })
-    else setTimeout(arrancar, 1500)
+    if (typeof requestIdleCallback === 'function') requestIdleCallback(() => arrancar(estado), { timeout: 4000 })
+    else setTimeout(() => arrancar(estado), 1500)
   }
   if (document.readyState === 'complete') enReposo()
   else window.addEventListener('load', enReposo, { once: true })

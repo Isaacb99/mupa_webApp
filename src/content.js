@@ -75,6 +75,14 @@ export const ui = {
   portada: 'Portada',
 }
 
+// Página 404 (src/paginas/NoEncontrada.jsx, E0.4): textos de interfaz, no del museo. Con E4.1 suma los enlaces a las
+// secciones del menú.
+export const noEncontrada = {
+  titulo: 'No encontramos esta página',
+  texto: 'Puede que la dirección esté mal escrita o que la página ya no exista.',
+  volver: 'Volver al inicio',
+}
+
 export const hero = {
   // La foto del V04 (IMG_1526 v2, 28/09/2026), con el recorte del diseño: 1440x1195,5 a 1440. Hasta entonces, la
   // IMG_1524 del Figma a 1440x852.

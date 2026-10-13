@@ -102,7 +102,7 @@ mupa-web/
   index.html               plantilla pública: <!--head-->, <div id="root"><!--app--></div>, <!--estado-->
   vite.config.js           público: base '/'; se van renderBuiltUrl, urlDelSitio, paraBuscadores y noIndexar
   vite.panel.config.js     root 'panel', base '/administracion/', outDir '../dist/panel',
-                           proxy de /administracion/api y /fotos a :5173
+                           proxy de /administracion/api y /fotos a :5300
   render.yaml              Blueprint (10.1)
   .node-version            24
   .env.example             variables sin valores; en .gitignore agregar "!.env.example" (hoy ".env.*" lo ignora)
@@ -161,8 +161,8 @@ Scripts de `package.json`:
 ```json
 {
   "dev": "node --env-file-if-exists=.env server/dev.js",
-  "dev:panel": "vite --config vite.panel.config.js --port 5174",
-  "dev:vite": "vite --port 5175",
+  "dev:panel": "vite --config vite.panel.config.js --port 5301",
+  "dev:vite": "vite --port 5302",
   "build": "vite build --outDir dist/client && vite build --ssr src/entry-server.jsx --outDir dist/server && vite build --config vite.panel.config.js",
   "start": "node server/servidor.js",
   "migrar": "node server/db/migrar.js up",
@@ -289,7 +289,7 @@ if (/[?&]diag\b/.test(location.search)) import('./diagnostico.js').then((m) => m
 | `DATABASE_URL` | `postgres://mupa:…@localhost:5432/mupa_dev` | `fromDatabase` (interna) | |
 | `DATABASE_URL_TEST` | `…/mupa_test` | — | `ayudas.js` exige localhost y que termine en `_test` |
 | `DB_SSL` | 0 | 0 | `1` solo desde una PC contra la URL externa |
-| `URL_PUBLICA` | `http://localhost:5173/` | `https://mupa.ar/` (fija) | canonical, OG, sitemap, JSON-LD, origen permitido. Su host decide `noindex` y GA; su esquema, la cookie (`__Secure-` y `Secure` solo con https) |
+| `URL_PUBLICA` | `http://localhost:5300/` | `https://mupa.ar/` (fija) | canonical, OG, sitemap, JSON-LD, origen permitido. Su host decide `noindex` y GA; su esquema, la cookie (`__Secure-` y `Secure` solo con https) |
 | `CANONICO` | 0 | `sync: false`: 0, y 1 el día del corte | 301 de los otros hosts |
 | `TRUST_PROXY` | 0 | `sync: false`: lo que dé la prueba de 10.1 | número de saltos |
 | `DIR_FOTOS` | `C:/mupa-datos/fotos` (fuera de OneDrive) | `/var/data/fotos` | solo con disco |
@@ -321,10 +321,10 @@ No hay variable para el panel: es la ruta fija `/administracion` (`RUTA_PANEL` e
    ```
 
 2. **Datos de arranque:** `.env` a partir de `.env.example`, y después `npm run migrar`, `npm run semilla:ejemplo` y `npm run crear-admin -- --email <correo> --nombre "<nombre>"`, que imprime la contraseña temporal.
-3. **Servidores:** `npm run dev` deja el SSR en http://localhost:5173/, el puerto de `measure.mjs`; `npm run dev:panel` deja el panel en http://localhost:5174/administracion/. El proxy de Vite manda `/administracion/api` y `/fotos` a 5173, y Express los reparte por ruta como en producción.
+3. **Servidores:** `npm run dev` deja el SSR en http://localhost:5300/, el puerto de `measure.mjs`; `npm run dev:panel` deja el panel en http://localhost:5301/administracion/. El proxy de Vite manda `/administracion/api` y `/fotos` a 5300, y Express los reparte por ruta como en producción.
 4. **Sin base:** `$env:SIN_BASE=1; npm run dev`. Las demás rutas responden 503.
 5. **Producción en local:** `npm run build` y luego `$env:PORT=5183; npm start`. Las recetas se corren con `--url http://127.0.0.1:5183/`.
-6. **Vite solo:** `npm run dev:vite` (5175), para retocar efectos de la Home.
+6. **Vite solo:** `npm run dev:vite` (5302), para retocar efectos de la Home.
 
 ### 2.7 Ramas
 

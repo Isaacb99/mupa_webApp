@@ -6,7 +6,7 @@
 //        [--ms 1400] [--veces 3] [--por-scroll | --nada]
 //   --nada: no abre nada; da la línea de base del mismo intervalo (lo que cuesta la página quieta).
 import { spawn } from 'node:child_process'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -33,17 +33,19 @@ const sleep = (t) => new Promise((r) => setTimeout(r, t))
 const mediana = (xs) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)]
 
 async function medir() {
-  const port = 9300 + Math.floor(Math.random() * 900)
+  // Puerto 0: Chrome elige uno libre y lo anota en DevToolsActivePort, dentro de su perfil (un puerto al azar podía
+  // chocar con otra corrida en paralelo).
   const profile = mkdtempSync(join(tmpdir(), 'cdp-'))
   const chrome = spawn(
     process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe',
-    ['--headless=new', '--enable-automation', '--disable-gpu', '--hide-scrollbars', `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, 'about:blank'],
+    ['--headless=new', '--enable-automation', '--disable-gpu', '--hide-scrollbars', '--remote-debugging-port=0', `--user-data-dir=${profile}`, 'about:blank'],
     { stdio: 'ignore' },
   )
   try {
     let wsUrl
     for (let i = 0; i < 60 && !wsUrl; i++) {
       try {
+        const port = readFileSync(join(profile, 'DevToolsActivePort'), 'utf8').split('\n')[0].trim()
         const l = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json()
         wsUrl = l.find((t) => t.type === 'page')?.webSocketDebuggerUrl
       } catch {

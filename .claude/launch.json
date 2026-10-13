@@ -4,8 +4,8 @@
     {
       "name": "mupa-web",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "--", "--host", "127.0.0.1", "--port", "5173", "--strictPort"],
-      "port": 5173
+      "runtimeArgs": ["run", "dev", "--", "--host", "127.0.0.1", "--port", "5300", "--strictPort"],
+      "port": 5300
     }
   ]
 }

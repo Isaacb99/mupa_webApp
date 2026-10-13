@@ -19,9 +19,15 @@
   const pal = s.find((n) => n.className.includes('col-start-2') && n.className.includes('row-start-1'));
   const tramos = fijas.length - 1;
   const vh = w.innerHeight; const r0 = b.getBoundingClientRect(); const T0 = r0.top + w.scrollY;
-  // Recorrido por tramo, como useParallaxPalabra: max(0,3·alto, 240 px) por viaje.
-  const inicio = Math.min(0.8 * vh, T0); let fin = Math.max(inicio - Math.max(0.3 * vh, 240) * tramos, 0.15 * vh);
-  if (w.matchMedia('(width < 64rem)').matches) fin = inicio - (inicio - fin) * 1.1; // debajo de lg, recorrido +10 %
+  // Recorrido por tramo, como progreso() de useParallaxPalabra: max(0,3·alto, 240 px) por viaje en lg y la mitad,
+  // max(0,15·alto, 120 px), debajo de lg, con el final clavado en 0,15·alto y, debajo de lg, el recorrido +10 %. (Hasta
+  // el 09/10/2026 la receta usaba el tramo de escritorio en todos los anchos: a 390x664 y 375x635 su parada de arriba,
+  // Y(0.2), caía en el 40 % del tramo real y la palabra se quedaba abajo por la histéresis: ok: false sin falla.)
+  const chica = w.matchMedia('(width < 64rem)').matches;
+  const inicio = Math.min(0.8 * vh, T0);
+  const rango = (chica ? Math.max(0.15 * vh, 120) : Math.max(0.3 * vh, 240)) * tramos;
+  let fin = Math.max(inicio - rango, 0.15 * vh);
+  if (chica) fin = inicio - (inicio - fin) * 1.1;
   // T: el scroll que ocupa un tramo (el viaje de una fila).
   const T = (inicio - fin) / tramos;
   const Y = (x) => Math.max(0, Math.round(T0 - inicio + x * T));
