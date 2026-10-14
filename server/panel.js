@@ -1,17 +1,19 @@
 // El panel de administración, montado en /administracion (plan 2.4, punto 5), ANTES de las redirecciones públicas.
-// El panel en sí (la SPA con su entrada de Vite, dist/panel) llega con E2.1 y su API con E1; hasta entonces responde
-// una página mínima "Panel en construcción", con lo que va a tener siempre:
+// El panel en sí (la SPA con su entrada de Vite, dist/panel) llega con E2.1; hasta entonces responde una página mínima
+// "Panel en construcción". Su API (server/api/indice.js) está desde E1. Lo que va a tener siempre:
 // - en TODA respuesta: la CSP del panel (sin terceros), X-Robots-Tag: noindex (también con el host mupa.ar) y
 //   no-store, salvo en /administracion/assets;
 // - barras repetidas o invertidas (/administracion//api/x): 301 a la ruta colapsada en GET y HEAD, 404 en JSON en los
-//   demás métodos, así nada esquiva el router de la API (ni, desde E1, su CSRF y sus límites);
+//   demás métodos, así nada esquiva el router de la API (ni su CSRF ni sus límites);
 // - /administracion/assets: los archivos con hash de dist/panel/assets, un año e immutable, y 404 si falta. Va ANTES
 //   del no-store: send solo pone su Cache-Control si la respuesta todavía no tiene uno;
-// - /administracion/api/…: JSON; mientras no haya API, 404 en JSON;
+// - /administracion/api/…: la API, siempre en JSON (CSRF por origen, express.json con tope, límites, sesión, rol y
+//   validación; lo que no existe, 404 en JSON; sin base, 503 en JSON);
 // - todo otro GET de /administracion o /administracion/…: la página del panel (desde E2.1, dist/panel/index.html).
 // Nunca carga analitica.js ni UserWay (plan 9).
 import { resolve } from 'node:path'
 import express from 'express'
+import { crearApi } from './api/indice.js'
 import { consultaDe, rutaSinBarrasDobles } from './normalizar.js'
 import { cspPanel } from './seguridad.js'
 
@@ -38,8 +40,13 @@ const EN_CONSTRUCCION = `<!doctype html>
 </html>
 `
 
-/** @param {{ dirBuild: string }} opciones */
-export function crearPanel({ dirBuild }) {
+/**
+ * @param {object} opciones
+ * @param {string} opciones.dirBuild
+ * @param {ReturnType<import('./config.js').leerConfig>} opciones.config
+ * @param {import('sequelize').Sequelize | null} [opciones.sequelize]  null: sin base (la API responde 503)
+ */
+export function crearPanel({ dirBuild, config, sequelize = null }) {
   const panel = express.Router()
   panel.use(cspPanel)
   panel.use(function barrasDelPanel(req, res, next) {
@@ -65,10 +72,7 @@ export function crearPanel({ dirBuild }) {
     res.set('Cache-Control', 'no-store')
     next()
   })
-  // La API (E1): express.json con tope, CSRF por origen, límites, routers (server/api/indice.js) y 404 en JSON.
-  panel.use('/api', (req, res) => {
-    res.status(404).json({ error: 'No existe esa ruta de la API.' })
-  })
+  panel.use('/api', crearApi({ config, sequelize }))
   panel.get('/{*resto}', (req, res) => {
     res.type('html').send(EN_CONSTRUCCION)
   })

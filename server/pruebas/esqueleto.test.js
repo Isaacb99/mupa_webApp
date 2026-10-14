@@ -162,8 +162,9 @@ describe('con CANONICO=0 (antes del corte)', () => {
       assert.equal(r.h['set-cookie'], undefined, ruta)
       assert.doesNotMatch(r.cuerpo, /googletagmanager|userway|\/assets\//)
     }
+    // Sin base (crearApp sin sequelize), la API responde 503 en JSON (desde E1; en E0 era 404).
     const api = await pedir(s.puerto, '/administracion/api/usuarios')
-    assert.equal(api.status, 404)
+    assert.equal(api.status, 503)
     assert.match(api.h['content-type'], /application\/json/)
     assert.equal(api.h['content-security-policy'], CSP_PANEL)
     assert.deepEqual(Object.keys(JSON.parse(api.cuerpo)), ['error'])

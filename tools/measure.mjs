@@ -1,14 +1,17 @@
-// Uso: node measure.mjs <ancho> <alto> "<expresión JS>" [--shot salida.png] [--url http://127.0.0.1:5300/] [--reduce]
+// Uso: node measure.mjs <ancho> <alto> "<expresión JS>" | <archivo.js> [--shot salida.png] [--url http://127.0.0.1:5300/] [--reduce]
+// La expresión puede ir como texto o como la ruta de un archivo .js (p. ej. tools/parallax-ejes.js): así anda igual desde
+// PowerShell, donde "$(cat archivo)" pierde los saltos de línea y las comillas internas.
 // Emula el viewport por CDP (sirve para <500px), espera fonts.ready, evalúa la expresión y opcionalmente captura página completa.
 import { spawn } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 const argv = process.argv.slice(2);
 const opt = (k, d) => { const i = argv.indexOf(k); return i >= 0 ? argv.splice(i, 2)[1] : d; };
 const shot = opt('--shot', null), url = opt('--url', 'http://127.0.0.1:5300/');
 const reduceIdx = argv.indexOf('--reduce'); const reduce = reduceIdx >= 0; if (reduce) argv.splice(reduceIdx, 1);
-const [w, h, expr = '1'] = [Number(argv[0]), Number(argv[1]), argv[2]];
+const [w, h] = [Number(argv[0]), Number(argv[1])];
+const expr = argv[2] && /\.m?js$/.test(argv[2]) && existsSync(argv[2]) ? readFileSync(argv[2], 'utf8') : (argv[2] ?? '1');
 const profile = mkdtempSync(join(tmpdir(), 'cdp-'));
 // Puerto 0: Chrome elige uno libre y lo anota en DevToolsActivePort, dentro de su perfil. Con un puerto calculado, dos
 // corridas en paralelo podían chocar (una no levantaba y la otra respondía por las dos).

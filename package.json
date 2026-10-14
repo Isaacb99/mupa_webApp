@@ -12,10 +12,17 @@
     "prebuild": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
     "build": "vite build --outDir dist/client && vite build --ssr src/entry-server.jsx --outDir dist/server",
     "start": "node --env-file-if-exists=.env server/servidor.js",
+    "migrar": "node --env-file-if-exists=.env server/db/migrar.js up",
+    "migrar:atras": "node --env-file-if-exists=.env server/db/migrar.js down",
+    "semilla:ejemplo": "node --env-file-if-exists=.env server/db/semillas/ejemplo.js",
+    "crear-admin": "node --env-file-if-exists=.env server/scripts/admin.js crear",
+    "restablecer-admin": "node --env-file-if-exists=.env server/scripts/admin.js restablecer",
     "test": "node --env-file-if-exists=.env --test --test-concurrency=1 \"server/pruebas/**/*.test.js\""
   },
   "dependencies": {
+    "argon2": "^0.45.1",
     "express": "~5.2.1",
+    "express-rate-limit": "^8.7.1",
     "helmet": "^8.3.0",
     "lenis": "^1.3.26",
     "pg": "^8.23.1",
@@ -23,6 +30,7 @@
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "sequelize": "^6.37.8",
+    "umzug": "^3.8.3",
     "zod": "^4.6.5"
   },
   "devDependencies": {

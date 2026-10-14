@@ -116,7 +116,7 @@ export function crearApp({ config, ssr, sequelize = null, estaticos, fechaHome =
   app.use(noIndexarFueraDelHostPublico(config))
 
   // 5. Panel.
-  app.use(RUTA_PANEL, crearPanel({ dirBuild: config.DIR_BUILD }))
+  app.use(RUTA_PANEL, crearPanel({ dirBuild: config.DIR_BUILD, config, sequelize }))
 
   // 6 a 8. Sitio público.
   app.use(cspPublica(config, { desarrollo }))

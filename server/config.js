@@ -113,6 +113,22 @@ export function leerConfig(env = process.env) {
   })
 }
 
+/**
+ * Lo que la configuración permite pero conviene revisar, como [evento, datos] para el log del arranque (servidor.js).
+ * Hoy: en Render con TRUST_PROXY=0, req.ip es la del proxy de Render para todos, así que los límites de 4.7 serían
+ * globales (10 ingresos cada 15 minutos para todo el mundo) y express-rate-limit avisa por su cuenta, fuera del formato
+ * del log. TRUST_PROXY se ajusta en el primer deploy (plan 10.1, paso 4).
+ * @param {ReturnType<typeof leerConfig>} config
+ * @returns {[string, object][]}
+ */
+export function avisosDeConfig(config) {
+  const avisos = []
+  if (config.produccion && (config.RENDER || config.RENDER_EXTERNAL_URL) && config.TRUST_PROXY === 0) {
+    avisos.push(['trust_proxy_cero', { detalle: 'TRUST_PROXY=0 detrás del proxy de Render: los límites serían por la IP del proxy (plan 10.1)' }])
+  }
+  return avisos
+}
+
 /** La configuración del proceso. Si es inválida, avisa y sale (lo usan servidor.js y dev.js al arrancar). */
 export function configDelProceso() {
   try {

@@ -140,6 +140,7 @@ mupa-web/
     correo.js              nodemailer (SMTP), modos, estado del correo
     seguridad.js           helmet, CSP pública y del panel (por ruta), CSRF, redirecciones normalizadas
     limites.js, errores.js, tareas.js, log.js
+    principal.js           "¿me ejecutaron directamente?" de los comandos (import.meta.main, o la ruta real)
     auth/                  sesiones.js, claves.js (argon2 y temporales), middleware.js
     api/                   indice.js (tabla de rutas), sesion.js, cuenta.js, usuarios.js, museo.js, horarios.js,
                            tarifas.js, contenido.js (fábrica), fotos.js, mensajes.js, estado.js
@@ -530,6 +531,7 @@ await sequelize.close()
 
 - **Archivos:** `20261013-01-usuarios.js`, `20261013-02-museo-visitas.js`, `20261026-03-fotos.js`, `20261026-04-salas-muestras.js`, `20261026-05-novedades.js` y `20261109-06-mensajes-contacto.js`. Cada uno exporta `up` y `down`; los `CHECK` y los índices van como SQL fijo.
 - **En producción:** `preDeployCommand: npm run migrar`. Corre después del build y, si falla, aborta el deploy ([render.com/docs/deploys](https://render.com/docs/deploys), 08/10/2026).
+- **Riesgo conocido:** umzug anota la migración en `SequelizeMeta` después de que termina su `up`, fuera de su transacción. Si el pre-deploy muere justo entre el COMMIT de la migración y ese registro, la migración queda aplicada pero figura pendiente, y el deploy siguiente falla al repetirla (la tabla ya existe). Arreglo a mano, desde el Shell de Render: comprobar que el esquema tiene lo de esa migración y registrarla con `INSERT INTO "SequelizeMeta" (name) VALUES ('<archivo>.js')` (anotado en la verificación de E1, 13/10/2026).
 - **Regla expand/contract:** mientras corre el pre-deploy la versión anterior sigue sirviendo. Una columna nueva entra nullable o con default, y lo que se saca se borra en una migración posterior.
 - **`sync()` no aparece en ningún archivo.** `contenido.test.js` lo busca con grep.
 
@@ -647,11 +649,12 @@ Van bajo `/administracion/api`, montadas después de `/sesion`, con `requiereSes
 - Renueva `ultimo_uso` como mucho cada 5 minutos.
 - Pone `req.usuario`. **El rol se lee de la base en cada pedido**: desactivar a alguien o cambiarle el rol vale desde el pedido siguiente.
 - **Con `debe_cambiar_clave`**, solo deja pasar `GET` y `DELETE /administracion/api/sesion` y `PUT /administracion/api/cuenta/clave`; el resto da 403 `{error, debeCambiarClave: true}`.
+- **Si además la temporal ya venció** (`clave_temporal_vence <= now()`: la sesión se abrió con ella antes de las 72 h y dura hasta 12), borra esa sesión y da 401 con el mismo mensaje que el inicio de sesión, "La contraseña temporal venció. Pedile otra a un administrador", y `sesion_temporal_vencida` en el log (corrección de E1, 13/10/2026).
 
 **Contraseñas** (`claves.js`):
-- argon2id `{ memoryCost: 19456, timeCost: 2, parallelism: 1 }` ([OWASP](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html), 08/10/2026).
+- argon2id `{ memoryCost: 19456, timeCost: 2, parallelism: 1 }` ([OWASP](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html), 08/10/2026). argon2 es nativo y se importa en el primer uso, no al arrancar: si el binario no cargara en Render, el sitio público sigue, las rutas que usan contraseñas dan 503 en JSON y el log dice una vez `argon2_no_disponible` (corrección de E1, 13/10/2026).
 - De 15 a 128 caracteres ([NIST SP 800-63B-4](https://csrc.nist.gov/pubs/sp/800/63/B/4/final), 31/07/2025), sin reglas de composición. Se rechazan las que contienen la parte local del correo, "mupa", "museo" o "paleontologico", las de un solo carácter repetido y la misma temporal. El panel sugiere una frase de tres o cuatro palabras.
-- **Temporal:** 16 caracteres al azar de un alfabeto sin confusiones (sin `0/O` ni `1/l/I`), en grupos de 4 (`k7mq-x3tf-9wrd-hp2c`): 80 bits. Se guarda solo su hash, como cualquier clave.
+- **Temporal:** 16 caracteres al azar de un alfabeto sin confusiones (sin `0/O` ni `1/l/I`), en grupos de 4 (`k7mq-x3tf-9wrd-hp2c`): 80 bits. Se guarda solo su hash, como cualquier clave. Como se dicta en persona o por teléfono, mientras la cuenta la tenga pendiente se acepta en mayúsculas, sin los guiones o con espacios (el autocapitalizado del celular), y la nueva no puede ser ella misma escrita así (corrección de E1, 13/10/2026).
 
 **Altas, olvidos y emergencias** (sin mails):
 - **Alta:** el admin carga nombre, correo y rol. El servidor genera la temporal, guarda el hash con `debe_cambiar_clave = true` y `clave_temporal_vence = now() + 72 h`, y la devuelve **una sola vez**. El panel la muestra en un diálogo con "Copiar" y la advertencia "No se vuelve a mostrar. Dásela a la persona en persona o por teléfono". No queda en logs ni se puede volver a ver.
@@ -704,13 +707,15 @@ Fuente: [OWASP CSRF](https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_R
 | Ruta | Límite | Clave |
 |---|---|---|
 | `POST /administracion/api/sesion` | 10 cada 15 min | IP |
-| `POST /administracion/api/sesion` | 5 **fallidos** cada 15 min | correo + IP: nadie puede dejar afuera al titular desde otra IP |
+| `POST /administracion/api/sesion` | 5 **fallidos** cada 15 min (un ingreso correcto los pone en cero: no se acumulan entre ingresos buenos) | correo + IP: nadie puede dejar afuera al titular desde otra IP |
 | `POST /contacto` | 5 por hora; 50 por día en total | IP; contador global |
 | `POST /administracion/api/fotos` | 60 por hora | usuario |
+| `PUT /administracion/api/cuenta/clave` | 5 con la contraseña actual **equivocada** cada 15 min (el cambio correcto los pone en cero; una nueva que no cumple las reglas no cuenta) | usuario: con una sesión robada no se puede probar la contraseña de a miles (sumado en la corrección de E1, 13/10/2026) |
 | `/administracion/api/*` con sesión | 300 por minuto | usuario |
 
 - **Los 50 por día del formulario** quedan por debajo del límite de la casilla de envío (100 por día en el correo gratuito de Hostinger, ver 8). Un reinicio solo pone el contador en cero.
 - La respuesta 429 dice "Demasiados intentos. Esperá 15 minutos" (en Contacto, "Probá mañana o escribinos a <correo público>"). Es una espera, nunca un bloqueo permanente. **Depende de que `trust proxy` esté bien** (10.1).
+- El log lleva una sola línea por ventana y clave (el primer pedido bloqueado: `limite_ingreso_ip`, `limite_ingreso_correo`, `limite_clave_actual`, `limite_usuario`), sin la IP ni el correo (corrección de E1, 13/10/2026).
 
 ### 4.8 Quién cambió qué
 
@@ -730,6 +735,7 @@ Fuente: [OWASP CSRF](https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_R
 
 **`api.js`:**
 - `pedir(metodo, ruta, cuerpo)` con `credentials: 'same-origin'`.
+- **En todo `POST`, `PUT` y `PATCH` manda `Content-Type: application/json` y un cuerpo, `'{}'` si la ruta no lleva datos** (p. ej. `POST /usuarios/:id/clave-temporal`): la API responde 415 a esos métodos sin ese Content-Type aunque no traigan cuerpo (`exigirJson`, `server/seguridad.js`; anotado en la verificación de E1, 13/10/2026).
 - Un 401 abre `ReingresoDialogo` (un `<dialog>` de inicio de sesión) y reintenta el pedido, sin perder el formulario.
 - Un 403 con `debeCambiarClave` lleva a `/cambiar-clave`.
 - Los 400 se reparten a cada campo; los 409 (slug repetido, último admin) se muestran junto al campo o arriba.
@@ -1526,6 +1532,7 @@ Se planifica a 20 h por semana (4 h por día hábil), desde el 08/10 y sujeto a 
 |---|---|
 | `auth.test.js` | Inicio correcto y fallido con el mismo mensaje. 5 fallidos desde una IP dan 429, y **desde otra IP la clave correcta da 200**. Vencimiento por inactividad y por máximo. **Un desactivado pierde la sesión en el pedido siguiente.** **La temporal sale una sola vez** (no aparece en `GET /usuarios` ni en los logs). **Con `debe_cambiar_clave`, todo menos sesión y `cuenta/clave` da 403**; después de cambiarla, todo anda. Temporal vencida → 401 con su mensaje. Dar una temporal cierra las sesiones de esa persona. Cambiar la clave invalida las otras sesiones. Último admin → 409. Flags de la cookie: con https, `__Secure-mupa_sesion`, `Path=/administracion`, HttpOnly, Secure y SameSite=Strict, sin `Domain`. `crearAdmin()` y `restablecerAdmin()` de `admin.js` |
 | `permisos.test.js` | Recorre `api/indice.js` bajo `/administracion/api`: sin cookie → 401; editor en ruta de admin (usuarios, mensajes) → 403; `Sec-Fetch-Site` `cross-site` o **`same-site`** → 403; `Origin` ajeno → 403; cuerpo inválido → 400 antes de tocar la base; editor que cambia el correo de destino → 403. **Por ruta:** `/api/…` fuera de `/administracion` → 404; toda respuesta de `/administracion/…` (HTML, API y errores) trae la CSP del panel y `X-Robots-Tag: noindex`, también con el host `mupa.ar`, y `no-store` salvo en `/administracion/assets` |
+| `migraciones.test.js` | Ida, vuelta de a una hasta el principio y otra vez ida, con `SequelizeMeta` al día. Cada modelo contra las columnas de su tabla (nombres y `NOT NULL`). Las restricciones con nombre de 3.2 y que rechacen lo que tienen que rechazar. Datos iniciales de 3.4. Grep de `sync(` desde E1 (sumado en la corrección de E1, 13/10/2026) |
 | `contenido.test.js` | Borrador → 404 en el sitio. Publicar → visible **en el pedido siguiente**. Slug único (409) y fijo después de publicar. Eliminar libera solo las fotos sin uso. Nodo prohibido o `javascript:` → 400. Grep: ni `sync(` ni `dangerouslySetInnerHTML` |
 | `fotos.test.js` | JPEG, PNG y WebP entran. SVG, HEIC falso y texto `.jpg` → 415. 60 MP → rechazo. **El JPEG con GPS sale sin EXIF.** Las variantes existen. Sin sesión, multer no corre. Con disco: un archivo borrado a mano aparece como faltante |
 | `contacto.test.js` | Envío correcto: fila `enviado`, From = la casilla, Reply-To = el visitante, texto plano. Transporte que falla: fila `fallido`, 303 igual y aviso en `/estado`. Base y transporte caídos → 503 con el correo público. Trampa con algo → 303 sin guardar ni enviar. Salto de línea en el nombre → 400. Sin destino → no hay formulario. 6.º envío de una IP en la hora → 429. Los mensajes de más de 180 días se borran en la tarea |

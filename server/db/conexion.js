@@ -1,17 +1,19 @@
-// Conexión mínima a Postgres (E0.3): Sequelize 6 con un pool chico, sin modelos ni migraciones (llegan en E1.1, con
-// db/migrar.js, asociaciones.js y modelos/). La usan /salud/base y el apagado ordenado.
-// Nunca sync(): el esquema lo llevan las migraciones (plan 3.3).
+// Conexión a Postgres: Sequelize 6 con un pool chico y los modelos definidos (server/db/asociaciones.js). La usan el
+// sitio (/salud/base, el apagado ordenado), la API del panel (server/api/), las tareas diarias, los comandos
+// (migrar.js, semillas/, scripts/admin.js) y las pruebas.
+// El esquema lo llevan SOLO las migraciones (server/db/migrar.js, plan 3.3): nunca se sincroniza desde los modelos.
 import { Sequelize, QueryTypes } from 'sequelize'
+import { definirModelos } from './asociaciones.js'
 
 /**
- * Crea la instancia de Sequelize, o null si no hay base (sin DATABASE_URL en desarrollo, o con SIN_BASE).
- * No conecta todavía: la primera consulta abre la primera conexión del pool.
+ * Crea la instancia de Sequelize con los modelos (sequelize.models), o null si no hay base (sin DATABASE_URL en
+ * desarrollo, o con SIN_BASE). No conecta todavía: la primera consulta abre la primera conexión del pool.
  * @param {ReturnType<import('../config.js').leerConfig>} config
  * @param {{ url?: string }} [opciones]  url: otra base (las pruebas pasan DATABASE_URL_TEST)
  */
 export function crearConexion(config, { url = config.DATABASE_URL } = {}) {
   if (!url || config.sinBase) return null
-  return new Sequelize(url, {
+  const sequelize = new Sequelize(url, {
     dialect: 'postgres',
     logging: false,
     // Una sola instancia de 512 MB en Render y una base Basic de 256 MB: 5 conexiones alcanzan (plan 2.3).
@@ -23,9 +25,11 @@ export function crearConexion(config, { url = config.DATABASE_URL } = {}) {
       // Si el certificado de Render no valida con las CA de Node, se ve en E5 y se ajusta acá (nunca en silencio).
       ...(config.DB_SSL ? { ssl: { require: true, rejectUnauthorized: true } } : {}),
     },
-    // Convenciones del modelo de datos (plan 3.1), para cuando lleguen los modelos.
+    // Convenciones del modelo de datos (plan 3.1): columnas en snake_case y el nombre de la tabla tal cual.
     define: { underscored: true, freezeTableName: true },
   })
+  definirModelos(sequelize)
+  return sequelize
 }
 
 /**

@@ -4,7 +4,8 @@
 //   terceros, para el panel. Fijas y obligatorias, sin report-only (plan 1, "CSP").
 // - noIndexarFueraDelHostPublico: X-Robots-Tag en todo host que no sea el público de producción.
 // - redireccionesPublicas: /index.html, /preview y las barras, sin dejar salir nunca un Location que empiece con //.
-// La CSRF del panel (por Sec-Fetch-Site y Origin, plan 4.6) se suma acá en E1.2.
+// - crearControlDeOrigen / exigirJson: la CSRF de la API del panel (por Sec-Fetch-Site y Origin, plan 4.6) y el
+//   Content-Type de las rutas JSON; los monta server/api/indice.js. Desde E4.5 la CSRF vale también para POST /contacto.
 import helmet from 'helmet'
 import { esHostPublico } from './hosts.js'
 import { consultaDe, destinoPublico } from './normalizar.js'
@@ -97,6 +98,68 @@ export function cspPanel(req, res, next) {
   res.set('X-Frame-Options', 'DENY')
   res.set('X-Robots-Tag', 'noindex, nofollow')
   next()
+}
+
+const METODOS_SEGUROS = new Set(['GET', 'HEAD', 'OPTIONS'])
+// Rutas de /administracion/api exceptuadas del control de origen (plan 4.6): ninguna. El webhook de Mercado Pago, que
+// va fuera de /administracion, se suma con el módulo 5 (plan 3.6).
+export const EXCEPTUADAS = []
+
+const NOMBRES_LOCALES = new Set(['localhost', '127.0.0.1', '[::1]'])
+
+/** Los orígenes del sitio: el de URL_PUBLICA y, antes del corte, el de Render (mupa-web.onrender.com). */
+export function origenesPermitidos(config) {
+  const lista = new Set([new URL(config.urlPublica).origin])
+  if (config.RENDER_EXTERNAL_URL) lista.add(new URL(config.RENDER_EXTERNAL_URL).origin)
+  return lista
+}
+
+/** http(s)://localhost, 127.0.0.1 o [::1] con cualquier puerto, escrito como lo escribe el navegador. */
+function esOrigenLocal(origen) {
+  if (!URL.canParse(origen)) return false
+  const u = new URL(origen)
+  return /^https?:$/.test(u.protocol) && NOMBRES_LOCALES.has(u.hostname) && u.origin === origen
+}
+
+/**
+ * CSRF por origen (plan 4.6, OWASP), en todo pedido que no sea GET, HEAD ni OPTIONS:
+ * - con Sec-Fetch-Site (todos los navegadores actuales), solo same-origin. same-site se rechaza: incluiría cualquier
+ *   otro subdominio de mupa.ar;
+ * - sin Sec-Fetch-Site, el Origin tiene que ser uno de los del sitio (fuera de producción, también uno local:
+ *   el Vite del panel en 5301, la prueba en 127.0.0.1). Sin ninguna de las dos cabeceras, se rechaza.
+ * Lo que no cubre: un script que corre en una página pública del mismo origen llega como same-origin (el riesgo
+ * aceptado de plan 9). Sin el paquete cors: no hay pedidos de otros orígenes que atender.
+ */
+export function crearControlDeOrigen(config) {
+  const permitidos = origenesPermitidos(config)
+  const localesTambien = !config.produccion
+  return function controlDeOrigen(req, res, next) {
+    if (METODOS_SEGUROS.has(req.method) || EXCEPTUADAS.includes(req.path)) return next()
+    const sitio = req.get('sec-fetch-site')
+    const origen = req.get('origin')
+    const ok = sitio
+      ? sitio === 'same-origin'
+      : origen != null && (permitidos.has(origen) || (localesTambien && esOrigenLocal(origen)))
+    if (!ok) return res.status(403).json({ error: 'Origen no permitido.' })
+    next()
+  }
+}
+
+const ES_JSON = /^application\/json\s*(;|$)/i
+
+/**
+ * Las rutas JSON de la API exigen Content-Type: application/json (plan 4.6; desde E3.1, salvo /fotos, que es
+ * multipart): POST, PUT y PATCH siempre, y un DELETE si trae cuerpo. Un formulario de otro sitio no puede mandar ese
+ * tipo sin una consulta previa (preflight), que nadie atiende. 415 si no.
+ */
+export function exigirJson(req, res, next) {
+  const conCuerpo =
+    req.method === 'POST' ||
+    req.method === 'PUT' ||
+    req.method === 'PATCH' ||
+    (req.method === 'DELETE' && (req.get('transfer-encoding') != null || Number(req.get('content-length')) > 0))
+  if (!conCuerpo || ES_JSON.test(req.get('content-type') ?? '')) return next()
+  res.status(415).json({ error: 'El pedido tiene que ser JSON (Content-Type: application/json).' })
 }
 
 /** noindex (cabecera) en todo host que no sea el público de producción; el <meta> lo pone seo.js. */

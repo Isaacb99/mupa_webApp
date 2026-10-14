@@ -38,6 +38,7 @@ const { crearApp } = await import('./app.js')
 const { crearConexion } = await import('./db/conexion.js')
 const { crearMuseoPublico } = await import('./museo.js')
 const { crearSsr, partir } = await import('./ssr.js')
+const { programarTareas } = await import('./tareas.js')
 
 const servidor = createServer()
 const vite = await crearVite({
@@ -88,12 +89,16 @@ if (config.host === '127.0.0.1' && (await ocupadoEnIpv6(config.PORT))) {
   process.exit(1)
 }
 
+// Las tareas diarias, como en producción (si la base no está migrada, avisan en el log y siguen).
+const tareas = programarTareas({ sequelize })
+
 servidor.listen(config.PORT, config.host, () => {
   const base = sequelize ? 'con base' : config.sinBase ? `SIN_BASE=${config.sinBase}` : 'sin base (no hay DATABASE_URL)'
   console.log(`Sitio en http://${config.host === '127.0.0.1' ? 'localhost' : config.host}:${config.PORT}/ (${base})`)
 })
 
 async function cerrar() {
+  tareas.detener()
   servidor.close()
   await Promise.allSettled([vite.close(), sequelize?.close()])
   process.exit(0)
