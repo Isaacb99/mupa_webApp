@@ -56,18 +56,27 @@ export function textoCspPublica({ userway = false, desarrollo = false } = {}) {
   })
 }
 
-/** CSP del panel, en toda respuesta de /administracion y /administracion/…: ningún dominio de terceros (plan 9). */
-export const CSP_PANEL = politica({
-  'default-src': ["'self'"],
-  'script-src': ["'self'"],
-  'style-src': ["'self'", "'unsafe-inline'"],
-  'img-src': ["'self'", 'blob:', 'data:'],
-  'connect-src': ["'self'"],
-  'frame-ancestors': ["'none'"],
-  'base-uri': ["'none'"],
-  'form-action': ["'self'"],
-  'object-src': ["'none'"],
-})
+/**
+ * CSP del panel, en toda respuesta de /administracion y /administracion/…: ningún dominio de terceros (plan 9).
+ * En desarrollo (npm run dev, con el Vite del panel adentro) suma, como la pública, el script inline del preámbulo de
+ * React Refresh y el websocket de Vite.
+ */
+export function textoCspPanel({ desarrollo = false } = {}) {
+  return politica({
+    'default-src': ["'self'"],
+    'script-src': ["'self'", ...(desarrollo ? ["'unsafe-inline'"] : [])],
+    'style-src': ["'self'", "'unsafe-inline'"],
+    'img-src': ["'self'", 'blob:', 'data:'],
+    'connect-src': ["'self'", ...(desarrollo ? ['ws:'] : [])],
+    'frame-ancestors': ["'none'"],
+    'base-uri': ["'none'"],
+    'form-action': ["'self'"],
+    'object-src': ["'none'"],
+  })
+}
+
+/** La CSP del panel en producción (y en las pruebas). */
+export const CSP_PANEL = textoCspPanel()
 
 /** helmet común (plan 2.4, punto 4). */
 export function cabecerasComunes() {
@@ -92,12 +101,15 @@ export function cspPublica(config, { desarrollo = false } = {}) {
   }
 }
 
-export function cspPanel(req, res, next) {
-  res.set('Content-Security-Policy', CSP_PANEL)
-  res.set('Cross-Origin-Resource-Policy', 'same-origin')
-  res.set('X-Frame-Options', 'DENY')
-  res.set('X-Robots-Tag', 'noindex, nofollow')
-  next()
+export function cspPanel({ desarrollo = false } = {}) {
+  const texto = desarrollo ? textoCspPanel({ desarrollo }) : CSP_PANEL
+  return function cabecerasDelPanel(req, res, next) {
+    res.set('Content-Security-Policy', texto)
+    res.set('Cross-Origin-Resource-Policy', 'same-origin')
+    res.set('X-Frame-Options', 'DENY')
+    res.set('X-Robots-Tag', 'noindex, nofollow')
+    next()
+  }
 }
 
 const METODOS_SEGUROS = new Set(['GET', 'HEAD', 'OPTIONS'])
@@ -126,7 +138,7 @@ function esOrigenLocal(origen) {
  * - con Sec-Fetch-Site (todos los navegadores actuales), solo same-origin. same-site se rechaza: incluiría cualquier
  *   otro subdominio de mupa.ar;
  * - sin Sec-Fetch-Site, el Origin tiene que ser uno de los del sitio (fuera de producción, también uno local:
- *   el Vite del panel en 5301, la prueba en 127.0.0.1). Sin ninguna de las dos cabeceras, se rechaza.
+ *   un Vite suelto en otro puerto, la prueba en 127.0.0.1). Sin ninguna de las dos cabeceras, se rechaza.
  * Lo que no cubre: un script que corre en una página pública del mismo origen llega como same-origin (el riesgo
  * aceptado de plan 9). Sin el paquete cors: no hay pedidos de otros orígenes que atender.
  */

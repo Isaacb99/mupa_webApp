@@ -1,6 +1,5 @@
 // El panel de administración, montado en /administracion (plan 2.4, punto 5), ANTES de las redirecciones públicas.
-// El panel en sí (la SPA con su entrada de Vite, dist/panel) llega con E2.1; hasta entonces responde una página mínima
-// "Panel en construcción". Su API (server/api/indice.js) está desde E1. Lo que va a tener siempre:
+// Es una SPA aparte (panel/, con su Vite: vite.panel.config.js) que el build deja en dist/panel. En orden:
 // - en TODA respuesta: la CSP del panel (sin terceros), X-Robots-Tag: noindex (también con el host mupa.ar) y
 //   no-store, salvo en /administracion/assets;
 // - barras repetidas o invertidas (/administracion//api/x): 301 a la ruta colapsada en GET y HEAD, 404 en JSON en los
@@ -9,46 +8,70 @@
 //   del no-store: send solo pone su Cache-Control si la respuesta todavía no tiene uno;
 // - /administracion/api/…: la API, siempre en JSON (CSRF por origen, express.json con tope, límites, sesión, rol y
 //   validación; lo que no existe, 404 en JSON; sin base, 503 en JSON);
-// - todo otro GET de /administracion o /administracion/…: la página del panel (desde E2.1, dist/panel/index.html).
+// - todo otro GET (y HEAD) de /administracion o /administracion/…: dist/panel/index.html con no-store; las rutas del
+//   panel (/administracion/usuarios, /administracion/ingresar…) las resuelve el router del navegador
+//   (panel/src/rutas.jsx). El index.html se lee una vez, al armar la app; si no está (un build sin el panel), esas
+//   rutas dan 503 con una página simple y el log lo dice al arrancar ("panel_sin_build").
+// En desarrollo (npm run dev, server/dev.js) el Vite del panel va adentro, en middlewareMode: sus módulos
+// (/administracion/src/…, /administracion/@vite/client…) después de la API, el index.html pasado por Vite en cada
+// pedido (recarga en caliente) y la CSP con lo que necesita Vite. Su websocket de HMR escucha en /administracion/, en
+// el mismo puerto: no choca con el del sitio, que escucha en /.
 // Nunca carga analitica.js ni UserWay (plan 9).
+import { readFileSync } from 'node:fs'
+import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import express from 'express'
 import { crearApi } from './api/indice.js'
+import { paginaDeError } from './errores.js'
+import { log } from './log.js'
 import { consultaDe, rutaSinBarrasDobles } from './normalizar.js'
 import { cspPanel } from './seguridad.js'
 
-const EN_CONSTRUCCION = `<!doctype html>
-<html lang="es">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="robots" content="noindex, nofollow" />
-    <title>Panel · MuPa</title>
-    <style>
-      body { margin: 0; min-height: 100svh; display: grid; place-content: center; gap: 0.5rem; padding: 1.5rem;
-             background: #0e100d; color: #eae2df; font: 1rem/1.5 system-ui, sans-serif; text-align: center; }
-      h1 { margin: 0; font-size: 1.5rem; font-weight: 600; }
-      p { margin: 0; color: #a8a5ad; }
-      a { color: inherit; }
-    </style>
-  </head>
-  <body>
-    <h1>Panel de administración del MuPa</h1>
-    <p>En construcción.</p>
-    <p><a href="/">Ir al sitio</a></p>
-  </body>
-</html>
-`
+/** La página del panel desde el build: dist/panel/index.html, leído una sola vez. */
+function paginaDelBuild(dirBuild) {
+  const archivo = resolve(dirBuild, 'panel', 'index.html')
+  let html = null
+  try {
+    html = readFileSync(archivo, 'utf8')
+  } catch (err) {
+    log('aviso', 'panel_sin_build', { mensaje: `no está ${archivo}: npm run build arma el panel`, codigo: err.code })
+  }
+  return async () => html
+}
+
+/**
+ * El Vite del panel adentro del router (solo desarrollo). Express le saca /administracion a req.url al entrar al
+ * router; Vite lo espera entero (su base es /administracion/), así que se le da la URL original y se restaura si Vite
+ * no atiende el pedido (si no, el router de Express sumaría el prefijo dos veces).
+ * @param {import('vite').ViteDevServer} vite
+ */
+function middlewaresDeVite(vite) {
+  return function moduloDelPanel(req, res, next) {
+    const url = req.url
+    req.url = req.originalUrl
+    vite.middlewares(req, res, (err) => {
+      req.url = url
+      next(err)
+    })
+  }
+}
+
+/** @param {import('vite').ViteDevServer} vite */
+function paginaDeVite(vite, raiz) {
+  return async (req) => vite.transformIndexHtml(req.originalUrl, await readFile(resolve(raiz, 'index.html'), 'utf8'))
+}
 
 /**
  * @param {object} opciones
  * @param {string} opciones.dirBuild
  * @param {ReturnType<import('./config.js').leerConfig>} opciones.config
  * @param {import('sequelize').Sequelize | null} [opciones.sequelize]  null: sin base (la API responde 503)
+ * @param {ReturnType<import('./tareas.js').crearRegistroDeTareas> | null} [opciones.registroTareas]
+ * @param {import('vite').ViteDevServer | null} [opciones.vite]  el Vite del panel (solo server/dev.js)
  */
-export function crearPanel({ dirBuild, config, sequelize = null }) {
+export function crearPanel({ dirBuild, config, sequelize = null, registroTareas = null, vite = null }) {
   const panel = express.Router()
-  panel.use(cspPanel)
+  panel.use(cspPanel({ desarrollo: Boolean(vite) }))
   panel.use(function barrasDelPanel(req, res, next) {
     // req.baseUrl + req.path: solo la ruta, nunca el request-target entero (ver server/normalizar.js).
     const ruta = req.baseUrl + req.path
@@ -58,23 +81,29 @@ export function crearPanel({ dirBuild, config, sequelize = null }) {
     if (req.method === 'GET' || req.method === 'HEAD') return res.redirect(301, colapsada + consultaDe(req.originalUrl))
     res.status(404).json({ error: 'No existe esa ruta de la API.' })
   })
-  panel.use(
-    '/assets',
-    express.static(resolve(dirBuild, 'panel', 'assets'), {
-      immutable: true,
-      maxAge: '1y',
-      fallthrough: false,
-      index: false,
-      redirect: false,
-    }),
-  )
+  if (!vite) {
+    panel.use(
+      '/assets',
+      express.static(resolve(dirBuild, 'panel', 'assets'), {
+        immutable: true,
+        maxAge: '1y',
+        fallthrough: false,
+        index: false,
+        redirect: false,
+      }),
+    )
+  }
   panel.use((req, res, next) => {
     res.set('Cache-Control', 'no-store')
     next()
   })
-  panel.use('/api', crearApi({ config, sequelize }))
-  panel.get('/{*resto}', (req, res) => {
-    res.type('html').send(EN_CONSTRUCCION)
+  panel.use('/api', crearApi({ config, sequelize, registroTareas }))
+  if (vite) panel.use(middlewaresDeVite(vite))
+  const pagina = vite ? paginaDeVite(vite, vite.config.root) : paginaDelBuild(dirBuild)
+  panel.get('/{*resto}', async (req, res) => {
+    const html = await pagina(req)
+    if (html == null) return res.status(503).type('html').send(paginaDeError(503))
+    res.type('html').send(html)
   })
   panel.use((req, res) => {
     res.status(404).type('text').send('No encontrado.')

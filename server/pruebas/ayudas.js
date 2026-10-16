@@ -13,7 +13,8 @@
 //   no registra sus pruebas y el total parecía un verde completo).
 // - levantar(env): la app entera (como en producción, con URL_PUBLICA https://mupa.ar/ y TRUST_PROXY=1, así cada
 //   prueba elige la IP con X-Forwarded-For) sobre un build falso, en un puerto libre y con los límites en cero.
-//   Devuelve pedir(), crearUsuario(rol), cookiePara(rol) y cerrar().
+//   Devuelve pedir(), crearUsuario(rol), cookiePara(rol) y cerrar(). levantar(env, { registroTareas }) le pasa a la
+//   app un registro de tareas diarias (server/tareas.js) para GET /estado.
 // - escucharLogs() y contarConsultas(): lo que el servicio escribe en el log y las consultas a la base.
 // Las contraseñas de las cuentas de prueba se generan al azar y viven solo en memoria.
 import { randomBytes } from 'node:crypto'
@@ -116,6 +117,9 @@ function buildFalso() {
   )
   writeFileSync(join(carpetaBuild, 'client', 'assets', 'app-abc123.js'), 'console.log(1)\n')
   writeFileSync(join(carpetaBuild, 'client', 'favicon.svg'), '<svg xmlns="http://www.w3.org/2000/svg"/>\n')
+  // La página del panel (dist/panel/index.html): sin ella, el panel avisaría "panel_sin_build" en cada levantar().
+  mkdirSync(join(carpetaBuild, 'panel', 'assets'), { recursive: true })
+  writeFileSync(join(carpetaBuild, 'panel', 'index.html'), '<!doctype html><title>Panel del MuPa</title><div id="raiz"></div>\n')
   writeFileSync(
     join(carpetaBuild, 'server', 'entry-server.js'),
     "export function render(estado) { return '<main data-pagina=\"' + estado.pagina + '\"></main>' }\n",
@@ -207,8 +211,10 @@ export function cookieDe(respuesta, nombre) {
 /**
  * La app entera en un puerto libre, con la base de prueba.
  * @param {Record<string, string | undefined>} [env]  pisa la configuración de prueba (undefined: la saca)
+ * @param {{ registroTareas?: ReturnType<typeof import('../tareas.js').crearRegistroDeTareas> }} [opciones]
+ *   registroTareas: el registro de las tareas diarias que lee GET /estado (sin él, ninguna falló)
  */
-export async function levantar(env = {}) {
+export async function levantar(env = {}, { registroTareas = null } = {}) {
   const dir = buildFalso()
   const variables = {
     NODE_ENV: 'production',
@@ -221,8 +227,15 @@ export async function levantar(env = {}) {
   }
   const config = leerConfig(Object.fromEntries(Object.entries(variables).filter(([, v]) => v !== undefined)))
   const build = await cargarBuild(dir)
-  const ssr = crearSsr({ config, obtener: build.obtener, museoPublico: crearMuseoPublico(config) })
-  const app = crearApp({ config, ssr, sequelize, estaticos: estaticosDelBuild(dir), fechaHome: build.fecha })
+  const ssr = crearSsr({ config, obtener: build.obtener, museoPublico: crearMuseoPublico(config, { sequelize }) })
+  const app = crearApp({
+    config,
+    ssr,
+    sequelize,
+    estaticos: estaticosDelBuild(dir),
+    fechaHome: build.fecha,
+    registroTareas,
+  })
   const servidor = app.listen(0, '127.0.0.1')
   await new Promise((r) => servidor.once('listening', r))
   const puerto = servidor.address().port

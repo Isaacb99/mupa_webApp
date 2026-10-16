@@ -30,6 +30,12 @@ const PLANTILLA = `<!doctype html>
 `
 // Un render que deja en el HTML lo que haría una página: texto con $' $& $$ (que .replace() tomaría como patrones) y
 // un dato del estado.
+// La página del panel como la deja vite.panel.config.js: sus assets bajo /administracion/assets.
+const PAGINA_PANEL = `<!doctype html>
+<html lang="es"><head><title>Panel del MuPa</title>
+<script type="module" crossorigin src="/administracion/assets/panel-abc123.js"></script></head>
+<body><div id="raiz"></div></body></html>
+`
 const ENTRADA = `export function render(estado) {
   return '<main data-pagina="' + estado.pagina + '"><p>' + "$' $& $$" + '</p></main>'
 }
@@ -48,6 +54,7 @@ before(() => {
   writeFileSync(join(carpeta, 'server', 'entry-server.js'), ENTRADA)
   mkdirSync(join(carpeta, 'panel', 'assets'), { recursive: true })
   writeFileSync(join(carpeta, 'panel', 'assets', 'panel-abc123.js'), 'console.log(2)\n')
+  writeFileSync(join(carpeta, 'panel', 'index.html'), PAGINA_PANEL)
 })
 after(() => rmSync(carpeta, { recursive: true, force: true }))
 
@@ -151,17 +158,24 @@ describe('con CANONICO=0 (antes del corte)', () => {
     }
   })
 
-  test('el panel: su CSP, noindex también en mupa.ar, no-store y nada de la CSP pública', async () => {
-    for (const ruta of ['/administracion', '/administracion/', '/administracion/usuarios/3', '/ADMINISTRACION']) {
+  test('el panel: su página (dist/panel/index.html) con su CSP, noindex también en mupa.ar, no-store y nada de la CSP pública', async () => {
+    const rutas = ['/administracion', '/administracion/', '/administracion/usuarios/3', '/ADMINISTRACION', '/administracion/ingresar?volver=%2Fmuseo']
+    for (const ruta of rutas) {
       const r = await pedir(s.puerto, ruta)
       assert.equal(r.status, 200, ruta)
+      assert.equal(r.cuerpo, PAGINA_PANEL, ruta)
+      assert.match(r.h['content-type'], /^text\/html/, ruta)
       assert.equal(r.h['content-security-policy'], CSP_PANEL, ruta)
       assert.equal(r.h['x-robots-tag'], 'noindex, nofollow', ruta)
       assert.equal(r.h['cache-control'], 'no-store', ruta)
       assert.equal(r.h['x-frame-options'], 'DENY', ruta)
       assert.equal(r.h['set-cookie'], undefined, ruta)
-      assert.doesNotMatch(r.cuerpo, /googletagmanager|userway|\/assets\//)
+      // Ni GA4, ni UserWay, ni los assets del sitio público.
+      assert.doesNotMatch(r.cuerpo, /googletagmanager|userway|"\/assets\//)
     }
+    const head = await pedir(s.puerto, '/administracion/', { metodo: 'HEAD' })
+    assert.equal(head.status, 200)
+    assert.equal(head.h['cache-control'], 'no-store')
     // Sin base (crearApp sin sequelize), la API responde 503 en JSON (desde E1; en E0 era 404).
     const api = await pedir(s.puerto, '/administracion/api/usuarios')
     assert.equal(api.status, 503)
@@ -172,6 +186,37 @@ describe('con CANONICO=0 (antes del corte)', () => {
     assert.equal(asset.status, 404)
     assert.equal(asset.h['content-security-policy'], CSP_PANEL)
     assert.equal((await pedir(s.puerto, '/administracion/', { metodo: 'POST' })).status, 404)
+  })
+
+  test('un build sin el panel (sin dist/panel/index.html): 503 con la página simple y la CSP del panel, y el aviso en el log', async () => {
+    const otra = mkdtempSync(join(tmpdir(), 'mupa-sin-panel-'))
+    const lineas = []
+    const original = console.log
+    try {
+      mkdirSync(join(otra, 'client', 'assets'), { recursive: true })
+      mkdirSync(join(otra, 'server'))
+      writeFileSync(join(otra, 'client', 'index.html'), PLANTILLA)
+      writeFileSync(join(otra, 'server', 'entry-server.js'), ENTRADA)
+      console.log = (...args) => lineas.push(args.join(' '))
+      const t = await levantar({ DIR_BUILD: otra })
+      console.log = original
+      try {
+        const r = await pedir(t.puerto, '/administracion/')
+        assert.equal(r.status, 503)
+        assert.match(r.h['content-type'], /^text\/html/)
+        assert.match(r.cuerpo, /Museo Paleontológico de San Juan/)
+        assert.equal(r.h['content-security-policy'], CSP_PANEL)
+        assert.equal(r.h['cache-control'], 'no-store')
+        assert.equal((await pedir(t.puerto, '/')).status, 200)
+      } finally {
+        await t.cerrar()
+      }
+      const avisos = lineas.filter((l) => l.includes('"evento":"panel_sin_build"'))
+      assert.equal(avisos.length, 1)
+    } finally {
+      console.log = original
+      rmSync(otra, { recursive: true, force: true })
+    }
   })
 
   test('los assets del panel: un año e immutable (no el no-store del resto del panel)', async () => {

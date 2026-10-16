@@ -8,13 +8,17 @@
 // y por ruta:
 //   4. con rol: requiereSesion (401), la contraseña temporal ya cambiada salvo las rutas que la permiten (403 con
 //      debeCambiarClave), 300 pedidos por minuto por usuario (429) y el rol (403);
-//   5. los límites propios de la ruta (el inicio de sesión: por IP y por correo + IP);
+//   5. lo propio de la ruta antes de validar: los límites (el inicio de sesión: por IP y por correo + IP) y los campos
+//      que solo puede mandar un admin (el correo de destino de PUT /museo: 403);
 //   6. el :id (400) y el cuerpo con su esquema zod (400 con los campos), ANTES de que la ruta toque la base;
 //   7. la ruta, que recibe solo lo que devolvió el esquema (req.datos).
 // Lo que no está en la tabla: 404 en JSON. Sin base (SIN_BASE o sin DATABASE_URL): 503 en JSON. Sin argon2 (el
 // binario nativo no cargó): 503 en JSON en las rutas que usan contraseñas.
 // Rol "editor" = cualquier cuenta; "admin" = solo admins; null = sin sesión (entrar y salir).
-// Las rutas de museo, horarios y tarifas llegan con E2; contenidos y fotos con E3; mensajes y estado con E4.9/E2.2.
+// /estado (el Inicio) desde E2.2; museo, horarios y tarifas desde E2.3 y E2.4; contenidos y fotos con E3; mensajes
+// con E4.9. Una ruta nueva va en su archivo (un arreglo de Definicion) y en DEFINICIONES: así entra sola en el
+// recorrido de server/pruebas/permisos.test.js. Express prueba las rutas en el orden de la tabla: una fija
+// (/tarifas/orden) va antes que la de su :id.
 import express from 'express'
 import { hashDeRelleno } from '../auth/claves.js'
 import { crearRequiereSesion, exigirClaveCambiada, requiereRol } from '../auth/middleware.js'
@@ -23,7 +27,11 @@ import { crearLimites } from '../limites.js'
 import { crearControlDeOrigen, exigirJson } from '../seguridad.js'
 import { rutasDeCuenta } from './cuenta.js'
 import { parseId } from './entrada.js'
+import { rutasDeEstado } from './estado.js'
+import { rutasDeHorarios } from './horarios.js'
+import { rutasDeMuseo } from './museo.js'
 import { rutasDeSesion } from './sesion.js'
+import { rutasDeTarifas } from './tarifas.js'
 import { rutasDeUsuarios } from './usuarios.js'
 
 /**
@@ -34,11 +42,28 @@ import { rutasDeUsuarios } from './usuarios.js'
  * @property {boolean} [conClaveTemporal]  pasa aunque la contraseña temporal no se haya cambiado
  * @property {import('zod').ZodType} [cuerpo]
  * @property {(limites: ReturnType<typeof crearLimites>) => Function[]} [antes]
- * @property {(req, res, ctx: { config: object, sequelize: import('sequelize').Sequelize, limites: ReturnType<typeof crearLimites> }) => unknown} manejador
+ * @property {(req, res, ctx: Contexto) => unknown} manejador
+ */
+
+/**
+ * Lo que recibe cada manejador además de req y res.
+ * @typedef {object} Contexto
+ * @property {object} config
+ * @property {import('sequelize').Sequelize} sequelize
+ * @property {ReturnType<typeof crearLimites>} limites
+ * @property {ReturnType<typeof import('../tareas.js').crearRegistroDeTareas> | null} registroTareas
  */
 
 /** @type {Definicion[]} */
-const DEFINICIONES = [...rutasDeSesion, ...rutasDeCuenta, ...rutasDeUsuarios]
+const DEFINICIONES = [
+  ...rutasDeSesion,
+  ...rutasDeCuenta,
+  ...rutasDeUsuarios,
+  ...rutasDeEstado,
+  ...rutasDeMuseo,
+  ...rutasDeHorarios,
+  ...rutasDeTarifas,
+]
 
 /** La tabla [{ metodo, ruta, rol }] (más si la ruta lleva cuerpo y si pasa con la temporal), sin los manejadores. */
 export const RUTAS = Object.freeze(
@@ -62,9 +87,10 @@ function validarCuerpo(esquema) {
 }
 
 /**
- * @param {{ config: object, sequelize: import('sequelize').Sequelize | null }} deps
+ * @param {{ config: object, sequelize: import('sequelize').Sequelize | null, registroTareas?: Contexto['registroTareas'] }} deps
+ *   registroTareas: cómo salieron las tareas diarias (server/tareas.js), para GET /estado; null: ninguna falló
  */
-export function crearApi({ config, sequelize }) {
+export function crearApi({ config, sequelize, registroTareas = null }) {
   const api = express.Router()
   api.use(crearControlDeOrigen(config))
   api.use(exigirJson)
@@ -83,7 +109,7 @@ export function crearApi({ config, sequelize }) {
   hashDeRelleno().catch(() => {})
   const limites = crearLimites()
   const requiereSesion = crearRequiereSesion({ config, sequelize })
-  const ctx = { config, sequelize, limites }
+  const ctx = { config, sequelize, limites, registroTareas }
 
   for (const def of DEFINICIONES) {
     const cadena = []

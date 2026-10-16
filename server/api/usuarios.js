@@ -9,7 +9,9 @@
 //   cero, 409. Desactivar o bajar de admin a editor borra las sesiones de esa persona (el rol igual se lee de la base
 //   en cada pedido; así el panel vuelve a entrar con lo que le corresponde).
 // - POST /usuarios/:id/clave-temporal: temporal nueva (72 h), debe_cambiar_clave y sin sesiones. No sobre la propia
-//   cuenta (para eso está Mi cuenta).
+//   cuenta (para eso está Mi cuenta) ni sobre una desactivada (409): el ingreso solo busca cuentas activas, así que
+//   esa temporal no serviría para entrar. Primero se activa (PATCH) y después se le da. (La llave de emergencia,
+//   restablecer-admin, sí reactiva la cuenta: es otra cosa.)
 // - DELETE /usuarios/:id/sesiones: cierra todas sus sesiones.
 // Lo que llega a Sequelize es solo lo que devolvió el esquema (req.datos), con la lista de campos explícita.
 // Lo que da acceso (alta, cambios y temporales) vuelve a comprobar DENTRO de su transacción que quien lo pide sigue
@@ -39,6 +41,8 @@ export const usuarioDeLista = (u) => ({
 })
 
 const NO_EXISTE = 'No existe ese usuario.'
+const DESACTIVADA_SIN_TEMPORAL =
+  'La cuenta está desactivada: activala primero y después dale una contraseña temporal.'
 
 async function listar(req, res, { sequelize }) {
   const usuarios = await sequelize.models.Usuario.findAll({ order: [['nombre', 'ASC'], ['id', 'ASC']] })
@@ -121,6 +125,8 @@ async function darTemporal(req, res, { sequelize }) {
     await bloquearAdmins(Usuario, req, transaction)
     const usuario = await Usuario.findByPk(id, { lock: transaction.LOCK.UPDATE, transaction })
     if (!usuario) throw httpError(404, NO_EXISTE)
+    // Con la fila bloqueada: si otro admin la desactiva en este momento, espera y la temporal no se da.
+    if (!usuario.activo) throw httpError(409, DESACTIVADA_SIN_TEMPORAL)
     await usuario.update(
       { passwordHash, debeCambiarClave: true, claveTemporalVence: vencimientoTemporal() },
       { fields: ['passwordHash', 'debeCambiarClave', 'claveTemporalVence'], transaction },

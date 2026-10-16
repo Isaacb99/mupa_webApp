@@ -15,6 +15,8 @@ import { ACTUAL_EQUIVOCADA, claveDeCambio } from '../limites.js'
 import { log } from '../log.js'
 import { usuarioDeSesion } from './usuarios.js'
 
+export const TEMPORAL_EQUIVOCADA = 'La contraseña temporal no es correcta. Revisala con quien te la dio.'
+
 async function cambiarNombre(req, res, { sequelize }) {
   const { Usuario } = sequelize.models
   const { nombre } = req.datos
@@ -40,7 +42,9 @@ async function cambiarClave(req, res, { config, sequelize, limites }) {
     // Solo esto cuenta para el límite de la actual equivocada.
     res.locals[ACTUAL_EQUIVOCADA] = true
     log('info', 'cambio_clave_fallido', { usuario_id: id })
-    throw httpError(400, 'Revisá los datos.', { campos: { actual: 'La contraseña actual no es correcta.' } })
+    // Con la temporal pendiente, el campo se llama "Contraseña temporal" en el panel: "actual" confundiría.
+    const mensaje = req.usuario.debeCambiarClave ? TEMPORAL_EQUIVOCADA : 'La contraseña actual no es correcta.'
+    throw httpError(400, 'Revisá los datos.', { campos: { actual: mensaje } })
   }
   // El hash, antes de abrir la transacción: no tiene sentido tener la fila bloqueada mientras argon2 trabaja.
   const passwordHash = await hashClave(nueva)

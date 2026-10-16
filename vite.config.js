@@ -11,10 +11,14 @@ import tailwindcss from '@tailwindcss/vite'
 // relativa './' era para servir la landing estática desde una subcarpeta de Hostinger), ni urlDelSitio, ni
 // paraBuscadores, ni noIndexar: el canonical, las etiquetas OG, el JSON-LD, robots.txt, sitemap.xml y el noindex los
 // pone el servidor según el host (server/seo.js y server/seguridad.js). La landing estática sigue en la rama landing.
-// El panel tendrá su propia configuración (vite.panel.config.js, base '/administracion/', E2.1).
+// El panel tiene su propia configuración (vite.panel.config.js, base '/administracion/', raíz panel/, build en
+// dist/panel): nada del panel entra en este bundle.
 export default defineConfig(({ isSsrBuild }) => ({
   plugins: [react(), tailwindcss()],
   base: '/',
   // public/ (favicon, og.jpg, el archivo de Search Console) va solo al build del navegador.
   build: { copyPublicDir: !isSsrBuild },
+  // Solo en desarrollo: el pre-empaquetado de dependencias arranca de la entrada del sitio. Si no, Vite recorre todos
+  // los .html de la carpeta, también panel/index.html (y las copias de tools/salida), y empaqueta lo del panel acá.
+  optimizeDeps: { entries: ['index.html'] },
 }))

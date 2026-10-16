@@ -7,7 +7,7 @@
 //     y, desde E3.1, /fotos/*
 //  3. host aceptado o redirección canónica (server/hosts.js)
 //  4. X-Robots-Tag: noindex fuera del host público de producción
-//  5. el panel en /administracion, con su CSP (server/panel.js), antes de las redirecciones públicas
+//  5. el panel en /administracion (dist/panel y su API), con su CSP (server/panel.js), antes de las redirecciones públicas
 //  6. redirecciones públicas: /index.html, /preview, barras (server/seguridad.js)
 //  7. estáticos públicos con la CSP pública: /assets un año e immutable; la raíz de dist/client (favicon, og.jpg,
 //     el .html de Search Console) un día, por nombre exacto: ni la plantilla del SSR ni los dotfiles (los .htaccess
@@ -78,8 +78,21 @@ export function estaticosDelBuild(dirBuild) {
  * @param {(app: import('express').Express) => void} opciones.estaticos  estaticosDelBuild() o los middlewares de Vite
  * @param {Date} [opciones.fechaHome]  última modificación de la Home para el sitemap (la fecha del build)
  * @param {boolean} [opciones.desarrollo]  CSP con lo que necesita Vite en desarrollo
+ * @param {ReturnType<import('./tareas.js').crearRegistroDeTareas> | null} [opciones.registroTareas]  cómo salieron
+ *   las tareas diarias, para el Inicio del panel (null: ninguna falló)
+ * @param {import('vite').ViteDevServer | null} [opciones.vitePanel]  el Vite del panel (solo server/dev.js); sin él,
+ *   el panel sale de dist/panel
  */
-export function crearApp({ config, ssr, sequelize = null, estaticos, fechaHome = new Date(), desarrollo = false }) {
+export function crearApp({
+  config,
+  ssr,
+  sequelize = null,
+  estaticos,
+  fechaHome = new Date(),
+  desarrollo = false,
+  registroTareas = null,
+  vitePanel = null,
+}) {
   const app = express()
   app.disable('x-powered-by')
   app.set('trust proxy', config.TRUST_PROXY)
@@ -116,7 +129,7 @@ export function crearApp({ config, ssr, sequelize = null, estaticos, fechaHome =
   app.use(noIndexarFueraDelHostPublico(config))
 
   // 5. Panel.
-  app.use(RUTA_PANEL, crearPanel({ dirBuild: config.DIR_BUILD, config, sequelize }))
+  app.use(RUTA_PANEL, crearPanel({ dirBuild: config.DIR_BUILD, config, sequelize, registroTareas, vite: vitePanel }))
 
   // 6 a 8. Sitio público.
   app.use(cspPublica(config, { desarrollo }))

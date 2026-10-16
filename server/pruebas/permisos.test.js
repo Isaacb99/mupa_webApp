@@ -2,7 +2,8 @@
 // /administracion/api. Sin cookie: 401; editor en ruta de admin: 403; Sec-Fetch-Site cross-site o same-site, Origin
 // ajeno o ninguno: 403; cuerpo inválido: 400 antes de tocar la base; Content-Type que no es JSON: 415. Y, por ruta:
 // lo que no está en la tabla da 404 en JSON, /api fuera de /administracion es la 404 del sitio, y toda respuesta de
-// la API trae la CSP del panel, noindex (también con el host mupa.ar) y no-store.
+// la API trae la CSP del panel, noindex (también con el host mupa.ar) y no-store. Y el permiso por campo de la matriz
+// (plan 4.5): el correo de destino del formulario (GET y PUT /museo) es solo de los admins.
 // Sin base (sin DATABASE_URL_TEST, o si no responde) se saltean con un aviso; lo que no necesita base está en
 // api-sin-base.test.js.
 import assert from 'node:assert/strict'
@@ -43,21 +44,34 @@ describe('permisos de la API', { skip: base.motivo ?? false }, () => {
     assert.equal(typeof r.json.error, 'string', quien)
   }
 
-  test('la tabla: las rutas de E1, cada una con su rol', () => {
+  test('la tabla: las rutas de E1 a E2.4, cada una con su rol', () => {
     const tabla = RUTAS.map(({ metodo, ruta, rol }) => `${metodo} ${ruta} ${rol}`).sort()
     assert.deepEqual(tabla, [
       'DELETE /cuenta/sesiones editor',
       'DELETE /sesion null',
+      'DELETE /tarifas/:id editor',
       'DELETE /usuarios/:id/sesiones admin',
+      'GET /estado editor',
+      'GET /horarios editor',
+      'GET /museo editor',
       'GET /sesion editor',
+      'GET /tarifas editor',
       'GET /usuarios admin',
       'PATCH /usuarios/:id admin',
       'POST /sesion null',
+      'POST /tarifas editor',
       'POST /usuarios admin',
       'POST /usuarios/:id/clave-temporal admin',
       'PUT /cuenta editor',
       'PUT /cuenta/clave editor',
+      'PUT /horarios editor',
+      'PUT /museo editor',
+      'PUT /tarifas/:id editor',
+      'PUT /tarifas/orden editor',
     ])
+    // /tarifas/orden antes que /tarifas/:id: si no, "orden" sería un id (400).
+    const lugar = (ruta) => RUTAS.findIndex((r) => r.metodo === 'PUT' && r.ruta === ruta)
+    assert.ok(lugar('/tarifas/orden') < lugar('/tarifas/:id'))
   })
 
   test('sin cookie (o con una que no es una sesión): 401 en toda ruta con rol', async () => {
@@ -136,7 +150,7 @@ describe('permisos de la API', { skip: base.motivo ?? false }, () => {
 
   test('cuerpo inválido: 400 con los campos, antes de que la ruta toque la base', async () => {
     const conCuerpo = RUTAS.filter((r) => r.conCuerpo)
-    assert.equal(conCuerpo.length, 5)
+    assert.equal(conCuerpo.length, 10)
     for (const { metodo, ruta, rol } of conCuerpo) {
       for (const cuerpo of [CUERPO_INVALIDO, [], {}]) {
         const contador = contarConsultas()
@@ -187,23 +201,34 @@ describe('permisos de la API', { skip: base.motivo ?? false }, () => {
   })
 
   test('ids: inválidos 400, inexistentes 404', async () => {
+    // Un cuerpo válido para las rutas con :id que lo validan (si no, el 400 del cuerpo llegaría antes que el 404).
+    const CUERPOS = {
+      'PATCH /usuarios/:id': { nombre: 'Alguien' },
+      // El PUT de una tarifa lleva la tarifa completa.
+      'PUT /tarifas/:id': { nombre: 'General', gratuita: true, precio: null, condicion: null, visible: true },
+    }
+    const NO_EXISTE = { usuarios: 'No existe ese usuario.', tarifas: 'No existe esa tarifa.' }
+    let conId = 0
     for (const { metodo, ruta } of RUTAS) {
       if (!ruta.includes(':id')) continue
-      const cuerpo = metodo === 'PATCH' ? { nombre: 'Alguien' } : {}
+      conId += 1
+      const cuerpo = CUERPOS[`${metodo} ${ruta}`] ?? {}
       for (const id of ['abc', '0', '-1', '1.5', '2147483648', '99999999999']) {
         const r = await s.pedir(metodo, camino(ruta, id), { cookie: admin.cookie, cuerpo })
         assert.equal(r.status, 400, `${metodo} ${ruta} con ${id}`)
       }
       const r = await s.pedir(metodo, camino(ruta, '2147483647'), { cookie: admin.cookie, cuerpo })
       assert.equal(r.status, 404, `${metodo} ${ruta}`)
-      assert.deepEqual(r.json, { error: 'No existe ese usuario.' })
+      assert.deepEqual(r.json, { error: NO_EXISTE[ruta.split('/')[1]] }, `${metodo} ${ruta}`)
     }
+    assert.equal(conId, 5)
   })
 
   test('lo que no está en la tabla: 404 en JSON, con o sin sesión; /api fuera de /administracion: la 404 del sitio', async () => {
     for (const [metodo, ruta] of [
-      ['GET', 'api:/museo'],
       ['GET', 'api:/mensajes'],
+      ['GET', 'api:/horarios/1'],
+      ['DELETE', 'api:/tarifas'],
       ['POST', 'api:/no-existe'],
       ['PATCH', 'api:/cuenta'],
       ['GET', 'api:/usuarios/1/otra-cosa'],
@@ -246,6 +271,44 @@ describe('permisos de la API', { skip: base.motivo ?? false }, () => {
     assert.equal(r.h['cache-control'], 'no-store')
     assert.equal(r.h['x-frame-options'], 'DENY')
     assert.ok(Array.isArray(r.json.data))
+  })
+
+  test('el correo de destino del formulario: un editor no lo recibe y no lo puede mandar (403); un admin sí', async () => {
+    const destino = 'destino-de-prueba@example.com'
+    const deAdmin = await s.pedir('PUT', 'api:/museo', { cookie: admin.cookie, cuerpo: { emailDestinoContacto: destino } })
+    assert.equal(deAdmin.status, 200, deAdmin.texto)
+    assert.equal(deAdmin.json.data.emailDestinoContacto, destino)
+    const verAdmin = await s.pedir('GET', 'api:/museo', { cookie: admin.cookie })
+    assert.equal(verAdmin.status, 200)
+    assert.equal(verAdmin.json.data.emailDestinoContacto, destino)
+
+    const verEditor = await s.pedir('GET', 'api:/museo', { cookie: editor.cookie })
+    assert.equal(verEditor.status, 200)
+    assert.ok(!('emailDestinoContacto' in verEditor.json.data), 'el editor no recibe la clave')
+    assert.ok(!verEditor.texto.includes(destino))
+    // Con cualquier valor (el mismo, null, uno inválido) y con el nombre de la columna: 403 antes de validar y sin
+    // cambiar nada, aunque traiga otros campos válidos.
+    for (const cuerpo of [
+      { emailDestinoContacto: 'otro@example.com' },
+      { emailDestinoContacto: destino },
+      { emailDestinoContacto: null },
+      { emailDestinoContacto: 'no es un correo' },
+      { email_destino_contacto: 'otro@example.com' },
+      { direccion: 'Calle del editor 1', emailDestinoContacto: 'otro@example.com' },
+    ]) {
+      const r = await s.pedir('PUT', 'api:/museo', { cookie: editor.cookie, cuerpo })
+      assert.equal(r.status, 403, JSON.stringify(cuerpo))
+      assert.deepEqual(r.json, { error: 'Solo un administrador puede ver y cambiar el correo de destino del formulario.' })
+      cabecerasDelPanel(r, 'PUT /museo de editor')
+    }
+    const despues = await s.pedir('GET', 'api:/museo', { cookie: admin.cookie })
+    assert.equal(despues.json.data.emailDestinoContacto, destino)
+    assert.notEqual(despues.json.data.direccion, 'Calle del editor 1')
+    // El resto del museo, un editor sí lo cambia (y la respuesta tampoco trae el correo de destino).
+    const otroCampo = await s.pedir('PUT', 'api:/museo', { cookie: editor.cookie, cuerpo: { telefono: '+54 264 000-0001' } })
+    assert.equal(otroCampo.status, 200, otroCampo.texto)
+    assert.equal(otroCampo.json.data.telefono, '+54 264 000-0001')
+    assert.ok(!otroCampo.texto.includes(destino))
   })
 
   test('cada ruta de la tabla existe: con un admin, ninguna da 404 de ruta', async () => {

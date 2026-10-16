@@ -354,7 +354,8 @@ describe('autenticación', { skip: base.motivo ?? false }, () => {
       nueva = 'una frase tranquila para entrar al panel'
       const mal = await s.pedir('PUT', 'api:/cuenta/clave', { cookie, cuerpo: { actual: 'no-es-esta', nueva } })
       assert.equal(mal.status, 400)
-      assert.deepEqual(mal.json.campos, { actual: 'La contraseña actual no es correcta.' })
+      // Con la temporal pendiente, el campo es "Contraseña temporal": el mensaje habla de la temporal.
+      assert.deepEqual(mal.json.campos, { actual: 'La contraseña temporal no es correcta. Revisala con quien te la dio.' })
 
       const cambio = await s.pedir('PUT', 'api:/cuenta/clave', { cookie, cuerpo: { actual: claveTemporal, nueva } })
       assert.equal(cambio.status, 200, cambio.texto)
@@ -436,6 +437,39 @@ describe('autenticación', { skip: base.motivo ?? false }, () => {
     }
     assert.ok(!logs.lineas.join('\n').includes(temporal), 'la temporal no está en el log')
     assert.ok(logs.eventos().some((e) => e.evento === 'clave_temporal_dada' && typeof e.usuario_id === 'number'))
+  })
+
+  test('a una cuenta desactivada no se le da una temporal (409, no cambia nada); activada, sí, y con ella entra', async () => {
+    const s = await levantar()
+    const logs = escucharLogs()
+    try {
+      const admin = await s.cookiePara('admin')
+      const inactiva = await s.crearUsuario('editor', { activo: false })
+      const [antes] = await sql('SELECT password_hash, debe_cambiar_clave, clave_temporal_vence FROM usuarios WHERE id = :id', {
+        id: inactiva.usuario.id,
+      })
+      const r = await s.pedir('POST', `api:/usuarios/${inactiva.usuario.id}/clave-temporal`, { cookie: admin.cookie, cuerpo: {} })
+      assert.equal(r.status, 409, r.texto)
+      assert.deepEqual(r.json, {
+        error: 'La cuenta está desactivada: activala primero y después dale una contraseña temporal.',
+      })
+      const [despues] = await sql('SELECT password_hash, debe_cambiar_clave, clave_temporal_vence FROM usuarios WHERE id = :id', {
+        id: inactiva.usuario.id,
+      })
+      assert.deepEqual(despues, antes, 'la contraseña no cambió')
+      assert.ok(!logs.eventos().some((e) => e.evento === 'clave_temporal_dada'))
+      // Primero se activa; después la temporal sí sirve para entrar.
+      const activar = await s.pedir('PATCH', `api:/usuarios/${inactiva.usuario.id}`, { cookie: admin.cookie, cuerpo: { activo: true } })
+      assert.equal(activar.status, 200, activar.texto)
+      const dada = await s.pedir('POST', `api:/usuarios/${inactiva.usuario.id}/clave-temporal`, { cookie: admin.cookie, cuerpo: {} })
+      assert.equal(dada.status, 200, dada.texto)
+      const ingreso = await s.pedir('POST', 'api:/sesion', { cuerpo: { email: inactiva.email, clave: dada.json.data.claveTemporal } })
+      assert.equal(ingreso.status, 200, ingreso.texto)
+      assert.equal(ingreso.json.data.debeCambiarClave, true)
+    } finally {
+      logs.detener()
+      await s.cerrar()
+    }
   })
 
   test('cambiar la clave invalida las otras sesiones; las reglas de la contraseña nueva', async () => {

@@ -10,7 +10,10 @@
 // - los archivos los sirve Vite (/src/…, /@vite/…), no dist/client;
 // - en desarrollo no aparecen las diferencias de hidratación del build (URL con hash, SVG chicos incrustados): la
 //   prueba de hidratación se hace sobre un build (plan 13.3).
-// El panel (E2) tiene su propio Vite en otro puerto (npm run dev:panel, 5301), que manda /administracion/api acá.
+// El panel tiene su propio Vite (vite.panel.config.js), también en middlewareMode y en el mismo servidor: queda en
+// http://localhost:5300/administracion/ con recarga en caliente. Express lo monta dentro de /administracion
+// (server/panel.js), después de la API; su websocket de HMR escucha en /administracion/ y el del sitio en /, así no
+// chocan. Cada Vite tiene su caché de dependencias (node_modules/.vite y node_modules/.vite-panel).
 import { readFile } from 'node:fs/promises'
 import { createServer } from 'node:http'
 import { createServer as crearServidorTcp } from 'node:net'
@@ -38,13 +41,19 @@ const { crearApp } = await import('./app.js')
 const { crearConexion } = await import('./db/conexion.js')
 const { crearMuseoPublico } = await import('./museo.js')
 const { crearSsr, partir } = await import('./ssr.js')
-const { programarTareas } = await import('./tareas.js')
+const { crearRegistroDeTareas, programarTareas } = await import('./tareas.js')
 
 const servidor = createServer()
 const vite = await crearVite({
   root: raiz,
   appType: 'custom',
   // El websocket de HMR va por el mismo servidor y el mismo puerto.
+  server: { middlewareMode: true, hmr: { server: servidor } },
+})
+
+const vitePanel = await crearVite({
+  configFile: resolve(raiz, 'vite.panel.config.js'),
+  appType: 'custom',
   server: { middlewareMode: true, hmr: { server: servidor } },
 })
 
@@ -61,8 +70,17 @@ async function obtener(req) {
 }
 
 const sequelize = crearConexion(config)
-const ssr = crearSsr({ config, obtener, museoPublico: crearMuseoPublico(config) })
-const app = crearApp({ config, ssr, sequelize, estaticos: (app) => app.use(vite.middlewares), desarrollo: true })
+const ssr = crearSsr({ config, obtener, museoPublico: crearMuseoPublico(config, { sequelize }) })
+const registroTareas = crearRegistroDeTareas()
+const app = crearApp({
+  config,
+  ssr,
+  sequelize,
+  estaticos: (app) => app.use(vite.middlewares),
+  desarrollo: true,
+  registroTareas,
+  vitePanel,
+})
 servidor.on('request', app)
 
 servidor.once('error', (err) => {
@@ -90,17 +108,19 @@ if (config.host === '127.0.0.1' && (await ocupadoEnIpv6(config.PORT))) {
 }
 
 // Las tareas diarias, como en producción (si la base no está migrada, avisan en el log y siguen).
-const tareas = programarTareas({ sequelize })
+const tareas = programarTareas({ sequelize, registro: registroTareas })
 
 servidor.listen(config.PORT, config.host, () => {
   const base = sequelize ? 'con base' : config.sinBase ? `SIN_BASE=${config.sinBase}` : 'sin base (no hay DATABASE_URL)'
-  console.log(`Sitio en http://${config.host === '127.0.0.1' ? 'localhost' : config.host}:${config.PORT}/ (${base})`)
+  const origen = `http://${config.host === '127.0.0.1' ? 'localhost' : config.host}:${config.PORT}`
+  console.log(`Sitio en ${origen}/ (${base})`)
+  console.log(`Panel en ${origen}/administracion/`)
 })
 
 async function cerrar() {
   tareas.detener()
   servidor.close()
-  await Promise.allSettled([vite.close(), sequelize?.close()])
+  await Promise.allSettled([vite.close(), vitePanel.close(), sequelize?.close()])
   process.exit(0)
 }
 process.on('SIGINT', cerrar)

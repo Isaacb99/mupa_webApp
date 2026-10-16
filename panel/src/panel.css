@@ -1,0 +1,83 @@
+/* Estilo del panel (plan 5.1): claro, neutro y de alto contraste (WCAG 2.2 AA), con la fuente del sistema. No usa el
+   estilo del sitio (ni sus fuentes ni su paleta): es una herramienta de trabajo. Tailwind escanea solo panel/src. */
+@import "tailwindcss" source(".");
+
+/* Solo estos colores: los de Tailwind quedan afuera, así cada pantalla usa los mismos (y con el contraste medido).
+   Contraste sobre el fondo blanco: tinta 17,7:1; tenue 7,6:1 (6,9:1 sobre fondo-2); linea 4,8:1 (bordes de los
+   campos: 1.4.11 pide 3:1); accion 6,7:1 (y el texto blanco sobre ella, lo mismo); error 6,5:1; ok 5,0:1 (4,8:1
+   sobre ok-fondo); atencion 7,1:1. */
+@theme {
+  --color-*: initial;
+  --color-blanco: #ffffff;
+  --color-tinta: #111827;
+  --color-tenue: #4b5563;
+  --color-linea: #6b7280;
+  --color-suave: #d1d5db;
+  --color-fondo-2: #f3f4f6;
+  --color-accion: #1d4ed8;
+  --color-accion-fuerte: #1e40af;
+  --color-accion-fondo: #eff6ff;
+  --color-error: #b91c1c;
+  --color-error-fondo: #fef2f2;
+  --color-ok: #15803d;
+  --color-ok-fondo: #f0fdf4;
+  --color-atencion: #92400e;
+  --color-atencion-fondo: #fffbeb;
+
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+
+  /* El ancho máximo del contenido: 72 rem. */
+  --container-panel: 72rem;
+}
+
+@layer base {
+  html {
+    color-scheme: light;
+    background-color: var(--color-blanco);
+    color: var(--color-tinta);
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+  /* La barra superior queda fija desde lg (Marco.jsx): que no tape lo que recibe el foco (2.4.11). */
+  @media (width >= 64rem) {
+    html {
+      scroll-padding-top: 5rem;
+    }
+  }
+  body {
+    font-family: var(--font-sans);
+    line-height: 1.5;
+    min-height: 100svh;
+  }
+  h1,
+  h2,
+  h3 {
+    line-height: 1.25;
+    text-wrap: balance;
+  }
+  a {
+    color: var(--color-accion);
+    text-decoration: underline;
+    text-underline-offset: 0.15em;
+  }
+  a:hover {
+    color: var(--color-accion-fuerte);
+  }
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+  /* El foco, siempre visible y grueso (2.4.7 y 2.4.13). */
+  :focus-visible {
+    outline: 3px solid var(--color-accion);
+    outline-offset: 2px;
+  }
+  /* Lo que recibe el foco por programa (el h1 al cambiar de pantalla, el resumen de errores, el <main> del "Ir al
+     contenido") no es un control: sin el contorno. */
+  [tabindex="-1"]:focus {
+    outline: none;
+  }
+  dialog::backdrop {
+    background: rgb(17 24 39 / 0.6);
+  }
+}

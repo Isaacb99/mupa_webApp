@@ -101,8 +101,8 @@ Hostinger: correo (incluida la casilla de envío) + DNS + public_html con la lan
 mupa-web/
   index.html               plantilla pública: <!--head-->, <div id="root"><!--app--></div>, <!--estado-->
   vite.config.js           público: base '/'; se van renderBuiltUrl, urlDelSitio, paraBuscadores y noIndexar
-  vite.panel.config.js     root 'panel', base '/administracion/', outDir '../dist/panel',
-                           proxy de /administracion/api y /fotos a :5300
+  vite.panel.config.js     root 'panel', base '/administracion/', outDir '../dist/panel', caché propia
+                           (node_modules/.vite-panel); sin proxy: en desarrollo va adentro de npm run dev (E2, 2.6)
   render.yaml              Blueprint (10.1)
   .node-version            24
   .env.example             variables sin valores; en .gitignore agregar "!.env.example" (hoy ".env.*" lo ignora)
@@ -118,13 +118,16 @@ mupa-web/
   panel/                   PANEL (SPA, solo cliente; se publica en /administracion)
     index.html, public/manual.pdf (sale en /administracion/manual.pdf)
     src/ main.jsx, rutas.jsx (createBrowserRouter, basename '/administracion'), api.js, sesion.jsx, panel.css
+         (desde E2 también navegacion.js, reingreso.js y formato.js)
          componentes/ Campo, Listado, EstadoPublicacion, Confirmar, Aviso, EditorTexto (lazy), SubirFoto,
-                      SelectorPortada, Galeria, ReingresoDialogo, ClaveTemporal
+                      SelectorPortada, Galeria, ReingresoDialogo, ClaveTemporal (E2 sumó Marco, Encabezado, Boton,
+                      Casilla, Modal, formulario.jsx, FormularioClave, UltimaEdicion y AvisoVersionNueva)
          pantallas/   Ingresar, CambiarClave, Inicio, Novedades, NovedadEditar, Exposiciones, MuestraEditar,
                       SalaEditar, Visitas, Museo, Mensajes, Usuarios, Cuenta
   compartido/              código puro, sin APIs de Node ni del DOM
     esquemas/              museo, horarios, tarifas, salas, muestras, novedades, fotos, usuarios, contacto, textoRico
-                           (solo servidor y panel)
+                           (solo servidor y panel; desde E2, campos.js con los campos que se repiten)
+    precios.js             (E2) leer y mostrar un precio en pesos, sin zod: lo usa también el sitio (E4.3)
     fechas.js              hoy en San Juan, formato con meses propios, datetime-local ↔ -03:00
     slug.js, textoRico.js (a texto plano), estados.js, panel.js (RUTA_PANEL = '/administracion')
   server/
@@ -176,6 +179,8 @@ Scripts de `package.json`:
 }
 ```
 
+**Desvío de E2 (14/10/2026):** no hay `dev:panel`. El Vite del panel corre adentro de `npm run dev`, como el del sitio (middlewareMode, montado en `/administracion` después de la API, con su websocket de HMR en `/administracion/` y su caché en `node_modules/.vite-panel`), así no hace falta el proxy ni un segundo puerto. En desarrollo, las dos CSP suman `'unsafe-inline'` en scripts y `ws:` (lo que necesita Vite); en producción son las de 9.
+
 **Dependencias nuevas.** Versiones del registro de npm al 08/10/2026; confirmarlas con `npm view <paquete> version` al instalar.
 
 | Paquete | Versión | Tipo |
@@ -194,7 +199,7 @@ Scripts de `package.json`:
 | `sharp` | pasa de devDependencies a dependencies (0.35.4 instalada) | runtime |
 | `compression` | 1.8.2, **solo** si Render no comprime (10.1) | runtime |
 | empaquetador ZIP en streaming (p. ej. `archiver`) | a confirmar, **solo con disco** | runtime |
-| `react-router` | ^7.14.2 | dev (solo entra en el bundle del panel) |
+| `react-router` | ^7.14.2 (se instaló ^7.18.4, la última 7.x al 14/10/2026; ya existe la 8) | dev (solo entra en el bundle del panel) |
 | `@tiptap/react`, `@tiptap/pm`, `@tiptap/starter-kit` | 3.31.4 | dev (ídem) |
 
 - `dotenv` no hace falta: Node 24 trae `--env-file-if-exists`.
@@ -244,6 +249,7 @@ Por qué está armado así:
 - **Se renderiza `JSON.parse(json)`:** así el servidor dibuja exactamente lo mismo que el cliente hidrata, sin `Date`, `numeric` como texto ni getters de Sequelize.
 - **Sin caché de HTML:** cada pedido lee la base. Un guardado del panel se ve en el pedido siguiente sin invalidar nada, y no hay memoria que crezca con los `?fbclid=`.
 - **Si la base falla:** la Home (su `cargar` no consulta nada) sale con el último `museo` bueno o con el pie mínimo; las demás rutas dan una página 503 simple, sin el bundle.
+- **Si la base tarda** (sumado en E2.3, 14/10/2026): el museo tiene un tope de 2 s (`TOPE_MUSEO_MS` en `server/museo.js`); pasado ese tiempo, la página sale con el último `museo` bueno (o el vacío si nunca respondió) en vez de esperar. `leerMuseo` es una sola consulta con las columnas escritas a mano, y lleva el aviso solo si está vigente y la compra solo si está activa.
 
 **`main.jsx`** conserva sus imports y el `?diag`:
 
@@ -273,7 +279,7 @@ if (/[?&]diag\b/.test(location.search)) import('./diagnostico.js').then((m) => m
    - en toda respuesta: CSP del panel (9) y `X-Robots-Tag: noindex, nofollow`, también con el host `mupa.ar`; `no-store` en todo salvo los assets
    - `/administracion/assets` de `dist/panel/assets` con `immutable`, un año y `fallthrough: false`; `/administracion/manual.pdf`
    - `/administracion/api` con `express.json` (100 kB; 300 kB en contenido), CSRF, límites, routers y 404 en JSON
-   - todo otro GET de `/administracion` o `/administracion/…` → `dist/panel/index.html` con `no-store`
+   - todo otro GET de `/administracion` o `/administracion/…` → `dist/panel/index.html` con `no-store` (si falta el build del panel, una página 503 simple y `panel_sin_build` en el log; en desarrollo, el Vite del panel: E2.1)
 6. **Redirecciones públicas:**
    - `/index.html` → `/`; `/preview` y `/preview/{*r}` → `/`
    - barras repetidas o finales, normalizadas con `'/' + req.path.split('/').filter(Boolean).join('/')`: nunca sale un `Location` que empiece con `//`
@@ -322,7 +328,7 @@ No hay variable para el panel: es la ruta fija `/administracion` (`RUTA_PANEL` e
    ```
 
 2. **Datos de arranque:** `.env` a partir de `.env.example`, y después `npm run migrar`, `npm run semilla:ejemplo` y `npm run crear-admin -- --email <correo> --nombre "<nombre>"`, que imprime la contraseña temporal.
-3. **Servidores:** `npm run dev` deja el SSR en http://localhost:5300/, el puerto de `measure.mjs`; `npm run dev:panel` deja el panel en http://localhost:5301/administracion/. El proxy de Vite manda `/administracion/api` y `/fotos` a 5300, y Express los reparte por ruta como en producción.
+3. **Servidores:** `npm run dev` deja el SSR en http://localhost:5300/, el puerto de `measure.mjs`, y el panel en http://localhost:5300/administracion/, con recarga en caliente los dos (desde E2: no hay `dev:panel` ni proxy, ver 2.3).
 4. **Sin base:** `$env:SIN_BASE=1; npm run dev`. Las demás rutas responden 503.
 5. **Producción en local:** `npm run build` y luego `$env:PORT=5183; npm start`. Las recetas se corren con `--url http://127.0.0.1:5183/`.
 6. **Vite solo:** `npm run dev:vite` (5302), para retocar efectos de la Home.
@@ -611,13 +617,13 @@ Van bajo `/administracion/api`, montadas después de `/sesion`, con `requiereSes
 | DELETE | `/cuenta/sesiones` | editor | Cierra la sesión en todos lados |
 | GET / POST | `/usuarios` | admin | El POST `{nombre, email, rol}` crea la cuenta y devuelve `{usuario, claveTemporal}`. La temporal no vuelve a salir en ningún GET |
 | PATCH | `/usuarios/:id` | admin | `{nombre?, rol?, activo?}`. 409 si deja sin admins activos (`LOCK`). Desactivar borra sus sesiones |
-| POST | `/usuarios/:id/clave-temporal` | admin | Nueva temporal (72 h), `debe_cambiar_clave`, borra sus sesiones y devuelve `{claveTemporal}`. No sobre la propia cuenta |
+| POST | `/usuarios/:id/clave-temporal` | admin | Nueva temporal (72 h), `debe_cambiar_clave`, borra sus sesiones y devuelve `{claveTemporal}`. No sobre la propia cuenta (400) ni sobre una desactivada (409: el ingreso solo busca cuentas activas; primero se activa) |
 | DELETE | `/usuarios/:id/sesiones` | admin | |
-| GET / PUT | `/museo` | editor (`email_destino_contacto`: admin, si no → 403) | Incluye los textos de Visitas, el aviso y la compra externa |
-| GET / PUT | `/horarios` | editor | Los 7 días en un PUT. Hasta 2 franjas, con `abre < cierra` |
-| GET / POST | `/tarifas` | editor | |
-| PUT / DELETE | `/tarifas/:id` | editor | Se recomienda ocultarla en vez de borrarla |
-| PUT | `/tarifas/orden` | editor | `{ids}` |
+| GET / PUT | `/museo` | editor (`email_destino_contacto`: admin, si no → 403) | Incluye los textos de Visitas, el aviso y la compra externa. **E2.3 (14/10/2026):** el PUT es parcial (cambia solo los campos que trae, al menos uno): Datos del museo y Visitas guardan campos de la misma fila y, si no, una pisaría a la otra. Las reglas de dos campos (compra activa con su dirección; "Mostrar hasta" con el texto del aviso) se revisan sobre la fila como quedaría, con la fila bloqueada. Un editor que manda el correo de destino recibe 403 antes de validar, y el GET no se lo da. Los textos con formato entran con E3.2: hasta entonces el PUT los descarta |
+| GET / PUT | `/horarios` | editor | Los 7 días en un PUT. Hasta 2 franjas, con `abre < cierra`. Un día cerrado descarta sus franjas sin validarlas; dos franjas pueden tocarse (13:00 y 13:00) (E2.4) |
+| GET / POST | `/tarifas` | editor | Hasta 50 (409). **E2.4:** el alta va al final y, si el orden tiene huecos, primero renumera 1..n (`orden` es `smallint`: con max + 1, altas y bajas lo llevaban a 32767 y daba 500). Altas y cambios de orden van de a uno (`LOCK TABLE tarifas IN SHARE ROW EXCLUSIVE MODE`) |
+| PUT / DELETE | `/tarifas/:id` | editor | Se recomienda ocultarla en vez de borrarla. El PUT exige la tarifa completa, sin valores por defecto (E2.4). Una gratuita se guarda sin precio |
+| PUT | `/tarifas/orden` | editor | `{ids}` con todas las tarifas: si no coinciden con las que hay, 409. Va antes de `/tarifas/:id` en la tabla (E2.4) |
 | GET / POST | `/salas`, `/muestras`, `/novedades` | editor | Listado `?estado=&q=&pagina=`. El POST crea un borrador: exige el título y el slug sale de él |
 | GET / PUT | `/:tipo/:id` | editor | El PUT recibe el esquema completo. Si ya está publicada, la valida como publicada |
 | POST | `/:tipo/:id/publicar` | editor | Valida para publicar, pone `publicado_en` la primera vez y congela el slug |
@@ -627,7 +633,7 @@ Van bajo `/administracion/api`, montadas después de `/sesion`, con `requiereSes
 | POST | `/fotos` | editor | multipart (sección 7) |
 | PATCH | `/fotos/:id` | editor | `{alt?, decorativa?, epigrafe?, credito?}` |
 | GET | `/mensajes` | admin | Solo lectura, de la más nueva a la más vieja, `?pagina=` (50 por página) |
-| GET | `/estado` | editor | Para el Inicio: "Para completar", un solo admin, estado del correo (8), tareas fallidas y fotos faltantes (con disco) |
+| GET | `/estado` | editor | Para el Inicio: "Para completar", un solo admin, estado del correo (8), tareas fallidas y fotos faltantes (con disco). **E2.2:** devuelve códigos, no textos (`{ paraCompletar, unSoloAdmin, correo, tareasFallidas }`; los textos los pone el panel), en una sola consulta; `unSoloAdmin` llega a los dos roles y el correo de destino figura en `paraCompletar` solo para un admin |
 | GET | `/copia/fotos` | admin | **Solo con disco:** ZIP en streaming con `2400.webp` y `og.jpg` de cada foto, más un `fotos.json` |
 
 `server/api/contenido.js` es una fábrica (modelo, esquema, galería) que arma las rutas de los tres tipos. `api/indice.js` exporta la tabla `[{metodo, ruta, rol}]`, que recorre `permisos.test.js`.
@@ -742,6 +748,13 @@ Fuente: [OWASP CSRF](https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_R
 - Un error de red, por ejemplo durante un deploy con disco, muestra "Sin conexión, reintentá" y el formulario queda como estaba.
 - `vite:preloadError` (un chunk que ya no existe después de un deploy) muestra "Hay una versión nueva del panel: guardá y recargá".
 
+**Lo que E2 agregó o cambió (14/10/2026):**
+- **Reingreso:** el diálogo recuerda el correo después de "Ahora no". Si entra **otra** cuenta (una computadora compartida), el pedido no se repite: el panel vuelve al Inicio sin preguntar por los cambios sin guardar, para que lo escrito por la primera no se guarde a nombre de la segunda; si vuelve la misma persona con otro rol, la pantalla se recarga. Con la temporal vencida, el diálogo no tiene campos: solo "Ir a Ingresar". La decisión está en `panel/src/reingreso.js`, contra la última sesión conocida.
+- **Sin `<ScrollRestoration />`**, que guarda las posiciones en `sessionStorage` (9 no lo permite): cada pantalla nueva arranca arriba.
+- **zod en el panel con `jitless`** (`compartido/esquemas/zod.js`, vale también para el servidor): al definir un `z.object` zod prueba `new Function`, y la CSP del panel lo informaba como violación. El panel valida con el mismo esquema del servidor antes de mandar (`validarCon`).
+- **Barra:** fija arriba solo desde lg; en el celular son dos filas que se van con el scroll, con Salir siempre a la vista. Salir navega a `/salir`, así un formulario sin guardar pregunta antes de cerrar la sesión. Mientras carga la pantalla siguiente, "Cargando…" a los 400 ms y `aria-busy` en el `<main>`.
+- **Un solo bundle**, sin división en partes: al cerrar E2, 489 kB de JS (127 kB con Brotli). TipTap tiene que ir con `React.lazy` (E3.2); partir por ruta, cuando crezca.
+
 **Subida de fotos:** con `XMLHttpRequest`, para mostrar el progreso ("Subiendo… 45 %" y después "Procesando foto…").
 
 ### 5.2 Pantallas (bajo `/administracion`)
@@ -764,6 +777,8 @@ Las rutas de la tabla son relativas a `/administracion`: `/novedades` es `https:
 
 **Barra superior**, siempre en el mismo lugar (WCAG 3.2.6): Inicio, Novedades, Exposiciones, Visitas y Datos del museo; Mensajes y Usuarios para admin. A la derecha: Ayuda (abre `/administracion/manual.pdf`), el nombre (lleva a Mi cuenta) y **Salir, siempre visible** (también en el celular): el manual pide cerrar sesión al terminar (9).
 
+**Al cerrar E2 (14/10/2026):** la barra tiene Inicio, Visitas, Datos del museo y Usuarios (Novedades y Exposiciones entran con E3.3 y E3.4, Mensajes con E4.9 y Ayuda con E6.2, en `panel/src/navegacion.js`); el enlace dice "Mi cuenta", con el nombre desde pantallas medianas. `/cambiar-clave` sirve también para el cambio voluntario, aunque Mi cuenta ya tiene su propio formulario de contraseña. En el celular el Tab recorre las secciones antes que Mi cuenta y Salir (el orden de escritorio), a propósito. Una cuenta desactivada no puede entrar (4.4): Usuarios le ofrece "Activar" y no "Dar contraseña temporal", y la API rechaza esa temporal con 409 (corregido el 14/10/2026).
+
 ### 5.3 Campos por tipo
 
 (*) = obligatorio para publicar. El borrador solo exige el título.
@@ -780,13 +795,21 @@ Las rutas de la tabla son relativas a `/administracion`: `/novedades` es `https:
 | **Datos del museo** | Dirección, Localidad, Provincia, CP, Teléfono, Correo público, Correo de destino del formulario (admin; cualquier dirección, también un Gmail), Redes (red + URL `https://`), Enlace "Insertar mapa" (validado), Enlace "Abrir en Google Maps" |
 | **Compra externa** | Activa, URL (`https://`), Texto del botón (≤ 40) |
 
+**Cómo quedaron en E2 (14/10/2026):**
+- **Redes:** lista fija de 7 (`REDES` en `compartido/esquemas/museo.js`: Instagram, Facebook, YouTube, TikTok, X, Threads y LinkedIn), hasta 8 cargadas.
+- **Mapa:** acepta el `<iframe>` entero que da Google Maps ("Insertar mapa") y guarda solo su `src`. El panel no lo muestra (la CSP del panel no deja a Google): un enlace lo abre en otra pestaña.
+- **URLs:** solo `https://`, con el esquema guardado en minúsculas ("HTTPS://" pegado de un documento daba 500 contra los `CHECK`), y sin caracteres invisibles o de control.
+- **Tarifas:** precio en pesos, sin centavos ("3.000" y "$3.000" se entienden); una gratuita se guarda sin precio; hasta 50.
+- **Aviso:** "Mostrar hasta" exige el texto; **compra:** activa exige la URL.
+- **Textos de Visitas:** no están todavía; llegan con el editor en E3.2.
+
 ### 5.4 Flujos
 
 - **Estados** (`compartido/estados.js`): Borrador o Publicada; en muestras, Actual, Próxima, Finalizada o Permanente; en actividades, Realizada.
 - **Botones:** en un borrador, "Guardar borrador" y "Publicar". En una publicada, "Guardar cambios" (aclara que salen al sitio al instante), "Ver en el sitio" y "Despublicar". "Ver en el sitio" abre la página pública con una ruta relativa (mismo host): antes del corte, en `mupa-web.onrender.com`; después, en `mupa.ar`.
 - **Eliminar:** un `<dialog>` nativo con `showModal()` que nombra lo que se borra y propone: "Si solo querés que no se vea, despublicala".
 - **Ediciones simultáneas:** gana el último guardado. El manual pide no editar la misma ficha a la vez; el aviso con control de versión está en la fase 2.
-- **Cambios sin guardar:** `useBlocker` al cambiar de pantalla, más `beforeunload`.
+- **Cambios sin guardar:** `useBlocker` al cambiar de pantalla, más `beforeunload`. React Router admite un solo bloqueo por vez: una pantalla con varios formularios (Visitas, Mi cuenta) junta el `sucio` de cada uno en un solo `useCambiosSinGuardar` (E2, 14/10/2026); el diálogo de una tarifa cuenta, y con algo escrito Escape pregunta antes de descartar.
 
 **Editor de texto** (`EditorTexto.jsx`):
 - Configuración: `StarterKit.configure({ heading: { levels: [2] }, code: false, codeBlock: false, blockquote: false, horizontalRule: false, strike: false, underline: false, link: { openOnClick: false, autolink: true } })` y `ListItem.extend({ content: 'paragraph+' })`. Hay que verificar los nombres contra la documentación de TipTap 3.
@@ -1064,6 +1087,8 @@ export async function enviarContacto({ nombre, email, mensaje }, destino) {
   img-src 'self' blob: data:; connect-src 'self'; frame-ancestors 'none';
   base-uri 'none'; form-action 'self'; object-src 'none'
   ```
+
+  En desarrollo (`npm run dev`) suma `'unsafe-inline'` en `script-src` y `ws:` en `connect-src`, por el Vite del panel; en producción es exactamente esta (verificado al cerrar E2, 14/10/2026). zod va con `jitless` para no chocar con `script-src 'self'` (5.1).
 
 - [ ] `nosniff`, `Referrer-Policy` y sin `X-Powered-By`. En `/administracion/*`, `X-Robots-Tag: noindex, nofollow` siempre (también con el host `mupa.ar`) y `no-store` salvo en sus assets.
 - [ ] Redirecciones normalizadas: `GET //evil.com/` nunca devuelve un `Location` externo.
@@ -1533,6 +1558,10 @@ Se planifica a 20 h por semana (4 h por día hábil), desde el 08/10 y sujeto a 
 | `auth.test.js` | Inicio correcto y fallido con el mismo mensaje. 5 fallidos desde una IP dan 429, y **desde otra IP la clave correcta da 200**. Vencimiento por inactividad y por máximo. **Un desactivado pierde la sesión en el pedido siguiente.** **La temporal sale una sola vez** (no aparece en `GET /usuarios` ni en los logs). **Con `debe_cambiar_clave`, todo menos sesión y `cuenta/clave` da 403**; después de cambiarla, todo anda. Temporal vencida → 401 con su mensaje. Dar una temporal cierra las sesiones de esa persona. Cambiar la clave invalida las otras sesiones. Último admin → 409. Flags de la cookie: con https, `__Secure-mupa_sesion`, `Path=/administracion`, HttpOnly, Secure y SameSite=Strict, sin `Domain`. `crearAdmin()` y `restablecerAdmin()` de `admin.js` |
 | `permisos.test.js` | Recorre `api/indice.js` bajo `/administracion/api`: sin cookie → 401; editor en ruta de admin (usuarios, mensajes) → 403; `Sec-Fetch-Site` `cross-site` o **`same-site`** → 403; `Origin` ajeno → 403; cuerpo inválido → 400 antes de tocar la base; editor que cambia el correo de destino → 403. **Por ruta:** `/api/…` fuera de `/administracion` → 404; toda respuesta de `/administracion/…` (HTML, API y errores) trae la CSP del panel y `X-Robots-Tag: noindex`, también con el host `mupa.ar`, y `no-store` salvo en `/administracion/assets` |
 | `migraciones.test.js` | Ida, vuelta de a una hasta el principio y otra vez ida, con `SequelizeMeta` al día. Cada modelo contra las columnas de su tabla (nombres y `NOT NULL`). Las restricciones con nombre de 3.2 y que rechacen lo que tienen que rechazar. Datos iniciales de 3.4. Grep de `sync(` desde E1 (sumado en la corrección de E1, 13/10/2026) |
+| `estado.test.js` (E2.2) | `GET /estado` para un editor y para un admin ("Para completar", un solo admin, el correo, las tareas fallidas) y, sin base, el registro de las tareas diarias que lee |
+| `museo.test.js` (E2.3) | El esquema del PUT (URLs, el `<iframe>` del mapa, redes, reglas de dos campos, caracteres invisibles), `GET`/`PUT /museo` y el museo público del estado: sin el correo de destino aunque esté cargado, el aviso solo vigente, la compra solo activa y el último museo bueno |
+| `visitas.test.js` (E2.4) | Horario (franjas, días cerrados, mensajes) y tarifas: alta, cambio completo, borrado, orden (409 si la lista no coincide), el tope de 50 con dos altas a la vez y la renumeración del orden (con 32767) |
+| `panel-api.test.js` (E2) | Sin base ni navegador, con un fetch falso: `panel/src/api.js` (Content-Type y `'{}'`, 401 con reingreso, 403 con `debeCambiarClave`, sin red, sesión terminada), `navegacion.js` (`volverSeguro`) y `reingreso.js` |
 | `contenido.test.js` | Borrador → 404 en el sitio. Publicar → visible **en el pedido siguiente**. Slug único (409) y fijo después de publicar. Eliminar libera solo las fotos sin uso. Nodo prohibido o `javascript:` → 400. Grep: ni `sync(` ni `dangerouslySetInnerHTML` |
 | `fotos.test.js` | JPEG, PNG y WebP entran. SVG, HEIC falso y texto `.jpg` → 415. 60 MP → rechazo. **El JPEG con GPS sale sin EXIF.** Las variantes existen. Sin sesión, multer no corre. Con disco: un archivo borrado a mano aparece como faltante |
 | `contacto.test.js` | Envío correcto: fila `enviado`, From = la casilla, Reply-To = el visitante, texto plano. Transporte que falla: fila `fallido`, 303 igual y aviso en `/estado`. Base y transporte caídos → 503 con el correo público. Trampa con algo → 303 sin guardar ni enviar. Salto de línea en el nombre → 400. Sin destino → no hay formulario. 6.º envío de una IP en la hora → 429. Los mensajes de más de 180 días se borran en la tarea |
