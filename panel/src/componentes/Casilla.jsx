@@ -1,11 +1,12 @@
 // Una casilla de verificación con su etiqueta a la derecha (plan 5.6): toda la fila es el objetivo táctil (44 px de
 // alto), con ayuda y error debajo, enlazados con aria-describedby. El id es obligatorio: ResumenErrores enlaza a él.
+// describedby suma otro id a su descripción (un error que no es de la casilla, como el de una foto que no se subió).
 
 /**
  * @param {{ id: string, etiqueta: import('react').ReactNode, ayuda?: import('react').ReactNode, error?: string | null,
- *   checked: boolean, onChange: (e: any) => void, className?: string }} props
+ *   checked: boolean, onChange: (e: any) => void, className?: string, describedby?: string }} props
  */
-export function Casilla({ id, etiqueta, ayuda, error, checked, onChange, className = '' }) {
+export function Casilla({ id, etiqueta, ayuda, error, checked, onChange, className = '', describedby }) {
   const idAyuda = ayuda ? `${id}-ayuda` : null
   const idError = error ? `${id}-error` : null
   return (
@@ -18,7 +19,7 @@ export function Casilla({ id, etiqueta, ayuda, error, checked, onChange, classNa
           checked={checked}
           onChange={onChange}
           aria-invalid={error ? true : undefined}
-          aria-describedby={[idError, idAyuda].filter(Boolean).join(' ') || undefined}
+          aria-describedby={[idError, describedby, idAyuda].filter(Boolean).join(' ') || undefined}
         />
         <span>{etiqueta}</span>
       </label>

@@ -41,7 +41,7 @@ export function Modal({ abierto, titulo, alCerrar, sucio = false, children }) {
           if (sigueAbierto.current) alCerrar()
         }}
       >
-        <h2 id={idTitulo} className="text-xl font-bold">
+        <h2 id={idTitulo} className="text-xl font-bold wrap-anywhere">
           {titulo}
         </h2>
         {abierto ? <div className="mt-4">{children}</div> : null}

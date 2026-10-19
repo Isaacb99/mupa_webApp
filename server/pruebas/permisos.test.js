@@ -4,13 +4,17 @@
 // lo que no está en la tabla da 404 en JSON, /api fuera de /administracion es la 404 del sitio, y toda respuesta de
 // la API trae la CSP del panel, noindex (también con el host mupa.ar) y no-store. Y el permiso por campo de la matriz
 // (plan 4.5): el correo de destino del formulario (GET y PUT /museo) es solo de los admins.
+// Las de los contenidos (E3.3 y E3.4) entran solas, con la tabla.
+// Las rutas multipart (POST /fotos, E3.1) reciben un formulario multipart en vez de JSON: en ellas el 415 es para todo
+// lo que no sea multipart/form-data con su boundary, y el "cuerpo inválido" es un formulario sin foto, con campos
+// inválidos o con dos fotos (que la sesión y el límite van antes que multer lo prueba fotos.test.js).
 // Sin base (sin DATABASE_URL_TEST, o si no responde) se saltean con un aviso; lo que no necesita base está en
 // api-sin-base.test.js.
 import assert from 'node:assert/strict'
 import { after, before, describe, test } from 'node:test'
 import { RUTAS } from '../api/indice.js'
-import { CSP_PANEL } from '../seguridad.js'
-import { cerrarBase, contarConsultas, levantar, prepararBase, salteoVisible } from './ayudas.js'
+import { CSP_PANEL, MULTIPART } from '../seguridad.js'
+import { cerrarBase, contarConsultas, levantar, multipart, prepararBase, salteoVisible } from './ayudas.js'
 
 const base = await prepararBase()
 after(cerrarBase)
@@ -19,6 +23,15 @@ salteoVisible(base)
 // Un cuerpo que ningún esquema acepta: cada campo con el tipo equivocado.
 const CUERPO_INVALIDO = { email: 5, clave: 5, nombre: 5, rol: 'jefe', activo: 'si', actual: 5, nueva: 5 }
 const SEGUROS = new Set(['GET', 'HEAD'])
+// Un formulario multipart sin foto (lo que manda una ruta multipart cuando la prueba no mira el cuerpo).
+const FORMULARIO_SIN_FOTO = multipart({ campos: { alt: 'Una foto' } })
+// Unos bytes cualquiera como archivo: no llegan a procesarse (el 400 de los campos va antes).
+const ARCHIVO = { datos: Buffer.from('no se procesa') }
+const FORMULARIOS_INVALIDOS = [
+  multipart({ campos: {} }),
+  multipart({ campos: { decorativa: 'si', alt: '' }, archivos: [ARCHIVO] }),
+  multipart({ campos: { alt: 'Dos fotos' }, archivos: [ARCHIVO, ARCHIVO] }),
+]
 
 describe('permisos de la API', { skip: base.motivo ?? false }, () => {
   let s
@@ -34,7 +47,9 @@ describe('permisos de la API', { skip: base.motivo ?? false }, () => {
   after(() => s?.cerrar())
 
   const camino = (ruta, id = otro.usuario.id) => `api:${ruta.replace(':id', String(id))}`
-  const opcionesDe = (metodo, o = {}) => (SEGUROS.has(metodo) ? o : { cuerpo: {}, ...o })
+  /** Un cuerpo cualquiera según el método y la ruta: nada en GET, un formulario en una multipart, {} en las demás. */
+  const opcionesDe = (metodo, o = {}, def = null) =>
+    SEGUROS.has(metodo) ? o : def?.multipart ? { ...FORMULARIO_SIN_FOTO, ...o } : { cuerpo: {}, ...o }
 
   function cabecerasDelPanel(r, quien) {
     assert.match(r.h['content-type'], /application\/json/, quien)
@@ -44,41 +59,82 @@ describe('permisos de la API', { skip: base.motivo ?? false }, () => {
     assert.equal(typeof r.json.error, 'string', quien)
   }
 
-  test('la tabla: las rutas de E1 a E2.4, cada una con su rol', () => {
+  test('la tabla: las rutas de E1 a E3.4, cada una con su rol', () => {
     const tabla = RUTAS.map(({ metodo, ruta, rol }) => `${metodo} ${ruta} ${rol}`).sort()
-    assert.deepEqual(tabla, [
-      'DELETE /cuenta/sesiones editor',
-      'DELETE /sesion null',
-      'DELETE /tarifas/:id editor',
-      'DELETE /usuarios/:id/sesiones admin',
-      'GET /estado editor',
-      'GET /horarios editor',
-      'GET /museo editor',
-      'GET /sesion editor',
-      'GET /tarifas editor',
-      'GET /usuarios admin',
-      'PATCH /usuarios/:id admin',
-      'POST /sesion null',
-      'POST /tarifas editor',
-      'POST /usuarios admin',
-      'POST /usuarios/:id/clave-temporal admin',
-      'PUT /cuenta editor',
-      'PUT /cuenta/clave editor',
-      'PUT /horarios editor',
-      'PUT /museo editor',
-      'PUT /tarifas/:id editor',
-      'PUT /tarifas/orden editor',
-    ])
-    // /tarifas/orden antes que /tarifas/:id: si no, "orden" sería un id (400).
+    // Las de cada contenido (E3.3 y E3.4, server/api/contenido.js): listado, alta, ficha, cambio, eliminar, publicar y
+    // despublicar; la galería en muestras y novedades; el orden en salas y muestras.
+    const contenido = (tipo, { galeria = false, orden = false } = {}) => [
+      `DELETE /${tipo}/:id editor`,
+      `GET /${tipo} editor`,
+      `GET /${tipo}/:id editor`,
+      `POST /${tipo} editor`,
+      `POST /${tipo}/:id/despublicar editor`,
+      `POST /${tipo}/:id/publicar editor`,
+      `PUT /${tipo}/:id editor`,
+      ...(galeria ? [`PUT /${tipo}/:id/galeria editor`] : []),
+      ...(orden ? [`PUT /${tipo}/orden editor`] : []),
+    ]
+    assert.deepEqual(
+      tabla,
+      [
+        'DELETE /cuenta/sesiones editor',
+        'DELETE /sesion null',
+        'DELETE /tarifas/:id editor',
+        'DELETE /usuarios/:id/sesiones admin',
+        'GET /estado editor',
+        'GET /horarios editor',
+        'GET /museo editor',
+        'GET /sesion editor',
+        'GET /tarifas editor',
+        'GET /usuarios admin',
+        'PATCH /fotos/:id editor',
+        'PATCH /usuarios/:id admin',
+        'POST /fotos editor',
+        'POST /sesion null',
+        'POST /tarifas editor',
+        'POST /usuarios admin',
+        'POST /usuarios/:id/clave-temporal admin',
+        'PUT /cuenta editor',
+        'PUT /cuenta/clave editor',
+        'PUT /horarios editor',
+        'PUT /museo editor',
+        'PUT /tarifas/:id editor',
+        'PUT /tarifas/orden editor',
+        ...contenido('novedades', { galeria: true }),
+        ...contenido('muestras', { galeria: true, orden: true }),
+        ...contenido('salas', { orden: true }),
+      ].sort(),
+    )
+    // Las fijas (/orden) antes que las de su :id: si no, "orden" sería un id (400).
     const lugar = (ruta) => RUTAS.findIndex((r) => r.metodo === 'PUT' && r.ruta === ruta)
-    assert.ok(lugar('/tarifas/orden') < lugar('/tarifas/:id'))
+    for (const tipo of ['tarifas', 'salas', 'muestras']) assert.ok(lugar(`/${tipo}/orden`) < lugar(`/${tipo}/:id`), tipo)
+  })
+
+  test('el tope de 300 kB (plan 2.4) va solo en lo que guarda textos con formato; lo demás, 100 kB', () => {
+    const conTope = RUTAS.filter((r) => r.limiteJson).map((r) => `${r.metodo} ${r.ruta} ${r.limiteJson}`)
+    assert.deepEqual(conTope.sort(), [
+      'PUT /muestras/:id 300kb',
+      'PUT /museo 300kb',
+      'PUT /novedades/:id 300kb',
+      'PUT /salas/:id 300kb',
+    ])
+  })
+
+  test('las rutas multipart de la tabla son exactamente las que exigirJson deja pasar como multipart', () => {
+    const deLaTabla = RUTAS.filter((r) => r.multipart).map((r) => `${r.metodo} ${r.ruta}`)
+    assert.deepEqual(deLaTabla, ['POST /fotos'])
+    for (const { metodo, ruta, multipart: esMultipart } of RUTAS) {
+      const enSeguridad = MULTIPART.some((m) => m.metodo === metodo && m.ruta.test(ruta.replace(':id', '1')))
+      assert.equal(enSeguridad, esMultipart, `${metodo} ${ruta}`)
+    }
   })
 
   test('sin cookie (o con una que no es una sesión): 401 en toda ruta con rol', async () => {
-    for (const { metodo, ruta, rol } of RUTAS) {
+    for (const def of RUTAS) {
+      const { metodo, ruta, rol } = def
       if (!rol) continue
       for (const cookie of [undefined, `${s.nombreCookie}=${'a'.repeat(43)}`, `${s.nombreCookie}=basura`, 'otra=cosa']) {
-        const r = await s.pedir(metodo, camino(ruta), opcionesDe(metodo, { cookie }))
+        const r = await s.pedir(metodo, camino(ruta), opcionesDe(metodo, { cookie }, def))
         assert.equal(r.status, 401, `${metodo} ${ruta} con ${cookie}`)
         cabecerasDelPanel(r, `${metodo} ${ruta}`)
       }
@@ -111,10 +167,11 @@ describe('permisos de la API', { skip: base.motivo ?? false }, () => {
       { sitio: null, origen: 'http://localhost:5301' },
       { sitio: null, origen: null },
     ]
-    for (const { metodo, ruta } of RUTAS) {
+    for (const def of RUTAS) {
+      const { metodo, ruta } = def
       if (SEGUROS.has(metodo)) continue
       for (const { sitio, origen } of intentos) {
-        const r = await s.pedir(metodo, camino(ruta), opcionesDe(metodo, { cookie: admin.cookie, sitio, origen }))
+        const r = await s.pedir(metodo, camino(ruta), opcionesDe(metodo, { cookie: admin.cookie, sitio, origen }, def))
         assert.equal(r.status, 403, `${metodo} ${ruta} con ${sitio} / ${origen}`)
         assert.deepEqual(r.json, { error: 'Origen no permitido.' })
         cabecerasDelPanel(r, `${metodo} ${ruta}`)
@@ -150,17 +207,19 @@ describe('permisos de la API', { skip: base.motivo ?? false }, () => {
 
   test('cuerpo inválido: 400 con los campos, antes de que la ruta toque la base', async () => {
     const conCuerpo = RUTAS.filter((r) => r.conCuerpo)
-    assert.equal(conCuerpo.length, 10)
-    for (const { metodo, ruta, rol } of conCuerpo) {
-      for (const cuerpo of [CUERPO_INVALIDO, [], {}]) {
+    // 12 hasta E3.1; desde E3.3 y E3.4, el alta y el cambio de los tres contenidos, las dos galerías y los dos órdenes.
+    assert.equal(conCuerpo.length, 22)
+    for (const { metodo, ruta, rol, multipart: esMultipart } of conCuerpo) {
+      const cuerpos = esMultipart ? FORMULARIOS_INVALIDOS : [CUERPO_INVALIDO, [], {}].map((cuerpo) => ({ cuerpo }))
+      for (const { cuerpo, tipo } of cuerpos) {
         const contador = contarConsultas()
         let r
         try {
-          r = await s.pedir(metodo, camino(ruta), { cookie: rol ? admin.cookie : undefined, cuerpo })
+          r = await s.pedir(metodo, camino(ruta), { cookie: rol ? admin.cookie : undefined, cuerpo, tipo })
         } finally {
           contador.detener()
         }
-        const quien = `${metodo} ${ruta} con ${JSON.stringify(cuerpo)}`
+        const quien = `${metodo} ${ruta} con ${esMultipart ? cuerpo.toString('latin1') : JSON.stringify(cuerpo)}`
         assert.equal(r.status, 400, `${quien}: ${r.texto}`)
         cabecerasDelPanel(r, quien)
         // Solo la búsqueda de la sesión (en las rutas con rol); ninguna escritura.
@@ -185,10 +244,13 @@ describe('permisos de la API', { skip: base.motivo ?? false }, () => {
     assert.deepEqual(grande.json, { error: 'El pedido es demasiado grande.' })
   })
 
-  test('Content-Type que no es JSON: 415', async () => {
-    for (const { metodo, ruta, rol } of RUTAS) {
+  test('Content-Type que no es JSON (o multipart, en POST /fotos): 415', async () => {
+    for (const { metodo, ruta, rol, multipart: esMultipart } of RUTAS) {
       if (SEGUROS.has(metodo)) continue
-      for (const tipo of ['text/plain', 'application/x-www-form-urlencoded', 'multipart/form-data; boundary=x', null]) {
+      const tipos = esMultipart
+        ? ['text/plain', 'application/x-www-form-urlencoded', 'application/json', 'multipart/form-data', null]
+        : ['text/plain', 'application/x-www-form-urlencoded', 'multipart/form-data; boundary=x', null]
+      for (const tipo of tipos) {
         if (metodo === 'DELETE' && tipo === null) continue // un DELETE sin Content-Type pero con cuerpo: abajo
         const r = await s.pedir(metodo, camino(ruta), { cookie: rol ? admin.cookie : undefined, cuerpo: 'email=a&clave=b', tipo })
         assert.equal(r.status, 415, `${metodo} ${ruta} con ${tipo}`)
@@ -206,8 +268,44 @@ describe('permisos de la API', { skip: base.motivo ?? false }, () => {
       'PATCH /usuarios/:id': { nombre: 'Alguien' },
       // El PUT de una tarifa lleva la tarifa completa.
       'PUT /tarifas/:id': { nombre: 'General', gratuita: true, precio: null, condicion: null, visible: true },
+      'PATCH /fotos/:id': { alt: 'Una foto' },
+      // Los contenidos llevan el esquema completo (lo opcional, en null); la galería, la lista de fotos.
+      'PUT /novedades/:id': {
+        tipo: 'noticia',
+        titulo: 'Una novedad',
+        slug: null,
+        resumen: null,
+        cuerpo: null,
+        portadaId: null,
+        eventoInicio: null,
+        eventoFin: null,
+        lugar: null,
+        costo: null,
+        enlaceInscripcion: null,
+      },
+      'PUT /muestras/:id': {
+        tipo: 'temporal',
+        titulo: 'Una muestra',
+        slug: null,
+        resumen: null,
+        descripcion: null,
+        portadaId: null,
+        fechaInicio: null,
+        fechaFin: null,
+        salaId: null,
+      },
+      'PUT /salas/:id': { nombre: 'Una sala', slug: null, resumen: null, descripcion: null, portadaId: null },
+      'PUT /novedades/:id/galeria': { fotos: [] },
+      'PUT /muestras/:id/galeria': { fotos: [] },
     }
-    const NO_EXISTE = { usuarios: 'No existe ese usuario.', tarifas: 'No existe esa tarifa.' }
+    const NO_EXISTE = {
+      usuarios: 'No existe ese usuario.',
+      tarifas: 'No existe esa tarifa.',
+      fotos: 'No existe esa foto.',
+      novedades: 'No existe esa novedad.',
+      muestras: 'No existe esa muestra.',
+      salas: 'No existe esa sala.',
+    }
     let conId = 0
     for (const { metodo, ruta } of RUTAS) {
       if (!ruta.includes(':id')) continue
@@ -221,7 +319,8 @@ describe('permisos de la API', { skip: base.motivo ?? false }, () => {
       assert.equal(r.status, 404, `${metodo} ${ruta}`)
       assert.deepEqual(r.json, { error: NO_EXISTE[ruta.split('/')[1]] }, `${metodo} ${ruta}`)
     }
-    assert.equal(conId, 5)
+    // 6 hasta E3.1; desde E3.3 y E3.4, 5 por contenido más las dos galerías.
+    assert.equal(conId, 23)
   })
 
   test('lo que no está en la tabla: 404 en JSON, con o sin sesión; /api fuera de /administracion: la 404 del sitio', async () => {
@@ -229,6 +328,10 @@ describe('permisos de la API', { skip: base.motivo ?? false }, () => {
       ['GET', 'api:/mensajes'],
       ['GET', 'api:/horarios/1'],
       ['DELETE', 'api:/tarifas'],
+      ['GET', 'api:/fotos'],
+      ['GET', 'api:/fotos/1'],
+      ['DELETE', 'api:/fotos/1'],
+      ['POST', 'api:/fotos/1'],
       ['POST', 'api:/no-existe'],
       ['PATCH', 'api:/cuenta'],
       ['GET', 'api:/usuarios/1/otra-cosa'],
@@ -316,8 +419,9 @@ describe('permisos de la API', { skip: base.motivo ?? false }, () => {
     const victima = await s.crearUsuario('editor')
     // Al final, las que cierran la sesión propia.
     const orden = [...RUTAS].sort((a, b) => Number(/sesion/.test(a.ruta) && a.metodo === 'DELETE') - Number(/sesion/.test(b.ruta) && b.metodo === 'DELETE'))
-    for (const { metodo, ruta } of orden) {
-      const r = await s.pedir(metodo, camino(ruta, victima.usuario.id), opcionesDe(metodo, { cookie: yo.cookie }))
+    for (const def of orden) {
+      const { metodo, ruta } = def
+      const r = await s.pedir(metodo, camino(ruta, victima.usuario.id), opcionesDe(metodo, { cookie: yo.cookie }, def))
       assert.notEqual(r.json?.error, 'No existe esa ruta de la API.', `${metodo} ${ruta}`)
       assert.ok(r.status < 500, `${metodo} ${ruta}: ${r.status}`)
     }

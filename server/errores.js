@@ -2,13 +2,15 @@
 // - Se respeta err.status (o err.statusCode): 404 de un estático que falta, 400 de una URL mal codificada o de un
 //   JSON roto, 413…
 // - Los errores se traducen SOLO acá (plan 4.1): ZodError -> 400 con los campos; unique de Sequelize -> 409;
-//   40P01 (deadlock de Postgres) -> 409 "reintentá"; un httpError() -> su status y su mensaje; el resto -> 500
-//   genérico. Las tres primeras, SOLO en /administracion/api (desde E4.5, también en POST /contacto): ahí son la
+//   40P01 (deadlock de Postgres) y 23503 (una clave foránea: algo que se borró o se empezó a usar en el medio; desde
+//   E3, una red: los pedidos de las fotos ya se bloquean para que no pase) -> 409 "reintentá"; un httpError() -> su
+//   status y su mensaje; el resto -> 500 genérico. Las tres primeras, SOLO en /administracion/api (desde E4.5, también en POST /contacto): ahí son la
 //   entrada del pedido. En una página pública, un ZodError viene de validar datos del servidor (la base, en
 //   leerMuseo o en las páginas de E4) y es un 500 con su línea en el log, no un 400 del visitante.
 // - En /administracion/api/…: { error, campos? } en JSON, en castellano.
 // - Un 4xx en el resto (p. ej. un estático que falta): texto corto, nunca 500.
-// - Un 5xx: una página simple, sin el bundle del sitio, con no-store.
+// - Un 5xx: una página simple, sin el bundle del sitio, con no-store. En el log, con el stack; un 5xx que es un
+//   httpError() (ya hay 3 fotos subiéndose, sin argon2) es esperable: una línea de aviso, sin el stack.
 // - Nunca el stack ni el mensaje de un error interno en la respuesta: van al log (server/log.js). Tampoco los
 //   valores que vienen en el error (el correo repetido de un unique): ni a la respuesta ni al log.
 import { ZodError } from 'zod'
@@ -87,6 +89,9 @@ function traducir(err, deEntrada) {
   if (codigoDeError(err) === '40P01') {
     return { status: 409, cuerpo: { error: 'Otro cambio se cruzó con este. Probá de nuevo.' } }
   }
+  if (codigoDeError(err) === '23503') {
+    return { status: 409, cuerpo: { error: 'Otro cambio se cruzó con este. Recargá la pantalla y probá de nuevo.' } }
+  }
   return null
 }
 
@@ -122,8 +127,10 @@ export function manejadorDeErrores() {
     const traducido = traducir(err, enApi)
     let status = traducido?.status ?? Number(err?.status ?? err?.statusCode)
     if (!(status >= 400 && status < 600)) status = 500
-    if (status >= 500) log('error', `error_${status}`, err instanceof Error ? err : new Error(String(err)))
-    else if (codigoDeError(err) === '40P01') log('aviso', 'conflicto_reintentar', { codigo: '40P01' })
+    const codigo = codigoDeError(err)
+    if (status >= 500 && err?.paraLaPersona) log('aviso', `respuesta_${status}`, { mensaje: err.message })
+    else if (status >= 500) log('error', `error_${status}`, err instanceof Error ? err : new Error(String(err)))
+    else if (enApi && (codigo === '40P01' || codigo === '23503')) log('aviso', 'conflicto_reintentar', { codigo })
     // Con la respuesta a medio mandar no hay nada que hacer: Express corta la conexión.
     if (res.headersSent) return next(err)
     res.status(status).set('Cache-Control', 'no-store')

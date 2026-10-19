@@ -10,7 +10,17 @@ import { hashClave, hashDeRelleno, verificarClave } from '../auth/claves.js'
 import { crearAdmin, restablecerAdmin } from '../scripts/admin.js'
 import { CSP_PANEL } from '../seguridad.js'
 import { programarTareas } from '../tareas.js'
-import { cerrarBase, claveAlAzar, cookieDe, escucharLogs, levantar, prepararBase, salteoVisible, sql } from './ayudas.js'
+import {
+  cerrarBase,
+  claveAlAzar,
+  cookieDe,
+  escucharLogs,
+  levantar,
+  multipart,
+  prepararBase,
+  salteoVisible,
+  sql,
+} from './ayudas.js'
 
 const base = await prepararBase()
 after(cerrarBase)
@@ -334,12 +344,11 @@ describe('autenticación', { skip: base.motivo ?? false }, () => {
       const ingreso = await s.pedir('POST', 'api:/sesion', { cuerpo: { email: usuario.email, clave: claveTemporal } })
       const cookie = cookieDe(ingreso, s.nombreCookie)
       const permitidas = new Set(['GET /sesion', 'DELETE /sesion', 'PUT /cuenta/clave', 'POST /sesion'])
-      for (const { metodo, ruta } of RUTAS) {
+      for (const { metodo, ruta, multipart: esMultipart } of RUTAS) {
         if (permitidas.has(`${metodo} ${ruta}`)) continue
-        const r = await s.pedir(metodo, `api:${ruta.replace(':id', String(admin.usuario.id))}`, {
-          cookie,
-          ...(metodo === 'GET' ? {} : { cuerpo: {} }),
-        })
+        // POST /fotos recibe un formulario multipart (con JSON sería un 415 antes de mirar la sesión).
+        const cuerpo = metodo === 'GET' ? {} : esMultipart ? multipart({ campos: { alt: 'Una foto' } }) : { cuerpo: {} }
+        const r = await s.pedir(metodo, `api:${ruta.replace(':id', String(admin.usuario.id))}`, { cookie, ...cuerpo })
         assert.equal(r.status, 403, `${metodo} ${ruta}`)
         assert.deepEqual(r.json, { error: 'Tenés que cambiar la contraseña temporal antes de seguir.', debeCambiarClave: true })
       }

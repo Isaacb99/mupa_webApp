@@ -5,7 +5,8 @@
 //  3. lee una sola vez la plantilla y el render del build (DIR_BUILD, por defecto dist) y la página del panel
 //     (dist/panel/index.html, server/panel.js);
 //  4. (E4.5) verificará la casilla de envío del formulario, sin esperar;
-//  5. escucha en PORT y programa las tareas diarias (server/tareas.js: hoy, borrar las sesiones vencidas);
+//  5. escucha en PORT y programa las tareas diarias (server/tareas.js: hoy, borrar las sesiones vencidas y las fotos
+//     huérfanas);
 //  6. ante SIGTERM (Render, en cada deploy) o SIGINT: deja de aceptar conexiones, termina las que están en curso
 //     (cerrando las keep-alive, server/apagado.js), cierra la base y sale. Render manda SIGKILL a los 30 s.
 //
@@ -17,6 +18,7 @@ import { crearApagado } from './apagado.js'
 import { avisosDeConfig, configDelProceso } from './config.js'
 import { crearApp, estaticosDelBuild } from './app.js'
 import { crearConexion, probarBase } from './db/conexion.js'
+import { crearAlmacen } from './fotos/almacen.js'
 import { codigoDeError, log } from './log.js'
 import { crearMuseoPublico } from './museo.js'
 import { cargarBuild, crearSsr } from './ssr.js'
@@ -37,6 +39,8 @@ try {
 const ssr = crearSsr({ config, obtener: build.obtener, museoPublico: crearMuseoPublico(config, { sequelize }) })
 // Cómo salió cada tarea diaria: lo lee el Inicio del panel.
 const registroTareas = crearRegistroDeTareas()
+// Las fotos (con su caché en memoria): las mismas para /fotos, la API del panel y la tarea de las huérfanas.
+const almacen = sequelize ? crearAlmacen(sequelize) : null
 const app = crearApp({
   config,
   ssr,
@@ -44,6 +48,7 @@ const app = crearApp({
   estaticos: estaticosDelBuild(config.DIR_BUILD),
   fechaHome: build.fecha,
   registroTareas,
+  almacen,
 })
 
 const servidor = createServer()
@@ -74,8 +79,8 @@ if (sequelize) {
     .then((ms) => log('info', 'base_ok', { ms }))
     .catch((err) => log('aviso', 'base_no_responde', { mensaje: err.message, codigo: codigoDeError(err) }))
 }
-// Al arrancar y una vez por día (server/tareas.js): hoy, borrar las sesiones vencidas.
-const tareas = programarTareas({ sequelize, registro: registroTareas })
+// Al arrancar y una vez por día (server/tareas.js): hoy, borrar las sesiones vencidas y las fotos huérfanas.
+const tareas = programarTareas({ sequelize, registro: registroTareas, almacen })
 
 async function apagar(senal) {
   if (apagado.apagando) {

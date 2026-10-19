@@ -31,7 +31,8 @@ test('nadie sincroniza el esquema desde los modelos: ni sync( ni .sync en server
   const hallados = []
   for (const carpeta of ['server', 'compartido']) {
     for (const archivo of archivosJs(join(RAIZ, carpeta))) {
-      if (archivo === ESTE_ARCHIVO) continue // este archivo nombra la regla
+      // Este archivo y contenido.test.js (que la repite, plan 13.1) nombran la regla.
+      if (archivo === ESTE_ARCHIVO || archivo === join(RAIZ, 'server', 'pruebas', 'contenido.test.js')) continue
       readFileSync(archivo, 'utf8')
         .split('\n')
         .forEach((linea, i) => {
@@ -46,19 +47,31 @@ test('nadie sincroniza el esquema desde los modelos: ni sync( ni .sync en server
 const tablas = async () =>
   (await sql(`SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename`)).map((t) => t.tablename)
 
+// Las tablas que crea cada migración. Una migración nueva suma su línea: si no, la prueba de ida y vuelta falla.
+const TABLAS_DE = {
+  '20261013-01-usuarios.js': ['sesiones', 'usuarios'],
+  '20261013-02-museo-visitas.js': ['horario_semanal', 'museo', 'tarifas'],
+  '20261016-03-fotos.js': ['fotos', 'fotos_archivos'],
+  '20261016-04-salas-muestras.js': ['galeria_muestras', 'muestras', 'salas'],
+  '20261016-05-novedades.js': ['galeria_novedades', 'novedades'],
+}
+
 describe('migraciones', { skip: base.motivo ?? false }, () => {
   test('ida, vuelta de a una hasta el principio y otra vez ida, con SequelizeMeta al día', async () => {
     const migrador = crearMigrador(base.sequelize)
     const archivos = readdirSync(CARPETA_MIGRACIONES).filter((f) => f.endsWith('.js')).sort()
+    assert.deepEqual(Object.keys(TABLAS_DE).sort(), archivos, 'cada migración con sus tablas en TABLAS_DE')
     assert.deepEqual((await migrador.executed()).map((m) => m.name), archivos, 'prepararBase aplicó todas, en orden')
     assert.deepEqual(await migrador.pending(), [])
-    const todas = ['SequelizeMeta', 'horario_semanal', 'museo', 'sesiones', 'tarifas', 'usuarios']
+    const hasta = (n) => ['SequelizeMeta', ...archivos.slice(0, n).flatMap((a) => TABLAS_DE[a])].sort()
+    const todas = hasta(archivos.length)
     assert.deepEqual(await tablas(), todas)
 
     // Una por una, de la última a la primera: cada una se lleva solo lo suyo.
-    assert.deepEqual((await migrador.down()).map((m) => m.name), [archivos[1]])
-    assert.deepEqual(await tablas(), ['SequelizeMeta', 'sesiones', 'usuarios'])
-    assert.deepEqual((await migrador.down()).map((m) => m.name), [archivos[0]])
+    for (let n = archivos.length; n > 0; n--) {
+      assert.deepEqual((await migrador.down()).map((m) => m.name), [archivos[n - 1]])
+      assert.deepEqual(await tablas(), hasta(n - 1), `después de deshacer ${archivos[n - 1]}`)
+    }
     assert.deepEqual(await tablas(), ['SequelizeMeta'])
     assert.deepEqual(await sql('SELECT name FROM "SequelizeMeta"'), [])
     assert.deepEqual(await migrador.down(), [], 'no queda nada para deshacer')
@@ -70,8 +83,21 @@ describe('migraciones', { skip: base.motivo ?? false }, () => {
 
   test('cada modelo coincide con las columnas de su tabla (nombres y NOT NULL)', async () => {
     // SequelizeMeta lo define umzug (SequelizeStorage) sobre la misma instancia: no es un modelo nuestro.
+    // fotos_archivos no tiene modelo, a propósito: ningún findAll puede traer los archivos (server/db/modelos/Foto.js).
     const modelos = Object.values(base.sequelize.models).filter((m) => m.name !== 'SequelizeMeta')
-    assert.deepEqual(modelos.map((m) => m.getTableName()).sort(), ['horario_semanal', 'museo', 'sesiones', 'tarifas', 'usuarios'])
+    assert.deepEqual(modelos.map((m) => m.getTableName()).sort(), [
+      'fotos',
+      'galeria_muestras',
+      'galeria_novedades',
+      'horario_semanal',
+      'muestras',
+      'museo',
+      'novedades',
+      'salas',
+      'sesiones',
+      'tarifas',
+      'usuarios',
+    ])
     for (const modelo of modelos) {
       const tabla = modelo.getTableName()
       const columnas = await sql(
@@ -99,14 +125,62 @@ describe('migraciones', { skip: base.motivo ?? false }, () => {
       )
     ).map((c) => c.conname)
     assert.deepEqual(nombres, [
+      'fotos_alt_o_decorativa',
+      'fotos_archivos_foto_id_fkey',
+      'fotos_archivos_pkey',
+      'fotos_archivos_variante_valida',
+      'fotos_clave_hex',
+      'fotos_clave_unico',
+      'fotos_medidas_positivas',
+      'fotos_pkey',
+      'fotos_subida_por_fkey',
+      'galeria_muestras_foto_id_fkey',
+      'galeria_muestras_muestra_id_fkey',
+      'galeria_muestras_pkey',
+      'galeria_novedades_foto_id_fkey',
+      'galeria_novedades_novedad_id_fkey',
+      'galeria_novedades_pkey',
       'horario_dia_iso',
       'horario_semanal_pkey',
+      'muestras_actualizado_por_fkey',
+      'muestras_creado_por_fkey',
+      'muestras_estado_valido',
+      'muestras_fechas_en_orden',
+      'muestras_pkey',
+      'muestras_portada_id_fkey',
+      'muestras_publicada_con_fecha',
+      'muestras_sala_id_fkey',
+      'muestras_slug_unico',
+      'muestras_slug_valido',
+      'muestras_temporal_con_inicio',
+      'muestras_tipo_valido',
       'museo_actualizado_por_fkey',
       'museo_compra_https',
       'museo_mapa_embed_google',
       'museo_mapa_https',
       'museo_pkey',
       'museo_una_fila',
+      'novedades_actividad_con_inicio',
+      'novedades_actualizado_por_fkey',
+      'novedades_creado_por_fkey',
+      'novedades_estado_valido',
+      'novedades_evento_en_orden',
+      'novedades_inscripcion_https',
+      'novedades_pkey',
+      'novedades_portada_id_fkey',
+      'novedades_publicada_con_fecha',
+      'novedades_slug_unico',
+      'novedades_slug_valido',
+      'novedades_tipo_valido',
+      'salas_actualizado_por_fkey',
+      'salas_creado_por_fkey',
+      'salas_estado_valido',
+      'salas_pkey',
+      'salas_plano_ref_unico',
+      'salas_portada_id_fkey',
+      'salas_publicada_con_fecha',
+      'salas_slug_unico',
+      'salas_slug_valido',
       'sesiones_pkey',
       'sesiones_token_unico',
       'sesiones_usuario_id_fkey',
@@ -119,8 +193,26 @@ describe('migraciones', { skip: base.motivo ?? false }, () => {
       'usuarios_rol_valido',
       'usuarios_temporal_con_vencimiento',
     ])
-    const indices = (await sql(`SELECT indexname FROM pg_indexes WHERE schemaname = 'public' AND indexname = 'sesiones_usuario'`))
-    assert.equal(indices.length, 1, 'el índice de sesiones por usuario')
+    const indices = (await sql(`SELECT indexname FROM pg_indexes WHERE schemaname = 'public' ORDER BY indexname`)).map(
+      (i) => i.indexname,
+    )
+    // El de sesiones por usuario (E1), los de las páginas públicas (plan 3.2) y uno por cada columna que apunta a fotos
+    // (los EXISTS de liberarFotos y de la tarea de las huérfanas, E3.3 y E3.4).
+    for (const indice of [
+      'sesiones_usuario',
+      'salas_publicas',
+      'muestras_publicas',
+      'novedades_publicas',
+      'novedades_actividades',
+      'muestras_sala',
+      'salas_portada',
+      'muestras_portada',
+      'novedades_portada',
+      'galeria_muestras_foto',
+      'galeria_novedades_foto',
+    ]) {
+      assert.ok(indices.includes(indice), `el índice ${indice}`)
+    }
 
     const usuario = (cambios) => {
       const fila = { email: 'ok@example.com', nombre: 'X', hash: 'h', debe: false, vence: null, rol: 'editor', ...cambios }
@@ -167,13 +259,109 @@ describe('migraciones', { skip: base.motivo ?? false }, () => {
       })
     await sesion()
     await rechaza(sesion(), 'sesiones_token_unico', '23505')
+    // Fotos (migración 03).
+    const foto = (cambios) =>
+      sql(
+        `INSERT INTO fotos (clave, ancho, alto, variantes, bytes, alt, decorativa, created_at, updated_at)
+         VALUES (:clave, :ancho, 10, '[480]', 100, :alt, :decorativa, now(), now()) RETURNING id`,
+        { clave: '0123456789abcdef', ancho: 10, alt: 'Una foto', decorativa: false, ...cambios },
+      )
+    await rechaza(foto({ alt: '', decorativa: false }), 'fotos_alt_o_decorativa', '23514')
+    await rechaza(foto({ clave: '0123456789ABCDEF' }), 'fotos_clave_hex')
+    await rechaza(foto({ clave: 'zzzzzzzzzzzzzzzz' }), 'fotos_clave_hex')
+    await rechaza(foto({ ancho: 0 }), 'fotos_medidas_positivas')
+    const [{ id: fotoId }] = await foto({ alt: '', decorativa: true })
+    await rechaza(foto({}), 'fotos_clave_unico', '23505')
+    const archivo = (variante, id = fotoId) =>
+      sql(`INSERT INTO fotos_archivos (foto_id, variante, datos, bytes) VALUES (:id, :variante, '\\x00'::bytea, 1)`, {
+        id,
+        variante,
+      })
+    await rechaza(archivo('2401'), 'fotos_archivos_variante_valida')
+    await rechaza(archivo('960', 2147483647), 'fotos_archivos_foto_id_fkey')
+    await archivo('960')
+    await rechaza(archivo('960'), 'fotos_archivos_pkey')
+    // Los archivos se van con la foto.
+    await sql('DELETE FROM fotos WHERE id = :fotoId', { fotoId })
+    assert.deepEqual(await sql('SELECT foto_id FROM fotos_archivos'), [])
+    // Los archivos ya vienen comprimidos (WebP, JPEG): fuera de la fila y sin volver a comprimirlos (e = EXTERNAL).
+    const [{ attstorage }] = await sql(
+      `SELECT attstorage FROM pg_attribute WHERE attrelid = 'fotos_archivos'::regclass AND attname = 'datos'`,
+    )
+    assert.equal(attstorage, 'e')
+    // Salas, muestras y novedades (migraciones 04 y 05).
+    const [{ id: portadaId }] = await foto({ clave: '00000000000000aa' })
+    const contenido = (tabla, columnas) => {
+      const fila = { slug: 'una-direccion', estado: 'borrador', publicado_en: null, ...columnas }
+      const nombres = Object.keys(fila)
+      return sql(
+        `INSERT INTO ${tabla} (${nombres.join(', ')}, created_at, updated_at)
+         VALUES (${nombres.map((n) => `:${n}`).join(', ')}, now(), now()) RETURNING id`,
+        fila,
+      )
+    }
+    const sala = (c) => contenido('salas', { nombre: 'Sala', ...c })
+    const muestra = (c) => contenido('muestras', { titulo: 'Muestra', tipo: 'temporal', ...c })
+    const novedad = (c) => contenido('novedades', { titulo: 'Novedad', tipo: 'noticia', ...c })
+    for (const [crear, tabla] of [
+      [sala, 'salas'],
+      [muestra, 'muestras'],
+      [novedad, 'novedades'],
+    ]) {
+      await rechaza(crear({ slug: 'Con-Mayusculas' }), `${tabla}_slug_valido`, '23514')
+      await rechaza(crear({ slug: 'doble--guion' }), `${tabla}_slug_valido`)
+      await rechaza(crear({ slug: '-guion' }), `${tabla}_slug_valido`)
+      await rechaza(crear({ estado: 'archivado' }), `${tabla}_estado_valido`)
+      await rechaza(crear({ estado: 'publicado' }), `${tabla}_publicada_con_fecha`)
+      await rechaza(crear({ portada_id: 2147483647 }), `${tabla}_portada_id_fkey`)
+      await crear({ slug: 'repetida' })
+      await rechaza(crear({ slug: 'repetida' }), `${tabla}_slug_unico`, '23505')
+    }
+    await sala({ slug: 'con-plano', plano_ref: 'sala-1' })
+    await rechaza(sala({ slug: 'otra-con-plano', plano_ref: 'sala-1' }), 'salas_plano_ref_unico', '23505')
+    await rechaza(muestra({ tipo: 'itinerante' }), 'muestras_tipo_valido')
+    await rechaza(muestra({ fecha_inicio: '2026-10-20', fecha_fin: '2026-10-19' }), 'muestras_fechas_en_orden')
+    await rechaza(muestra({ estado: 'publicado', publicado_en: new Date() }), 'muestras_temporal_con_inicio')
+    await muestra({ slug: 'permanente-publicada', tipo: 'permanente', estado: 'publicado', publicado_en: new Date() })
+    await rechaza(muestra({ sala_id: 2147483647 }), 'muestras_sala_id_fkey')
+    await rechaza(novedad({ tipo: 'evento' }), 'novedades_tipo_valido')
+    await rechaza(novedad({ enlace_inscripcion: 'http://inscripcion.example.com' }), 'novedades_inscripcion_https')
+    await rechaza(
+      novedad({ tipo: 'actividad', evento_inicio: '2026-10-20T18:00:00-03:00', evento_fin: '2026-10-20T17:00:00-03:00' }),
+      'novedades_evento_en_orden',
+    )
+    await rechaza(
+      novedad({ tipo: 'actividad', estado: 'publicado', publicado_en: new Date() }),
+      'novedades_actividad_con_inicio',
+    )
+    // Las galerías: la foto existe, una vez por contenido; se van con el contenido; una foto en uso no se borra.
+    const [{ id: muestraId }] = await muestra({ slug: 'con-galeria', portada_id: portadaId })
+    const [{ id: novedadId }] = await novedad({ slug: 'con-galeria' })
+    const lugar = (tabla, columna, id, fotoId) =>
+      sql(`INSERT INTO ${tabla} (${columna}, foto_id, orden) VALUES (:id, :fotoId, 1)`, { id, fotoId })
+    await rechaza(lugar('galeria_muestras', 'muestra_id', muestraId, 2147483647), 'galeria_muestras_foto_id_fkey')
+    await rechaza(lugar('galeria_novedades', 'novedad_id', 2147483647, portadaId), 'galeria_novedades_novedad_id_fkey')
+    await lugar('galeria_muestras', 'muestra_id', muestraId, portadaId)
+    await rechaza(lugar('galeria_muestras', 'muestra_id', muestraId, portadaId), 'galeria_muestras_pkey')
+    await lugar('galeria_novedades', 'novedad_id', novedadId, portadaId)
+    await rechaza(sql('DELETE FROM fotos WHERE id = :portadaId', { portadaId }), 'muestras_portada_id_fkey', '23503')
+    await sql('DELETE FROM muestras WHERE id = :muestraId', { muestraId })
+    await sql('DELETE FROM novedades WHERE id = :novedadId', { novedadId })
+    assert.deepEqual(await sql('SELECT * FROM galeria_muestras'), [])
+    assert.deepEqual(await sql('SELECT * FROM galeria_novedades'), [])
     // Lo válido entra (y se borra, para la prueba de abajo).
     await tarifa(true, null)
     await sql(`DELETE FROM tarifas`)
+    await sql(`DELETE FROM novedades`)
+    await sql(`DELETE FROM muestras`)
+    await sql(`DELETE FROM salas`)
+    await sql(`DELETE FROM fotos`)
     await sql(`DELETE FROM usuarios`)
   })
 
-  test('datos iniciales (plan 3.4): la fila del museo vacía, los 7 días cerrados y ninguna tarifa', async () => {
+  test('datos iniciales (plan 3.4): la fila del museo vacía, los 7 días cerrados, ninguna tarifa, foto ni contenido', async () => {
+    assert.deepEqual(await sql('SELECT id FROM fotos'), [])
+    for (const tabla of ['salas', 'muestras', 'novedades']) assert.deepEqual(await sql(`SELECT id FROM ${tabla}`), [], tabla)
     const [museo, ...demas] = await sql('SELECT * FROM museo')
     assert.equal(demas.length, 0)
     assert.equal(museo.id, 1)

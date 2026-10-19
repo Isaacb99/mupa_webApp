@@ -16,6 +16,13 @@
 // - sin conexión (fetch falla: sin red, un deploy en curso): ErrorApi con status 0 y "Sin conexión, reintentá.";
 // - una respuesta que no es JSON (p. ej. un 502 del proxy de Render): ErrorApi con un texto según el código.
 // Con { signal } (el de un loader) el pedido se cancela si la navegación cambia; un AbortError sale tal cual.
+//
+// api.subir(ruta, formulario, { alProgreso, alProcesar, signal }) (E3.1): un FormData (POST /fotos) con
+// XMLHttpRequest, que es lo que da el progreso de la subida (plan 5.1 y 5.5): alProgreso(fraccion) mientras sube y
+// alProcesar() cuando terminó de subir y el servidor la está procesando. Mismas reglas que pedir(): same-origin (la
+// cookie va sola: es el mismo origen), Accept JSON, 401 -> reingreso y la subida se repite desde el principio, 403 con
+// debeCambiarClave, sin red "Sin conexión, reintentá.". El Content-Type lo pone el navegador (multipart con su
+// boundary). Para las pruebas, crearApi({ xhr }) recibe una clase falsa.
 import { RUTA_PANEL } from '../../compartido/panel.js'
 
 export const PREFIJO_API = `${RUTA_PANEL}/api`
@@ -54,14 +61,16 @@ export class ErrorApi extends Error {
   /**
    * @param {number} status
    * @param {string} mensaje
-   * @param {{ campos?: Record<string, string> | null, debeCambiarClave?: boolean }} [extra]
+   * @param {{ campos?: Record<string, string> | null, debeCambiarClave?: boolean, faltan?: number[] | null }} [extra]
+   *   faltan: las fotos que ya no están (el 409 de una galería, server/api/contenido.js)
    */
-  constructor(status, mensaje, { campos = null, debeCambiarClave = false } = {}) {
+  constructor(status, mensaje, { campos = null, debeCambiarClave = false, faltan = null } = {}) {
     super(mensaje)
     this.name = 'ErrorApi'
     this.status = status
     this.campos = campos
     this.debeCambiarClave = debeCambiarClave
+    this.faltan = faltan
   }
 
   get sinConexion() {
@@ -71,14 +80,24 @@ export class ErrorApi extends Error {
 
 const CON_CUERPO = new Set(['POST', 'PUT', 'PATCH'])
 const esAbort = (err) => err?.name === 'AbortError'
+const abortado = () => Object.assign(new Error('Se canceló el pedido.'), { name: 'AbortError' })
+
+/** El ErrorApi de una respuesta que no es 2xx, con lo que trajo (json puede ser null). */
+const errorDeRespuesta = (status, json) =>
+  new ErrorApi(status, typeof json?.error === 'string' ? json.error : mensajePorEstado(status), {
+    campos: json?.campos && typeof json.campos === 'object' ? json.campos : null,
+    debeCambiarClave: json?.debeCambiarClave === true,
+    faltan: Array.isArray(json?.faltan) ? json.faltan.filter((id) => Number.isInteger(id)) : null,
+  })
 
 /**
  * @param {object} [deps]
  * @param {typeof fetch} [deps.fetch]
+ * @param {typeof XMLHttpRequest} [deps.xhr]  la clase de XMLHttpRequest (api.subir); las pruebas pasan una falsa
  * @param {(error: ErrorApi) => Promise<boolean>} [deps.reingresar]  true si la persona volvió a entrar
  * @param {(error: ErrorApi) => void} [deps.alDebeCambiarClave]
  */
-export function crearApi({ fetch: fetchPropio, reingresar = null, alDebeCambiarClave = null } = {}) {
+export function crearApi({ fetch: fetchPropio, xhr: XhrPropio, reingresar = null, alDebeCambiarClave = null } = {}) {
   const ganchos = { reingresar, alDebeCambiarClave }
   const traer = fetchPropio ?? ((...args) => globalThis.fetch(...args))
 
@@ -106,22 +125,63 @@ export function crearApi({ fetch: fetchPropio, reingresar = null, alDebeCambiarC
       }
     }
     if (respuesta.ok) return json?.data ?? null
-    throw new ErrorApi(respuesta.status, typeof json?.error === 'string' ? json.error : mensajePorEstado(respuesta.status), {
-      campos: json?.campos && typeof json.campos === 'object' ? json.campos : null,
-      debeCambiarClave: json?.debeCambiarClave === true,
+    throw errorDeRespuesta(respuesta.status, json)
+  }
+
+  /** Una subida con XMLHttpRequest (ver api.subir). */
+  function unaSubida(ruta, formulario, { alProgreso, alProcesar, signal }) {
+    const Xhr = XhrPropio ?? globalThis.XMLHttpRequest
+    return new Promise((resolver, rechazar) => {
+      if (signal?.aborted) return rechazar(abortado())
+      const pedido = new Xhr()
+      const alAbortar = () => pedido.abort()
+      signal?.addEventListener('abort', alAbortar, { once: true })
+      const terminar = (fn) => (...args) => {
+        signal?.removeEventListener('abort', alAbortar)
+        fn(...args)
+      }
+      pedido.open('POST', PREFIJO_API + ruta)
+      pedido.setRequestHeader('Accept', 'application/json')
+      pedido.upload.onprogress = (e) => {
+        if (e.lengthComputable && e.total > 0) alProgreso?.(Math.min(1, e.loaded / e.total))
+      }
+      // Terminó de subir: ahora el servidor la procesa.
+      pedido.upload.onload = () => {
+        alProgreso?.(1)
+        alProcesar?.()
+      }
+      pedido.onload = terminar(() => {
+        let json = null
+        if (/^application\/json\b/i.test(pedido.getResponseHeader('content-type') ?? '')) {
+          try {
+            json = JSON.parse(pedido.responseText)
+          } catch {
+            // Se cortó a mitad de camino: como si no hubiera traído nada.
+            if (pedido.status >= 200 && pedido.status < 300) return rechazar(new ErrorApi(0, SIN_CONEXION))
+          }
+        }
+        if (pedido.status >= 200 && pedido.status < 300) return resolver(json?.data ?? null)
+        // status 0 sin error de red: el navegador cortó el pedido (p. ej. un problema de CORS que no debería pasar).
+        if (pedido.status === 0) return rechazar(new ErrorApi(0, SIN_CONEXION))
+        rechazar(errorDeRespuesta(pedido.status, json))
+      })
+      pedido.onerror = terminar(() => rechazar(new ErrorApi(0, SIN_CONEXION)))
+      pedido.ontimeout = pedido.onerror
+      pedido.onabort = terminar(() => rechazar(abortado()))
+      pedido.send(formulario)
     })
   }
 
   /**
-   * @param {'GET'|'POST'|'PUT'|'PATCH'|'DELETE'} metodo
-   * @param {string} ruta  relativa a /administracion/api, empieza con /
-   * @param {unknown} [cuerpo]
-   * @param {{ sinReingreso?: boolean, signal?: AbortSignal }} [opciones]
+   * Las reglas de 401 (reingreso y repetir) y 403 (debeCambiarClave), alrededor de un intento.
+   * @param {string} metodo
+   * @param {() => Promise<unknown>} intento
+   * @param {boolean} sinReingreso
    */
-  async function pedir(metodo, ruta, cuerpo, { sinReingreso = false, signal } = {}) {
+  async function conReglas(metodo, intento, sinReingreso) {
     for (;;) {
       try {
-        return await unPedido(metodo, ruta, cuerpo, signal)
+        return await intento()
       } catch (err) {
         if (err instanceof ErrorApi) {
           if (err.status === 401 && !sinReingreso && ganchos.reingresar) {
@@ -135,8 +195,29 @@ export function crearApi({ fetch: fetchPropio, reingresar = null, alDebeCambiarC
     }
   }
 
+  /**
+   * @param {'GET'|'POST'|'PUT'|'PATCH'|'DELETE'} metodo
+   * @param {string} ruta  relativa a /administracion/api, empieza con /
+   * @param {unknown} [cuerpo]
+   * @param {{ sinReingreso?: boolean, signal?: AbortSignal }} [opciones]
+   */
+  function pedir(metodo, ruta, cuerpo, { sinReingreso = false, signal } = {}) {
+    return conReglas(metodo, () => unPedido(metodo, ruta, cuerpo, signal), sinReingreso)
+  }
+
+  /**
+   * POST de un formulario con archivo (FormData), con progreso.
+   * @param {string} ruta  relativa a /administracion/api ('/fotos')
+   * @param {FormData} formulario
+   * @param {{ alProgreso?: (fraccion: number) => void, alProcesar?: () => void, signal?: AbortSignal }} [opciones]
+   */
+  function subir(ruta, formulario, opciones = {}) {
+    return conReglas('POST', () => unaSubida(ruta, formulario, opciones), false)
+  }
+
   return {
     pedir,
+    subir,
     get: (ruta, opciones) => pedir('GET', ruta, undefined, opciones),
     post: (ruta, cuerpo, opciones) => pedir('POST', ruta, cuerpo, opciones),
     put: (ruta, cuerpo, opciones) => pedir('PUT', ruta, cuerpo, opciones),

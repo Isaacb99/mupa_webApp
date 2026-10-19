@@ -5,7 +5,8 @@
 // - noIndexarFueraDelHostPublico: X-Robots-Tag en todo host que no sea el público de producción.
 // - redireccionesPublicas: /index.html, /preview y las barras, sin dejar salir nunca un Location que empiece con //.
 // - crearControlDeOrigen / exigirJson: la CSRF de la API del panel (por Sec-Fetch-Site y Origin, plan 4.6) y el
-//   Content-Type de las rutas JSON; los monta server/api/indice.js. Desde E4.5 la CSRF vale también para POST /contacto.
+//   Content-Type de las rutas JSON (multipart en POST /fotos, MULTIPART); los monta server/api/indice.js. Desde E4.5
+//   la CSRF vale también para POST /contacto.
 import helmet from 'helmet'
 import { esHostPublico } from './hosts.js'
 import { consultaDe, destinoPublico } from './normalizar.js'
@@ -158,13 +159,26 @@ export function crearControlDeOrigen(config) {
 }
 
 const ES_JSON = /^application\/json\s*(;|$)/i
+const ES_MULTIPART = /^multipart\/form-data\s*;/i
 
 /**
- * Las rutas JSON de la API exigen Content-Type: application/json (plan 4.6; desde E3.1, salvo /fotos, que es
- * multipart): POST, PUT y PATCH siempre, y un DELETE si trae cuerpo. Un formulario de otro sitio no puede mandar ese
- * tipo sin una consulta previa (preflight), que nadie atiende. 415 si no.
+ * Las rutas de /administracion/api que reciben un archivo (multipart/form-data) en vez de JSON: solo POST /fotos
+ * (E3.1). Con la barra final o en mayúsculas también, como las rutea Express. Las demás siguen exigiendo JSON.
+ */
+export const MULTIPART = Object.freeze([{ metodo: 'POST', ruta: /^\/fotos\/?$/i }])
+const esMultipart = (req) => MULTIPART.some((m) => m.metodo === req.method && m.ruta.test(req.path))
+
+/**
+ * Las rutas JSON de la API exigen Content-Type: application/json (plan 4.6): POST, PUT y PATCH siempre, y un DELETE
+ * si trae cuerpo. Un formulario de otro sitio no puede mandar ese tipo sin una consulta previa (preflight), que nadie
+ * atiende. 415 si no. Las de MULTIPART (POST /fotos) exigen, en cambio, multipart/form-data con su boundary: un
+ * formulario de otro sitio sí podría mandarlo, pero el control de origen (crearControlDeOrigen) va antes.
  */
 export function exigirJson(req, res, next) {
+  if (esMultipart(req)) {
+    if (ES_MULTIPART.test(req.get('content-type') ?? '')) return next()
+    return res.status(415).json({ error: 'La foto tiene que ir en un formulario multipart/form-data.' })
+  }
   const conCuerpo =
     req.method === 'POST' ||
     req.method === 'PUT' ||

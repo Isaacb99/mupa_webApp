@@ -6,7 +6,14 @@ import assert from 'node:assert/strict'
 import { after, before, describe, test } from 'node:test'
 import { completarHttps, MENSAJE_HTTPS } from '../../compartido/esquemas/campos.js'
 import { esquemaCambioMuseo, problemasDeMuseo, srcDelMapa } from '../../compartido/esquemas/museo.js'
-import { armarMuseoPublico, crearMuseoPublico, MUSEO_MAXIMO, MUSEO_VACIO } from '../museo.js'
+import {
+  armarMuseoPublico,
+  crearMuseoPublico,
+  leerMuseo,
+  MUSEO_MAXIMO,
+  MUSEO_VACIO,
+  vecesQueSeValidaronLosTextos,
+} from '../museo.js'
 import { cerrarBase, escucharLogs, levantar, prepararBase, salteoVisible, sql } from './ayudas.js'
 
 const base = await prepararBase()
@@ -203,13 +210,24 @@ describe('el esquema de PUT /museo (sin base)', () => {
     assert.ok(problemasDeMuseo({ compraActiva: true, compraUrl: null }, ['compraActiva']).compraUrl)
   })
 
-  test('vacío o solo con claves que no son del esquema (los textos con formato, la base): nada para cambiar', () => {
-    for (const cuerpo of [{}, { comoLlegar: { type: 'doc' } }, { actualizadoPor: 1, updatedAt: '2020-01-01', id: 2 }]) {
+  test('vacío o solo con claves que no son del esquema (las columnas en snake_case, la base): nada para cambiar', () => {
+    for (const cuerpo of [{}, { como_llegar: { type: 'doc' } }, { actualizadoPor: 1, updatedAt: '2020-01-01', id: 2 }]) {
       assert.deepEqual(validar(cuerpo).campos, { _: 'No hay nada para cambiar.' }, JSON.stringify(cuerpo))
     }
-    assert.deepEqual(validar({ direccion: 'Calle 1', normas: { type: 'doc' }, actualizadoPor: 9 }).datos, {
+    assert.deepEqual(validar({ direccion: 'Calle 1', como_llegar: { type: 'doc' }, actualizadoPor: 9 }).datos, {
       direccion: 'Calle 1',
     })
+  })
+
+  test('los textos de Visitas (E3.2): el JSON del editor, validado por textoRico.js; vacío, null', () => {
+    const doc = { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Rampa' }] }] }
+    assert.deepEqual(validar({ comoLlegar: doc, normas: { type: 'doc' }, accesibilidad: null }).datos, {
+      comoLlegar: doc,
+      normas: null,
+      accesibilidad: null,
+    })
+    assert.ok(validar({ normas: { type: 'doc', content: [{ type: 'image' }] } }).campos.normas)
+    assert.ok(validar({ comoLlegar: '<p>hola</p>' }).campos.comoLlegar)
   })
 })
 
@@ -379,6 +397,9 @@ describe('GET y PUT /museo, y el museo en las páginas', { skip: base.motivo ?? 
       redes: [],
       mapaEmbedUrl: null,
       mapaUrl: null,
+      comoLlegar: null,
+      normas: null,
+      accesibilidad: null,
       notaHorarios: null,
       notaTarifas: null,
       compraActiva: false,
@@ -406,10 +427,10 @@ describe('GET y PUT /museo, y el museo en las páginas', { skip: base.motivo ?? 
         redes: [{ red: 'instagram', url: 'https://www.instagram.com/mupa' }],
         mapaEmbedUrl: `<iframe src="${EMBED}" width="600"></iframe>`,
         mapaUrl: 'https://maps.app.goo.gl/abc123',
-        // No se pueden mandar: se descartan.
+        // No se pueden mandar: se descartan (también la columna de un texto, con su nombre de la base).
         actualizadoPor: 999,
         updatedAt: '2000-01-01T00:00:00Z',
-        comoLlegar: { type: 'doc' },
+        como_llegar: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'x' }] }] },
       })
     } finally {
       logs.detener()
@@ -434,7 +455,7 @@ describe('GET y PUT /museo, y el museo en las páginas', { skip: base.motivo ?? 
 
   test('es parcial: cambia solo lo que trae, sin pisar lo demás (tampoco los textos con formato)', async () => {
     await sql(`UPDATE museo SET como_llegar = '{"type":"doc","content":[]}' WHERE id = 1`)
-    const r = await put(editor, { notaHorarios: 'Feriados: horario de domingo.', comoLlegar: null, normas: null })
+    const r = await put(editor, { notaHorarios: 'Feriados: horario de domingo.', como_llegar: null })
     assert.equal(r.status, 200, r.texto)
     assert.equal(r.json.data.direccion, 'Avenida de prueba 1234')
     assert.equal(r.json.data.notaHorarios, 'Feriados: horario de domingo.')
@@ -573,6 +594,167 @@ describe('GET y PUT /museo, y el museo en las páginas', { skip: base.motivo ?? 
       hasta: null,
     })
   })
+  // Los textos de Visitas (E3.2): lo que da el editor (editor.getJSON()), con lo que TipTap agrega y el servidor saca.
+  const TEXTO_EDITOR = {
+    type: 'doc',
+    content: [
+      { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'En colectivo' }] },
+      {
+        type: 'paragraph',
+        content: [
+          { type: 'text', text: 'Las líneas ' },
+          { type: 'text', marks: [{ type: 'bold' }], text: '1 y 2' },
+          { type: 'text', text: ' paran en la puerta. ' },
+          {
+            type: 'text',
+            marks: [
+              {
+                type: 'link',
+                attrs: { href: 'https://example.com/recorridos', target: '_blank', rel: 'noopener noreferrer nofollow', class: null },
+              },
+            ],
+            text: 'Recorridos',
+          },
+        ],
+      },
+      {
+        type: 'orderedList',
+        attrs: { start: 1, type: null },
+        content: [{ type: 'listItem', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Bajar en la plaza' }] }] }],
+      },
+      { type: 'paragraph' },
+    ],
+  }
+  const TEXTO_CANONICO = {
+    type: 'doc',
+    content: [
+      TEXTO_EDITOR.content[0],
+      {
+        type: 'paragraph',
+        content: [
+          { type: 'text', text: 'Las líneas ' },
+          { type: 'text', text: '1 y 2', marks: [{ type: 'bold' }] },
+          { type: 'text', text: ' paran en la puerta. ' },
+          { type: 'text', text: 'Recorridos', marks: [{ type: 'link', attrs: { href: 'https://example.com/recorridos' } }] },
+        ],
+      },
+      {
+        type: 'orderedList',
+        content: [{ type: 'listItem', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Bajar en la plaza' }] }] }],
+      },
+    ],
+  }
+  const unParrafo = (text) => ({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text }] }] })
+
+  test('los textos de Visitas: un editor los guarda (en la forma canónica) y el GET los devuelve; el log no tiene el texto', async () => {
+    const logs = escucharLogs()
+    let r
+    try {
+      r = await put(editor, {
+        comoLlegar: TEXTO_EDITOR,
+        normas: unParrafo('No se come en las salas.'),
+        accesibilidad: { type: 'doc', content: [{ type: 'paragraph' }] },
+      })
+    } finally {
+      logs.detener()
+    }
+    assert.equal(r.status, 200, r.texto)
+    assert.deepEqual(r.json.data.comoLlegar, TEXTO_CANONICO)
+    assert.deepEqual(r.json.data.normas, unParrafo('No se come en las salas.'))
+    assert.equal(r.json.data.accesibilidad, null)
+    assert.equal(r.json.data.ultimaEdicion.nombre, 'Edu Editor')
+    const f = await fila()
+    assert.deepEqual(f.como_llegar, TEXTO_CANONICO)
+    assert.equal(f.accesibilidad, null)
+    assert.equal(f.actualizado_por, editor.usuario.id)
+    const g = await s.pedir('GET', 'api:/museo', { cookie: editor.cookie })
+    assert.deepEqual(g.json.data.comoLlegar, TEXTO_CANONICO)
+    assert.deepEqual(g.json.data.normas, unParrafo('No se come en las salas.'))
+    // En el log, los nombres de los campos y nunca el texto.
+    const linea = logs.lineas.join('\n')
+    assert.ok(!/colectivo|salas|recorridos/i.test(linea), linea)
+    assert.ok(logs.eventos().some((e) => e.evento === 'museo_actualizado' && e.campos.includes('comoLlegar')))
+  })
+
+  test('los textos: 400 en su campo con un nodo prohibido, un enlace javascript: o 301 párrafos; no cambia nada', async () => {
+    const antes = await fila()
+    const parrafos = Array.from({ length: 301 }, (_, i) => ({ type: 'paragraph', content: [{ type: 'text', text: `p${i}` }] }))
+    for (const [campo, valor, mensaje] of [
+      ['normas', { type: 'doc', content: [{ type: 'image', attrs: { src: 'https://example.com/x.png' } }] }, /formato/],
+      [
+        'comoLlegar',
+        {
+          type: 'doc',
+          content: [{ type: 'paragraph', content: [{ type: 'text', text: 'clic', marks: [{ type: 'link', attrs: { href: 'javascript:alert(1)' } }] }] }],
+        },
+        /Un enlace tiene que llevar/,
+      ],
+      ['accesibilidad', { type: 'doc', content: parrafos }, /hasta 300 párrafos/],
+      ['comoLlegar', '<p>HTML</p>', /formato/],
+    ]) {
+      const r = await put(editor, { [campo]: valor, notaTarifas: 'No debería guardarse.' })
+      assert.equal(r.status, 400, `${campo}: ${r.texto}`)
+      assert.match(r.json.campos[campo], mensaje)
+      assert.deepEqual(Object.keys(r.json.campos), [campo])
+    }
+    assert.deepEqual(await fila(), antes)
+  })
+
+  test('los textos: uno largo (casi 20.000 caracteres con acentos, en 300 párrafos) entra en un pedido; vaciarlo, null', async () => {
+    const largo = {
+      type: 'doc',
+      content: Array.from({ length: 300 }, (_, i) => ({
+        type: 'paragraph',
+        content: [
+          { type: 'text', text: `${'á'.repeat(60)} `, marks: [{ type: 'bold' }] },
+          { type: 'text', text: String(i).padStart(5, '0') },
+        ],
+      })),
+    }
+    const r = await put(editor, { accesibilidad: largo })
+    assert.equal(r.status, 200, r.texto)
+    assert.equal(r.json.data.accesibilidad.content.length, 300)
+    const vaciar = await put(editor, { accesibilidad: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: '  ' }] }] } })
+    assert.equal(vaciar.status, 200)
+    assert.equal(vaciar.json.data.accesibilidad, null)
+    assert.equal((await fila()).accesibilidad, null)
+  })
+
+  test('la Home lleva los textos en el estado; con </script> en un texto el HTML sigue entero', async () => {
+    const malicioso = '</script><script>alert(1)</script><!--'
+    assert.equal((await put(editor, { accesibilidad: unParrafo(malicioso) })).status, 200)
+    const r = await s.pedir('GET', '/')
+    assert.equal(r.status, 200)
+    assert.ok(!r.texto.includes('<script>alert(1)'), 'el texto no sale como HTML')
+    const { museo } = estadoDe(r.texto)
+    assert.deepEqual(museo.comoLlegar, TEXTO_CANONICO)
+    assert.deepEqual(museo.normas, unParrafo('No se come en las salas.'))
+    assert.deepEqual(museo.accesibilidad, unParrafo(malicioso))
+    // Lo que alguien escribió a mano en la base y el esquema no admite no se publica.
+    await sql(
+      `UPDATE museo SET normas = '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"x","marks":[{"type":"link","attrs":{"href":"javascript:alert(1)"}}]}]}]}' WHERE id = 1`,
+    )
+    assert.equal(estadoDe((await s.pedir('GET', '/')).texto).museo.normas, null)
+    await sql('UPDATE museo SET normas = NULL, accesibilidad = NULL WHERE id = 1')
+  })
+
+  test('los textos se validan una vez mientras no cambian (cada página no paga zod); un cambio a mano se ve igual (COD-04)', async () => {
+    assert.equal((await put(editor, { comoLlegar: unParrafo('Primera versión.') })).status, 200)
+    const primera = await leerMuseo(base.sequelize)
+    const antes = vecesQueSeValidaronLosTextos()
+    for (let i = 0; i < 3; i++) assert.deepEqual((await leerMuseo(base.sequelize)).comoLlegar, primera.comoLlegar)
+    assert.equal(vecesQueSeValidaronLosTextos(), antes, 'los mismos textos: no se vuelven a validar')
+    // Cambiado a mano (sin tocar updated_at): se nota por el contenido y se valida de nuevo.
+    await sql(`UPDATE museo SET como_llegar = '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Segunda."}]}]}' WHERE id = 1`)
+    assert.deepEqual((await leerMuseo(base.sequelize)).comoLlegar, unParrafo('Segunda.'))
+    assert.equal(vecesQueSeValidaronLosTextos(), antes + 1)
+    // Uno nulo y otro con texto no se confunden con el revés (la huella marca cada uno).
+    await sql(`UPDATE museo SET normas = como_llegar, como_llegar = NULL WHERE id = 1`)
+    const cambiados = await leerMuseo(base.sequelize)
+    assert.deepEqual([cambiados.comoLlegar, cambiados.normas], [null, unParrafo('Segunda.')])
+    await sql('UPDATE museo SET normas = NULL WHERE id = 1')
+  })
+
   test('si alguien borró la fila del museo: el GET la muestra vacía y el PUT la vuelve a crear', async () => {
     await sql('DELETE FROM museo')
     const vacio = await s.pedir('GET', 'api:/museo', { cookie: admin.cookie })

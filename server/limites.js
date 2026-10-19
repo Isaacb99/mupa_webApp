@@ -12,7 +12,9 @@
 // |                                      | (el cambio correcto los   | correcto y los demás 400, como una nueva    |
 // |                                      | pone en cero)             | que no cumple las reglas, no cuentan)       |
 // | /administracion/api/* con sesión     | 300 por minuto            | usuario                                     |
-// Los de POST /contacto (E4.5) y POST /administracion/api/fotos (E3.1) se suman acá.
+// | POST /administracion/api/fotos       | 60 por hora (E3.1)        | usuario: cada subida ocupa la cola de sharp |
+// |                                      |                           | (cuentan también las que se rechazan)       |
+// El de POST /contacto (E4.5) se suma acá.
 //
 // La IP es req.ip, que depende de trust proxy (TRUST_PROXY, un número de saltos, nunca true: plan 10.1); las IPv6 se
 // agrupan por /56 (ipKeyGenerator). Ni la IP ni el correo van al log: solo que se alcanzó un límite, y una sola línea
@@ -83,6 +85,18 @@ export function crearLimites() {
       limit: 300,
       keyGenerator: (req) => `usuario-${req.usuario.id}`,
       handler: responder('Demasiados pedidos. Esperá un minuto.', 'limite_usuario'),
+    }),
+    // POST /fotos, después de requiereSesion y antes de multer (server/api/fotos.js): un pedido bloqueado no llega a
+    // leer el archivo.
+    fotosPorUsuario: rateLimit({
+      ...comunes,
+      windowMs: 60 * 60_000,
+      limit: 60,
+      keyGenerator: (req) => `fotos-${req.usuario.id}`,
+      handler: responder(
+        'Subiste 60 fotos en la última hora, que es el máximo. Esperá un rato y seguí.',
+        'limite_fotos',
+      ),
     }),
   }
 }

@@ -21,8 +21,10 @@
 //   sesión venció, api.js abre el diálogo de reingreso y repite el pedido: el formulario no se pierde. Sin conexión:
 //   "Sin conexión, reintentá." arriba y los valores como estaban.
 // - ResumenErrores: arriba del formulario, con un enlace a cada campo con error (el id del campo es prefijo + nombre).
-//   Si ese id es de un grupo (las franjas de un día, el rol), el enlace lleva al primer control del grupo. El cuadro
-//   que recibe el foco es un role="group" con el título como nombre (un div sin rol no se puede nombrar).
+//   Si ese id es de un grupo (las franjas de un día, el rol), el enlace lleva al primer control del grupo. Con
+//   destinos ({ campo: id }), el enlace de ese campo lleva a otro control (la ficha: la foto de la galería que ya no
+//   está). El cuadro que recibe el foco es un role="group" con el título como nombre (un div sin rol no se puede
+//   nombrar).
 // - useCambiosSinGuardar(sucio): con cambios sin guardar, pregunta antes de ir a otra pantalla del panel (useBlocker,
 //   también "Salir") y el navegador avisa antes de cerrar o recargar la pestaña (beforeunload). Para guardar e irse
 //   en el mismo clic: liberar() y después navigate(), porque el estado "ya no está sucio" llega recién en el próximo
@@ -99,10 +101,12 @@ export function useEnvio(conocidos = null) {
 }
 
 /**
- * @param {{ envio: ReturnType<typeof useEnvio>, etiquetas?: Record<string, string>, prefijo?: string }} props
- *   prefijo: el del id de los campos (id = prefijo + nombre del campo), si la pantalla tiene más de un formulario
+ * @param {{ envio: ReturnType<typeof useEnvio>, etiquetas?: Record<string, string>, prefijo?: string,
+ *   destinos?: Record<string, string> }} props
+ *   prefijo: el del id de los campos (id = prefijo + nombre del campo), si la pantalla tiene más de un formulario;
+ *   destinos: el id al que lleva el enlace de un campo, si no es prefijo + nombre
  */
-export function ResumenErrores({ envio, etiquetas = {}, prefijo = '' }) {
+export function ResumenErrores({ envio, etiquetas = {}, prefijo = '', destinos = {} }) {
   const campos = Object.entries(envio.errores)
   if (!envio.mensaje && campos.length === 0) return null
   const idTitulo = `${prefijo}resumen-errores`
@@ -127,12 +131,12 @@ export function ResumenErrores({ envio, etiquetas = {}, prefijo = '' }) {
               {campos.map(([campo, texto]) => (
                 <li key={campo}>
                   <a
-                    href={`#${prefijo}${campo}`}
+                    href={`#${destinos[campo] ?? `${prefijo}${campo}`}`}
                     className="block py-2.5 font-semibold text-error"
                     onClick={(e) => {
                       // A mano: un cambio de "#" en la URL lo tomaría el router como una navegación.
                       e.preventDefault()
-                      controlDe(`${prefijo}${campo}`)?.focus()
+                      controlDe(destinos[campo] ?? `${prefijo}${campo}`)?.focus()
                     }}
                   >
                     {etiquetas[campo] ? `${etiquetas[campo]}: ` : ''}

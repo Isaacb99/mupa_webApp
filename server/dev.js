@@ -39,6 +39,7 @@ if (config.produccion) {
 const { createServer: crearVite } = await import('vite')
 const { crearApp } = await import('./app.js')
 const { crearConexion } = await import('./db/conexion.js')
+const { crearAlmacen } = await import('./fotos/almacen.js')
 const { crearMuseoPublico } = await import('./museo.js')
 const { crearSsr, partir } = await import('./ssr.js')
 const { crearRegistroDeTareas, programarTareas } = await import('./tareas.js')
@@ -72,6 +73,8 @@ async function obtener(req) {
 const sequelize = crearConexion(config)
 const ssr = crearSsr({ config, obtener, museoPublico: crearMuseoPublico(config, { sequelize }) })
 const registroTareas = crearRegistroDeTareas()
+// Las fotos (con su caché en memoria): las mismas para /fotos, la API del panel y la tarea de las huérfanas.
+const almacen = sequelize ? crearAlmacen(sequelize) : null
 const app = crearApp({
   config,
   ssr,
@@ -80,6 +83,7 @@ const app = crearApp({
   desarrollo: true,
   registroTareas,
   vitePanel,
+  almacen,
 })
 servidor.on('request', app)
 
@@ -108,7 +112,7 @@ if (config.host === '127.0.0.1' && (await ocupadoEnIpv6(config.PORT))) {
 }
 
 // Las tareas diarias, como en producción (si la base no está migrada, avisan en el log y siguen).
-const tareas = programarTareas({ sequelize, registro: registroTareas })
+const tareas = programarTareas({ sequelize, registro: registroTareas, almacen })
 
 servidor.listen(config.PORT, config.host, () => {
   const base = sequelize ? 'con base' : config.sinBase ? `SIN_BASE=${config.sinBase}` : 'sin base (no hay DATABASE_URL)'

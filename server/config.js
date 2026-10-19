@@ -3,7 +3,8 @@
 // En desarrollo todo tiene un valor por defecto razonable salvo la base, que es opcional: sin DATABASE_URL (o con
 // SIN_BASE) la Home se sirve igual y /salud/base responde 503. En producción son obligatorias URL_PUBLICA y la base.
 // Las variables del correo (SMTP_*) llegan con el formulario de contacto (E4.5); por ahora solo CORREO_MODO.
-// Las de las fotos (DIR_FOTOS) llegan con E3.1.
+// Las fotos van en la base (decisión del 15/10/2026, plan 16.1): no hay DIR_FOTOS. ESPACIO_BASE_MB (E3.1) es el
+// tamaño contratado de la base, para el aviso de espacio del Inicio del panel.
 import { z } from 'zod'
 
 // 0/1 como en Render; vacía cuenta como no definida (ver sinVacias).
@@ -40,6 +41,14 @@ const esquema = z.object({
   DATABASE_URL: urlBase.optional(),
   DATABASE_URL_TEST: urlBase.optional(),
   DB_SSL: bandera,
+  // El espacio de la base, en MB (en Render, el disco del plan de la base: 1 GB y después de a 5). El Inicio del panel
+  // avisa desde el 80 % (GET /administracion/api/estado, con pg_database_size). Las fotos son lo que más ocupa.
+  ESPACIO_BASE_MB: z.coerce
+    .number({ error: 'tiene que ser un número de MB, p. ej. 1024' })
+    .int({ error: 'tiene que ser un número entero de MB, p. ej. 1024' })
+    .min(1, { error: 'tiene que ser al menos 1 (MB)' })
+    .max(10_000_000, { error: 'es demasiado grande (en MB)' })
+    .default(1024),
   URL_PUBLICA: urlSitio.optional(),
   CANONICO: bandera,
   TRUST_PROXY: z.coerce.number().int().min(0).max(10).default(0),

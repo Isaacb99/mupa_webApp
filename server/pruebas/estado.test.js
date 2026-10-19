@@ -5,7 +5,7 @@
 // auth.test.js (la tabla de server/api/indice.js).
 import assert from 'node:assert/strict'
 import { after, before, describe, test } from 'node:test'
-import { crearRegistroDeTareas, NOMBRES, programarTareas } from '../tareas.js'
+import { crearRegistroDeTareas, HORA_TAREAS, msHastaLaProximaVuelta, NOMBRES, programarTareas } from '../tareas.js'
 import { cerrarBase, levantar, prepararBase, salteoVisible, sql } from './ayudas.js'
 
 const base = await prepararBase()
@@ -44,10 +44,15 @@ describe('el registro de las tareas diarias (sin base)', () => {
     )
   })
 
-  test('programarTareas anota en el registro cómo salió la vuelta', async () => {
+  test('programarTareas anota en el registro cómo salió la vuelta; una tarea que falla no frena a las demás', async () => {
     const registro = crearRegistroDeTareas()
-    // Una base que falla al borrar las sesiones vencidas (el log del aviso se calla para no ensuciar la salida).
-    const caida = { models: { Sesion: { destroy: () => Promise.reject(errorCon('ECONNREFUSED')) } } }
+    // Una base que falla al borrar las sesiones vencidas pero no las fotos huérfanas (el log se calla para no ensuciar
+    // la salida).
+    const caida = {
+      models: { Sesion: { destroy: () => Promise.reject(errorCon('ECONNREFUSED')) } },
+      query: async () => [],
+      transaction: (hacer) => hacer({}),
+    }
     const original = console.log
     console.log = () => {}
     try {
@@ -61,6 +66,43 @@ describe('el registro de las tareas diarias (sin base)', () => {
       registro.fallidas().map((f) => [f.tarea, f.codigo]),
       [['sesiones_vencidas', 'ECONNREFUSED']],
     )
+    // Y al revés: fallan las fotos, las sesiones no.
+    const otro = crearRegistroDeTareas()
+    const fotosCaidas = {
+      models: { Sesion: { destroy: async () => 0 } },
+      query: () => Promise.reject(errorCon('57014')),
+      transaction: (hacer) => hacer({}),
+    }
+    console.log = () => {}
+    try {
+      const tareas = programarTareas({ sequelize: fotosCaidas, registro: otro })
+      await tareas.listas
+      tareas.detener()
+    } finally {
+      console.log = original
+    }
+    assert.deepEqual(
+      otro.fallidas().map((f) => [f.tarea, f.codigo]),
+      [['fotos_huerfanas', '57014']],
+    )
+  })
+
+  test('las tareas corren a las 04:00 de San Juan (UTC−3): cuánto falta para la próxima vuelta (COD-06)', () => {
+    assert.equal(HORA_TAREAS, '04:00')
+    const horas = (iso) => msHastaLaProximaVuelta(new Date(iso)) / 3_600_000
+    // 02:00 de San Juan (05:00 UTC): faltan 2 h.
+    assert.equal(horas('2026-10-16T05:00:00Z'), 2)
+    // Justo a las 04:00: la de mañana.
+    assert.equal(horas('2026-10-16T07:00:00Z'), 24)
+    // 20:30 de San Juan: 7 h 30.
+    assert.equal(horas('2026-10-16T23:30:00Z'), 7.5)
+    // 23:00 de San Juan del 15 (02:00 UTC del 16): la del 16, en 5 h.
+    assert.equal(horas('2026-10-16T02:00:00Z'), 5)
+    // Nunca más de un día ni cero.
+    for (let h = 0; h < 24; h++) {
+      const ms = msHastaLaProximaVuelta(new Date(Date.UTC(2026, 9, 16, h, 17)))
+      assert.ok(ms > 0 && ms <= 24 * 3_600_000, `${h} h UTC`)
+    }
   })
 })
 
@@ -84,13 +126,16 @@ describe('GET /estado', { skip: base.motivo ?? false }, () => {
   }
 
   test('con la base recién migrada: falta todo; el correo de destino solo se le cuenta a un admin', async () => {
-    const deEditor = await estadoDe(editor)
+    const { espacio, ...deEditor } = await estadoDe(editor)
     assert.deepEqual(deEditor, {
       paraCompletar: ['direccion', 'telefono', 'emailPublico', 'horario', 'tarifas'],
       unSoloAdmin: true,
       correo: { estado: 'sin_configurar' },
       tareasFallidas: [],
     })
+    // El espacio: lo que ocupa la base (una recién migrada ocupa unos pocos MB) y el contratado (1024 por defecto).
+    assert.equal(espacio.totalMb, 1024)
+    assert.ok(Number.isInteger(espacio.usadoMb) && espacio.usadoMb > 0 && espacio.usadoMb < 1024, JSON.stringify(espacio))
     const deAdmin = await estadoDe(admin)
     assert.deepEqual(deAdmin.paraCompletar, ['direccion', 'telefono', 'emailPublico', 'emailDestinoContacto', 'horario', 'tarifas'])
     assert.equal(deAdmin.unSoloAdmin, true)
@@ -135,5 +180,21 @@ describe('GET /estado', { skip: base.motivo ?? false }, () => {
     }
     registroTareas.anotar('sesiones_vencidas', null)
     assert.deepEqual((await estadoDe(editor)).tareasFallidas, [])
+  })
+
+  test('el espacio de la base: pg_database_size contra ESPACIO_BASE_MB, para los dos roles', async () => {
+    const [{ bytes }] = await sql('SELECT pg_database_size(current_database())::bigint AS bytes')
+    const chica = await levantar({ ESPACIO_BASE_MB: '10' })
+    try {
+      const yo = await chica.cookiePara('editor')
+      const r = await chica.pedir('GET', 'api:/estado', { cookie: yo.cookie })
+      assert.equal(r.status, 200, r.texto)
+      assert.equal(r.json.data.espacio.totalMb, 10)
+      // Lo mismo que dice Postgres, redondeado a MB (puede crecer un poco entre las dos consultas).
+      assert.ok(Math.abs(r.json.data.espacio.usadoMb - Number(bytes) / 1024 / 1024) < 2, JSON.stringify(r.json.data.espacio))
+    } finally {
+      await chica.cerrar()
+    }
+    for (const quien of [editor, admin]) assert.equal((await estadoDe(quien)).espacio.totalMb, 1024)
   })
 })

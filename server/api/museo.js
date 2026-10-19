@@ -8,7 +8,9 @@
 //   de dos campos (compra activa con su dirección, "Mostrar hasta" con su aviso) se comprueban sobre la fila como
 //   quedaría, con la fila bloqueada (FOR UPDATE): dos guardados a la vez esperan en vez de dejarla a medias. Quién y
 //   cuándo (actualizado_por, updated_at) salen de la sesión y del reloj, nunca del pedido. Responde como el GET.
-// Los textos con formato (como_llegar, normas, accesibilidad) llegan con E3.2: hasta entonces ni se leen ni se cambian.
+// Los textos con formato de Visitas (comoLlegar, normas, accesibilidad; desde E3.2) van como cualquier otro campo: el
+// GET los da como están en la base (el JSON del editor, o null) y el PUT los guarda en la forma canónica de
+// compartido/esquemas/textoRico.js. El log lleva sus nombres, nunca el texto.
 import { esquemaCambioMuseo, NOMBRES_CAMPOS_MUSEO, problemasDeMuseo } from '../../compartido/esquemas/museo.js'
 import { httpError } from '../errores.js'
 import { log } from '../log.js'
@@ -76,6 +78,9 @@ export const rutasDeMuseo = [
     metodo: 'PUT',
     ruta: '/museo',
     rol: 'editor',
+    // Lleva los tres textos con formato de Visitas: 300 kB (plan 2.4), así entran los tres en su tope de bytes
+    // (BYTES_MAX de compartido/esquemas/textoRico.js) aunque cambien juntos.
+    limiteJson: '300kb',
     antes: () => [correoDestinoSoloAdmin],
     cuerpo: esquemaCambioMuseo,
     manejador: guardar,

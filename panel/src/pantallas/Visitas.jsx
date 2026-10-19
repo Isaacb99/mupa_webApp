@@ -1,13 +1,15 @@
-// Visitas (plan 4.3, 5.2 y 5.3), para cualquier rol: el horario semanal, las tarifas, el aviso general y la compra de
-// entradas. Cada parte se guarda por su lado (con su botón y su "Guardado"; las tarifas, en el momento, cada una al
-// guardarla en su diálogo, moverla, ocultarla o eliminarla); la pantalla junta si alguna tiene cambios sin guardar,
-// para preguntar una sola vez antes de irse (React Router admite un bloqueo por vez), y la pregunta dice cuáles
-// ("Falta guardar: Horario semanal y Aviso general.": la pantalla es larga y tiene cuatro botones de guardar).
+// Visitas (plan 4.3, 5.2 y 5.3), para cualquier rol: el horario semanal, las tarifas, los textos (cómo llegar, normas
+// y accesibilidad), el aviso general y la compra de entradas. Cada parte se guarda por su lado (con su botón y su
+// "Guardado"; las tarifas, en el momento, cada una al guardarla en su diálogo, moverla, ocultarla o eliminarla); la
+// pantalla junta si alguna tiene cambios sin guardar, para preguntar una sola vez antes de irse (React Router admite un
+// bloqueo por vez), y la pregunta dice cuáles ("Falta guardar: Horario semanal y Cómo llegar.": la pantalla es larga
+// y tiene cinco botones de guardar).
 // - Horario: GET y PUT /horarios, más la nota general (nota_horarios del museo).
 // - Tarifas: GET, POST, PUT y DELETE /tarifas y PUT /tarifas/orden, más la nota de las tarifas.
+// - Textos (E3.2): tres textos con formato del museo, con el editor de texto (visitas/Textos.jsx). El código del
+//   editor se carga aparte (EditorTexto): el loader lo pide junto con los datos.
 // - Aviso general (texto y "Mostrar hasta") y compra externa (activa, dirección y texto del botón): campos del museo.
 // - El diálogo de una tarifa también cuenta: con algo escrito ahí, irse pregunta como con los demás.
-// Los textos con formato (cómo llegar, normas, accesibilidad) se suman con el editor de texto (E3.2).
 // El texto del aviso es de una línea, pero va en un cuadro de dos renglones para que se lea entero en el celular: Enter
 // no hace nada y un salto de línea pegado pasa a espacio.
 import { useCallback, useState } from 'react'
@@ -18,16 +20,20 @@ import { Aviso } from '../componentes/Aviso.jsx'
 import { Boton } from '../componentes/Boton.jsx'
 import { Campo, clasesControl } from '../componentes/Campo.jsx'
 import { Casilla } from '../componentes/Casilla.jsx'
+import { precargarEditor } from '../componentes/EditorTexto.jsx'
 import { Encabezado } from '../componentes/Encabezado.jsx'
 import { useCambiosSinGuardar } from '../componentes/formulario.jsx'
 import { fechaLarga, hoyEnSanJuan } from '../formato.js'
 import { FormularioMuseo } from './visitas/FormularioMuseo.jsx'
 import { Horario } from './visitas/Horario.jsx'
 import { Tarifas } from './visitas/Tarifas.jsx'
+import { PREFIJO_TEXTOS, Textos, TEXTOS } from './visitas/Textos.jsx'
 
-/** El loader (rutas.jsx lo envuelve con la sesión): las tres cosas a la vez. */
+/** El loader (rutas.jsx lo envuelve con la sesión): las tres cosas a la vez, y el código del editor de texto. */
 export async function cargarVisitas({ request }) {
   const opciones = { signal: request.signal }
+  // Sin esperarlo: si no llega, el lugar de cada texto lo dice (EditorTexto) y lo demás de la pantalla anda igual.
+  precargarEditor().catch(() => {})
   const [horarios, tarifas, museo] = await Promise.all([
     api.get('/horarios', opciones),
     api.get('/tarifas', opciones),
@@ -41,6 +47,7 @@ const PARTES = [
   ['horario', 'Horario semanal'],
   ['tarifa', 'la tarifa que estás escribiendo'],
   ['nt-', 'Nota de las tarifas'],
+  ...TEXTOS.map(({ campo, etiqueta }) => [`${PREFIJO_TEXTOS}${campo}`, etiqueta]),
   ['av-', 'Aviso general'],
   ['co-', 'Compra de entradas'],
 ]
@@ -77,9 +84,9 @@ export default function Visitas() {
     <>
       <Encabezado titulo="Visitas" />
       <p className="max-w-3xl">
-        Lo que necesita saber quien quiere visitar el museo. El horario, la nota de las tarifas, el aviso y la compra de
-        entradas se guardan cada uno con su botón; las tarifas se guardan en el momento, sin otro botón. Todo se ve en
-        el sitio en cuanto se guarda.
+        Lo que necesita saber quien quiere visitar el museo. El horario, la nota de las tarifas, los textos, el aviso y
+        la compra de entradas se guardan cada uno con su botón; las tarifas se guardan en el momento, sin otro botón.
+        Todo se ve en el sitio en cuanto se guarda.
       </p>
 
       <div className="mt-8 grid max-w-3xl gap-12">
@@ -117,6 +124,14 @@ export default function Visitas() {
               </Campo>
             )}
           </FormularioMuseo>
+        </Seccion>
+
+        <Seccion id="visitas-textos" titulo="Textos">
+          <p className="text-tenue">
+            Se muestran en la página de visitas del sitio, cada uno con su título. Se puede usar negrita, cursiva,
+            subtítulos, listas y enlaces; lo que se pega de Word o de una página queda solo con eso.
+          </p>
+          <Textos museo={museo} alCambiarSucio={marcar} />
         </Seccion>
 
         <Seccion id="visitas-aviso" titulo="Aviso general">

@@ -1,5 +1,6 @@
 // Inicio (plan 5.2 y 8): avisos, "Para completar" y accesos directos, con lo que devuelve GET /administracion/api/estado
-// (server/api/estado.js: códigos, no textos; los textos y los enlaces están acá).
+// (server/api/estado.js: códigos, no textos; los textos y los enlaces están acá). Desde E3.1, el aviso de espacio: las
+// fotos van en la base y, desde el 80 % del espacio contratado (ESPACIO_BASE_MB), el Inicio lo dice.
 import { useEffect, useState } from 'react'
 import { Link, useLoaderData } from 'react-router'
 import { api } from '../api.js'
@@ -24,7 +25,20 @@ const PARA_COMPLETAR = {
 }
 
 // Las tareas diarias (server/tareas.js, NOMBRES).
-const TAREAS = { sesiones_vencidas: 'Borrar las sesiones vencidas' }
+const TAREAS = {
+  sesiones_vencidas: 'Borrar las sesiones vencidas',
+  fotos_huerfanas: 'Borrar las fotos subidas que no se usan',
+}
+
+/** Desde qué parte del espacio de la base avisa el Inicio (las fotos van en la base). */
+const AVISO_ESPACIO = 0.8
+
+/** El porcentaje ocupado (entero) si pasa el aviso, o null. */
+function espacioPorLlenarse(espacio) {
+  if (!espacio?.totalMb) return null
+  const parte = espacio.usadoMb / espacio.totalMb
+  return parte >= AVISO_ESPACIO ? Math.round(parte * 100) : null
+}
 
 const fecha = new Intl.DateTimeFormat('es-AR', {
   dateStyle: 'long',
@@ -33,6 +47,8 @@ const fecha = new Intl.DateTimeFormat('es-AR', {
 })
 
 const ACCESOS = [
+  { a: '/novedades', titulo: 'Novedades', texto: 'Noticias y actividades: talleres, charlas, visitas especiales.' },
+  { a: '/exposiciones', titulo: 'Exposiciones', texto: 'Las muestras y las salas del museo, y su orden.' },
   { a: '/visitas', titulo: 'Visitas', texto: 'Horarios, tarifas, avisos de cierre y compra de entradas.' },
   { a: '/museo', titulo: 'Datos del museo', texto: 'Dirección, teléfono, correos, mapa y redes.' },
   { a: '/usuarios', titulo: 'Usuarios', texto: 'Cuentas del panel, roles y contraseñas temporales.', rol: 'admin' },
@@ -46,6 +62,7 @@ export default function Inicio() {
   const [aviso] = useState(leerAviso)
   useEffect(() => borrarAviso(), [])
   const faltan = estado.paraCompletar.filter((codigo) => PARA_COMPLETAR[codigo])
+  const lleno = espacioPorLlenarse(estado.espacio)
 
   return (
     <>
@@ -54,6 +71,18 @@ export default function Inicio() {
       <p className="mb-8 text-lg">Hola, {sesion?.usuario.nombre}.</p>
 
       <div className="grid gap-4">
+        {lleno != null ? (
+          <Aviso
+            tipo="atencion"
+            titulo={lleno >= 100 ? 'La base de datos está llena' : 'La base de datos se está llenando'}
+          >
+            <p>
+              Ocupa {estado.espacio.usadoMb} MB de {estado.espacio.totalMb} MB ({lleno} %). Las fotos son lo que más
+              ocupa. Si se llena, no se van a poder subir fotos ni guardar cambios: avisale a quien mantiene el sitio
+              para que amplíe el espacio.
+            </p>
+          </Aviso>
+        ) : null}
         {estado.tareasFallidas.map((t) => (
           <Aviso key={t.tarea} tipo="atencion" titulo="Una tarea automática del sitio está fallando">
             <p>

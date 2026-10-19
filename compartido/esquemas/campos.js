@@ -11,6 +11,7 @@
 // - Las direcciones (URL) se guardan con el esquema en minúsculas ("HTTPS://" pasa a "https://": los CHECK de la tabla
 //   comparan con 'https://%', que distingue mayúsculas) y sin caracteres invisibles ni de control.
 // Código puro: sin APIs de Node ni del DOM (URL es un estándar de los dos).
+import { esFechaHoraValida, esFechaValida } from '../fechas.js'
 import { z } from './zod.js'
 
 const ILEGIBLES = /[\p{Cs}�]/u
@@ -135,18 +136,23 @@ export const correoOpcional = opcional(
     .email({ error: 'Escribí un correo válido, por ejemplo nombre@dominio.com.' }),
 )
 
-/** ¿"AAAA-MM-DD" es una fecha que existe (entre 2000 y 2099)? */
-export function esFechaValida(texto) {
-  const m = /^(20\d\d)-(\d\d)-(\d\d)$/.exec(String(texto))
-  if (!m) return false
-  const [anio, mes, dia] = [Number(m[1]), Number(m[2]), Number(m[3])]
-  const fecha = new Date(Date.UTC(anio, mes - 1, dia))
-  return fecha.getUTCFullYear() === anio && fecha.getUTCMonth() === mes - 1 && fecha.getUTCDate() === dia
-}
+// esFechaValida está en compartido/fechas.js (sin zod: la usan también las fechas y horas de las actividades, E3.3).
+export { esFechaValida }
 
 /** Una fecha de calendario "AAAA-MM-DD" (lo que da un <input type="date">), opcional. */
 export const fechaOpcional = opcional(
   z.string({ error: 'Elegí una fecha válida.' }).trim().refine(esFechaValida, { error: 'Elegí una fecha válida.' }),
+)
+
+/**
+ * Un día y una hora de San Juan, "AAAA-MM-DDTHH:MM" (lo que da un <input type="datetime-local">), opcional. Sigue como
+ * texto: el servidor lo pasa a un instante con instanteDeLocal (compartido/fechas.js) al guardarlo.
+ */
+export const fechaHoraOpcional = opcional(
+  z
+    .string({ error: 'Elegí el día y la hora.' })
+    .trim()
+    .refine(esFechaHoraValida, { error: 'Elegí el día y la hora (por ejemplo, 20/10/2026 18:30).' }),
 )
 
 /** Sí o no. */

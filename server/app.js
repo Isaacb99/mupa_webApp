@@ -4,7 +4,7 @@
 //  1. sin X-Powered-By; trust proxy como NÚMERO de saltos (TRUST_PROXY), nunca true (plan 10.1); helmet común
 //     (HSTS, nosniff, Referrer-Policy…) en todas las respuestas, también /salud
 //  2. cualquier host: /salud (sin base: el health check de Render), /salud/base, /salud/ip (solo con DEPURAR_IP=1)
-//     y, desde E3.1, /fotos/*
+//     y, desde E3.1, GET y HEAD /fotos/:clave/:archivo (server/fotos/servir.js)
 //  3. host aceptado o redirección canónica (server/hosts.js)
 //  4. X-Robots-Tag: noindex fuera del host público de producción
 //  5. el panel en /administracion (dist/panel y su API), con su CSP (server/panel.js), antes de las redirecciones públicas
@@ -21,6 +21,8 @@ import { hoyEnSanJuan } from '../compartido/fechas.js'
 import { RUTA_PANEL } from '../compartido/panel.js'
 import { probarBase } from './db/conexion.js'
 import { manejadorDeErrores } from './errores.js'
+import { crearAlmacen } from './fotos/almacen.js'
+import { crearRutaDeFotos } from './fotos/servir.js'
 import { crearControlDeHost } from './hosts.js'
 import { codigoDeError, log } from './log.js'
 import { crearPanel } from './panel.js'
@@ -82,6 +84,8 @@ export function estaticosDelBuild(dirBuild) {
  *   las tareas diarias, para el Inicio del panel (null: ninguna falló)
  * @param {import('vite').ViteDevServer | null} [opciones.vitePanel]  el Vite del panel (solo server/dev.js); sin él,
  *   el panel sale de dist/panel
+ * @param {ReturnType<typeof crearAlmacen> | null} [opciones.almacen]  las fotos en la base, con su caché: el mismo
+ *   para /fotos, la API y las tareas diarias (servidor.js y dev.js lo crean y lo pasan); sin él, uno propio
  */
 export function crearApp({
   config,
@@ -92,7 +96,9 @@ export function crearApp({
   desarrollo = false,
   registroTareas = null,
   vitePanel = null,
+  almacen = null,
 }) {
+  const fotos = almacen ?? (sequelize ? crearAlmacen(sequelize) : null)
   const app = express()
   app.disable('x-powered-by')
   app.set('trust proxy', config.TRUST_PROXY)
@@ -123,13 +129,18 @@ export function crearApp({
       })
     })
   }
+  // Las fotos (GET y HEAD): sin base, 404.
+  app.get('/fotos/:clave/:archivo', crearRutaDeFotos({ almacen: fotos, config }))
 
   // 3 y 4.
   app.use(crearControlDeHost(config))
   app.use(noIndexarFueraDelHostPublico(config))
 
   // 5. Panel.
-  app.use(RUTA_PANEL, crearPanel({ dirBuild: config.DIR_BUILD, config, sequelize, registroTareas, vite: vitePanel }))
+  app.use(
+    RUTA_PANEL,
+    crearPanel({ dirBuild: config.DIR_BUILD, config, sequelize, registroTareas, almacen: fotos, vite: vitePanel }),
+  )
 
   // 6 a 8. Sitio público.
   app.use(cspPublica(config, { desarrollo }))

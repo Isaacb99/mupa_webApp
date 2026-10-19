@@ -237,6 +237,17 @@ describe('traducción de errores en la API', () => {
     app.get('/administracion/api/propio', () => {
       throw httpError(409, 'Mensaje para la persona.', { campos: { a: 'b' } })
     })
+    // Una clave foránea (corrección de E3): una foto que alguien empezó a usar justo cuando se borraba.
+    app.get('/administracion/api/clave-foranea', () => {
+      throw Object.assign(new Error('update o delete en «fotos» viola la llave foránea'), {
+        name: 'SequelizeForeignKeyConstraintError',
+        parent: { code: '23503', detail: 'Key (id)=(7) is still referenced' },
+      })
+    })
+    // Un 5xx para la persona (ya hay 3 fotos subiéndose): esperable, sin el stack en el log.
+    app.get('/administracion/api/ocupado', () => {
+      throw httpError(503, 'Hay muchas fotos subiéndose en este momento.')
+    })
     app.get('/administracion/api/interno', () => {
       throw new Error('detalle interno /ruta/secreta')
     })
@@ -270,7 +281,7 @@ describe('traducción de errores en la API', () => {
         .end()
     })
 
-  test('zod 400 con campos; unique 409 sin el valor; 40P01 409; propio tal cual; interno 500 genérico', async () => {
+  test('zod 400 con campos; unique 409 sin el valor; 40P01 y 23503 409; propio tal cual; 503 propio sin stack; interno 500 genérico', async () => {
     const zod = await pedir('/administracion/api/zod')
     assert.equal(zod.status, 400)
     const cuerpo = JSON.parse(zod.texto)
@@ -289,6 +300,21 @@ describe('traducción de errores en la API', () => {
     const propio = await pedir('/administracion/api/propio')
     assert.equal(propio.status, 409)
     assert.deepEqual(JSON.parse(propio.texto), { error: 'Mensaje para la persona.', campos: { a: 'b' } })
+
+    // 23503: 409 "recargá", con una línea de aviso (no un error_500 con el stack) y sin el detalle de Postgres.
+    const foranea = await conLog(() => pedir('/administracion/api/clave-foranea'))
+    assert.equal(foranea.valor.status, 409)
+    assert.deepEqual(JSON.parse(foranea.valor.texto), {
+      error: 'Otro cambio se cruzó con este. Recargá la pantalla y probá de nuevo.',
+    })
+    assert.deepEqual(foranea.eventos.map((e) => [e.nivel, e.evento, e.codigo]), [['aviso', 'conflicto_reintentar', '23503']])
+
+    // Un httpError 503: la respuesta con su mensaje, y en el log un aviso sin el stack.
+    const ocupado = await conLog(() => pedir('/administracion/api/ocupado'))
+    assert.equal(ocupado.valor.status, 503)
+    assert.deepEqual(JSON.parse(ocupado.valor.texto), { error: 'Hay muchas fotos subiéndose en este momento.' })
+    assert.deepEqual(ocupado.eventos.map((e) => [e.nivel, e.evento]), [['aviso', 'respuesta_503']])
+    assert.equal(ocupado.eventos[0].stack, undefined)
 
     const errorOriginal = console.error
     console.error = () => {}

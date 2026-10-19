@@ -1,11 +1,18 @@
 // Datos de ejemplo para trabajar en local (plan 3.4): npm run semilla:ejemplo, después de npm run migrar.
 // Solo contra una base local y nunca con NODE_ENV=production (exigirBaseLocal, server/db/guardas.js): pisa datos.
 // Todo lo que muestra el sitio va marcado "EJEMPLO ·" y las direcciones son de example.com (reservado para ejemplos),
-// como el museo de SIN_BASE (server/museo.js). Crece con cada migración: hoy, la fila del museo, el horario semanal y
-// las tarifas; con E3, salas, muestras y novedades; con E4.9, mensajes del formulario. Sin usuarios: el admin se crea
-// con npm run crear-admin.
-// Se puede correr varias veces: pisa la fila del museo y los 7 días, y reemplaza solo las tarifas "EJEMPLO ·".
+// como el museo de SIN_BASE (server/museo.js). Crece con cada migración: hoy, la fila del museo, el horario semanal,
+// las tarifas y, desde E3.3 y E3.4, salas, muestras y novedades (plan 3.4: 2 salas, 3 muestras —actual, próxima y
+// finalizada, con las fechas corridas desde hoy— y 4 novedades —dos noticias, una actividad pasada y otra futura—,
+// todas publicadas, con portadas de un color liso hechas con sharp y alguna galería); con E4.9, mensajes del
+// formulario. Sin usuarios: el admin se crea con npm run crear-admin.
+// Se puede correr varias veces: pisa la fila del museo y los 7 días, y reemplaza solo las tarifas y los contenidos
+// "EJEMPLO ·" (con sus fotos, que libera liberarFotos si nadie más las usa).
 import { Op } from 'sequelize'
+import sharp from 'sharp'
+import { hoyEnSanJuan } from '../../../compartido/fechas.js'
+import { crearAlmacen } from '../../fotos/almacen.js'
+import { procesarFoto } from '../../fotos/procesar.js'
 import { esPrincipal } from '../../principal.js'
 
 const EJEMPLO = 'EJEMPLO · '
@@ -24,7 +31,35 @@ const MUSEO = {
   ],
   mapaEmbedUrl: null,
   mapaUrl: 'https://example.com/mapa',
-  // Los textos con formato (como_llegar, normas, accesibilidad) esperan el formato de TipTap (E3.2).
+  // Los textos con formato (E3.2): el JSON del editor, en la forma canónica de compartido/esquemas/textoRico.js.
+  comoLlegar: {
+    type: 'doc',
+    content: [
+      { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: `${EJEMPLO}En colectivo` }] },
+      {
+        type: 'paragraph',
+        content: [
+          { type: 'text', text: `${EJEMPLO}Texto de prueba: ` },
+          { type: 'text', text: 'no son los recorridos del museo', marks: [{ type: 'bold' }] },
+          { type: 'text', text: '. ' },
+          { type: 'text', text: 'Mapa de ejemplo', marks: [{ type: 'link', attrs: { href: 'https://example.com/mapa' } }] },
+        ],
+      },
+    ],
+  },
+  normas: {
+    type: 'doc',
+    content: [
+      {
+        type: 'bulletList',
+        content: [`${EJEMPLO}Norma de prueba uno`, `${EJEMPLO}Norma de prueba dos`].map((text) => ({
+          type: 'listItem',
+          content: [{ type: 'paragraph', content: [{ type: 'text', text }] }],
+        })),
+      },
+    ],
+  },
+  accesibilidad: null,
   notaHorarios: `${EJEMPLO}Horarios de prueba: no son los del museo.`,
   notaTarifas: `${EJEMPLO}Precios de prueba: no son los del museo.`,
   compraActiva: false,
@@ -63,15 +98,184 @@ const TARIFAS = [
   { nombre: `${EJEMPLO}Tarifa oculta`, gratuita: false, precio: 500, condicion: null, orden: 4, visible: false },
 ]
 
+// --- Contenidos (E3.3 y E3.4) ---
+
+/** Un texto con formato de un párrafo, en la forma canónica (compartido/esquemas/textoRico.js). */
+const parrafo = (texto) => ({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: texto }] }] })
+
+/** Las fotos de ejemplo: un color liso (sharp), con su descripción. */
+const FOTOS = [
+  { color: '#7a5230', alt: `${EJEMPLO}Foto de prueba color tierra` },
+  { color: '#2f4f6f', alt: `${EJEMPLO}Foto de prueba azul` },
+  { color: '#5f7a3a', alt: `${EJEMPLO}Foto de prueba verde` },
+  { color: '#8a1812', alt: `${EJEMPLO}Foto de prueba bordó` },
+  { color: '#c9a227', alt: `${EJEMPLO}Foto de prueba ocre` },
+]
+
+/** Un día "AAAA-MM-DD" corrido n días desde hoy (en San Juan). */
+function diaDesdeHoy(n, hoy) {
+  const fecha = new Date(`${hoy}T12:00:00Z`)
+  fecha.setUTCDate(fecha.getUTCDate() + n)
+  return fecha.toISOString().slice(0, 10)
+}
+const DIA = 24 * 60 * 60 * 1000
+
+/**
+ * Borra los contenidos "EJEMPLO ·" que haya y libera sus fotos. Devuelve cuántos borró.
+ * @param {import('sequelize').Sequelize} sequelize
+ */
+async function borrarContenidosDeEjemplo(sequelize, almacen, transaction) {
+  const { Sala, Muestra, Novedad, GaleriaMuestra, GaleriaNovedad } = sequelize.models
+  let borrados = 0
+  const fotos = []
+  for (const [Modelo, campo, Galeria] of [
+    [Novedad, 'titulo', GaleriaNovedad],
+    [Muestra, 'titulo', GaleriaMuestra],
+    [Sala, 'nombre', null],
+  ]) {
+    const filas = await Modelo.findAll({ where: { [campo]: { [Op.startsWith]: EJEMPLO } }, transaction })
+    if (!filas.length) continue
+    const ids = filas.map((f) => f.id)
+    fotos.push(...filas.map((f) => f.portadaId))
+    if (Galeria) {
+      const lugares = await Galeria.findAll({ where: { [Galeria.claveDelContenido]: ids }, transaction })
+      fotos.push(...lugares.map((l) => l.fotoId))
+    }
+    borrados += await Modelo.destroy({ where: { id: ids }, transaction })
+  }
+  await almacen.liberar(fotos, transaction)
+  return borrados
+}
+
+/**
+ * Las 2 salas, 3 muestras y 4 novedades de ejemplo, publicadas, con sus portadas (y alguna galería).
+ * @param {import('sequelize').Sequelize} sequelize
+ */
+async function cargarContenidos(sequelize, almacen, transaction, { hoy = hoyEnSanJuan(), ahora = new Date() } = {}) {
+  const { Sala, Muestra, Novedad, GaleriaMuestra, GaleriaNovedad } = sequelize.models
+  const fotos = []
+  for (const { color, alt } of FOTOS) {
+    const original = await sharp({ create: { width: 1600, height: 1000, channels: 3, background: color } })
+      .jpeg()
+      .toBuffer()
+    const foto = await almacen.guardar(
+      { alt, decorativa: false, epigrafe: `${EJEMPLO}Epígrafe de prueba`, credito: null, subidaPor: null },
+      await procesarFoto(original),
+      { transaction },
+    )
+    fotos.push(foto.id)
+  }
+  const publicada = (diasAtras) => ({ estado: 'publicado', publicadoEn: new Date(ahora.getTime() - diasAtras * DIA) })
+  const siguiente = async (Modelo) =>
+    ((await Modelo.max('orden', { transaction })) ?? 0) + 1
+
+  const salaUno = await Sala.create(
+    {
+      nombre: `${EJEMPLO}Sala de los primeros dinosaurios`,
+      slug: 'ejemplo-sala-primeros-dinosaurios',
+      resumen: `${EJEMPLO}Resumen de prueba de una sala.`,
+      descripcion: parrafo(`${EJEMPLO}Descripción de prueba de la sala.`),
+      portadaId: fotos[0],
+      orden: await siguiente(Sala),
+      ...publicada(30),
+    },
+    { transaction },
+  )
+  await Sala.create(
+    {
+      nombre: `${EJEMPLO}Sala del Triásico`,
+      slug: 'ejemplo-sala-triasico',
+      resumen: `${EJEMPLO}Otra sala de prueba.`,
+      descripcion: null,
+      portadaId: fotos[1],
+      orden: await siguiente(Sala),
+      ...publicada(30),
+    },
+    { transaction },
+  )
+
+  const MUESTRAS = [
+    ['actual', 'Muestra actual', -30, 60, salaUno.id],
+    ['proxima', 'Muestra próxima', 20, 90, null],
+    ['finalizada', 'Muestra finalizada', -120, -10, null],
+  ]
+  for (const [clave, titulo, desde, hasta, salaId] of MUESTRAS) {
+    const muestra = await Muestra.create(
+      {
+        titulo: `${EJEMPLO}${titulo}`,
+        slug: `ejemplo-muestra-${clave}`,
+        tipo: 'temporal',
+        fechaInicio: diaDesdeHoy(desde, hoy),
+        fechaFin: diaDesdeHoy(hasta, hoy),
+        salaId,
+        resumen: `${EJEMPLO}Resumen de prueba de la ${titulo.toLowerCase()}.`,
+        descripcion: parrafo(`${EJEMPLO}Descripción de prueba: no es una muestra del museo.`),
+        portadaId: fotos[2],
+        orden: await siguiente(Muestra),
+        ...publicada(clave === 'finalizada' ? 120 : 40),
+      },
+      { transaction },
+    )
+    if (clave === 'actual') {
+      await GaleriaMuestra.bulkCreate(
+        [fotos[3], fotos[4]].map((fotoId, i) => ({ muestraId: muestra.id, fotoId, orden: i + 1 })),
+        { transaction },
+      )
+    }
+  }
+
+  const NOVEDADES = [
+    { clave: 'noticia-1', tipo: 'noticia', titulo: 'Noticia de prueba', dias: 2 },
+    { clave: 'noticia-2', tipo: 'noticia', titulo: 'Otra noticia de prueba', dias: 15 },
+    { clave: 'actividad-pasada', tipo: 'actividad', titulo: 'Actividad que ya pasó', dias: 20, evento: -7 },
+    { clave: 'actividad-futura', tipo: 'actividad', titulo: 'Actividad que viene', dias: 1, evento: 14 },
+  ]
+  for (const n of NOVEDADES) {
+    const actividad = n.tipo === 'actividad'
+    const inicio = actividad ? new Date(ahora.getTime() + n.evento * DIA) : null
+    const novedad = await Novedad.create(
+      {
+        tipo: n.tipo,
+        titulo: `${EJEMPLO}${n.titulo}`,
+        slug: `ejemplo-${n.clave}`,
+        resumen: `${EJEMPLO}Resumen de prueba: no es una novedad del museo.`,
+        cuerpo: parrafo(`${EJEMPLO}Texto de prueba de la novedad.`),
+        portadaId: fotos[n.clave === 'noticia-1' ? 3 : 4],
+        eventoInicio: inicio,
+        eventoFin: inicio ? new Date(inicio.getTime() + 2 * 60 * 60 * 1000) : null,
+        lugar: actividad ? `${EJEMPLO}Patio del museo` : null,
+        costo: actividad ? `${EJEMPLO}Gratis` : null,
+        enlaceInscripcion: n.clave === 'actividad-futura' ? 'https://example.com/inscripcion' : null,
+        ...publicada(n.dias),
+      },
+      { transaction },
+    )
+    if (n.clave === 'noticia-1') {
+      await GaleriaNovedad.create({ novedadId: novedad.id, fotoId: fotos[0], orden: 1 }, { transaction })
+    }
+  }
+  return { fotos: fotos.length, salas: 2, muestras: MUESTRAS.length, novedades: NOVEDADES.length }
+}
+
 /** Carga los datos de ejemplo en una transacción. */
 export async function cargarEjemplo(sequelize) {
   const { HorarioSemanal, Museo, Tarifa } = sequelize.models
+  const almacen = crearAlmacen(sequelize)
   return sequelize.transaction(async (transaction) => {
     const [museo] = await Museo.upsert({ id: 1, ...MUSEO }, { transaction })
     for (const dia of HORARIO) await HorarioSemanal.upsert(dia, { transaction })
     const borradas = await Tarifa.destroy({ where: { nombre: { [Op.startsWith]: EJEMPLO } }, transaction })
     const tarifas = await Tarifa.bulkCreate(TARIFAS, { transaction })
-    return { museo: museo.id, dias: HORARIO.length, tarifas: tarifas.length, tarifasReemplazadas: borradas }
+    const contenidosReemplazados = await borrarContenidosDeEjemplo(sequelize, almacen, transaction)
+    const contenidos = await cargarContenidos(sequelize, almacen, transaction)
+    return {
+      museo: museo.id,
+      dias: HORARIO.length,
+      tarifas: tarifas.length,
+      tarifasReemplazadas: borradas,
+      ...contenidos,
+      contenidosReemplazados,
+    }
   })
 }
 
@@ -96,8 +300,10 @@ if (esPrincipal(import.meta)) {
   try {
     const r = await cargarEjemplo(sequelize)
     console.log(
-      `Ejemplo cargado: museo (fila ${r.museo}), ${r.dias} días de horario y ${r.tarifas} tarifas` +
+      `Ejemplo cargado: museo (fila ${r.museo}), ${r.dias} días de horario, ${r.tarifas} tarifas` +
         (r.tarifasReemplazadas ? ` (reemplazó ${r.tarifasReemplazadas} de ejemplo)` : '') +
+        `, ${r.salas} salas, ${r.muestras} muestras y ${r.novedades} novedades con ${r.fotos} fotos` +
+        (r.contenidosReemplazados ? ` (reemplazó ${r.contenidosReemplazados} contenidos de ejemplo)` : '') +
         '.',
     )
   } catch (err) {

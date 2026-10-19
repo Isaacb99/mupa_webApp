@@ -1,6 +1,8 @@
 // El cliente de la API del panel (panel/src/api.js), las rutas de vuelta (panel/src/navegacion.js) y qué hacer después
 // de un reingreso (panel/src/reingreso.js), que son código sin React ni DOM: se prueban acá con un fetch falso (plan
-// 5.1). Sin base y sin navegador.
+// 5.1) y, la subida de fotos (api.subir, E3.1), con un XMLHttpRequest falso. Sin base y sin navegador. La lógica del
+// achique de fotos (panel/src/achicarFoto.js) está en fotos.test.js. Desde E3.3 y E3.4, también lo que el panel sabe
+// de los contenidos (panel/src/contenidos.js) y lo que manda una ficha (panel/src/pantallas/contenido/valores.js).
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 import {
@@ -13,7 +15,23 @@ import {
   SESION_TERMINADA,
   SIN_CONEXION,
 } from '../../panel/src/api.js'
-import { rutaSinBase, SECCIONES, seccionesPara, volverSeguro } from '../../panel/src/navegacion.js'
+import { TIPOS_NOVEDAD } from '../../compartido/esquemas/contenido.js'
+import {
+  CONTENIDOS,
+  consultaDe,
+  leerFiltros,
+  SIN_PAGINAS_TODAVIA,
+  textosDelSitio,
+  traerTodas,
+} from '../../panel/src/contenidos.js'
+import { esDeLaSeccion, rutaSinBase, SECCIONES, seccionesPara, volverSeguro } from '../../panel/src/navegacion.js'
+import {
+  CAMPOS_FICHA,
+  comparable,
+  cuerpoDe,
+  fusionarGuardado,
+  valoresDe,
+} from '../../panel/src/pantallas/contenido/valores.js'
 import { queHacerAlReingresar } from '../../panel/src/reingreso.js'
 
 /** Un fetch falso que responde lo que se le pide, en orden, y anota cada pedido. */
@@ -190,6 +208,17 @@ describe('api.js', () => {
     assert.match((await api.get('/estado').catch((e) => e)).message, /Algo salió mal/)
   })
 
+  test('409 con faltan (fotos que ya no están): el ErrorApi trae los ids; sin faltan, null', async () => {
+    const api = crearApi({
+      fetch: fetchFalso(
+        json(409, { error: 'Una de las fotos ya no está guardada.', campos: { fotos: 'x' }, faltan: [12, 'no', 40] }),
+        json(409, { error: 'Otra cosa.' }),
+      ),
+    })
+    await assert.rejects(api.put('/novedades/1/galeria', { fotos: [12] }), (err) => err.status === 409 && err.faltan.join() === '12,40')
+    await assert.rejects(api.put('/novedades/1', {}), (err) => err.faltan === null)
+  })
+
   test('quizasGuardo: sin conexión o un 5xx (no se sabe si se guardó); un 4xx o un 409, no', () => {
     for (const status of [0, 500, 502, 503, 504]) assert.equal(quizasGuardo(new ErrorApi(status, 'x')), true, status)
     for (const status of [400, 401, 403, 404, 409, 429]) assert.equal(quizasGuardo(new ErrorApi(status, 'x')), false, status)
@@ -201,6 +230,108 @@ describe('api.js', () => {
     const api = crearApi({ fetch: fetchFalso(json(401, { error: 'x' }), json(200, { data: 1 })) })
     api.configurar({ reingresar: async () => true })
     assert.equal(await api.get('/estado'), 1)
+  })
+})
+
+/**
+ * Un XMLHttpRequest falso: cada instancia toma la próxima respuesta de la lista ({ status, json, progreso } o 'red'
+ * para un error de red) y anota lo que se le pidió. Responde en un microtask, después de avisar el progreso.
+ */
+function xhrFalso(...respuestas) {
+  const pedidos = []
+  class Xhr {
+    constructor() {
+      this.upload = {}
+      this.cabeceras = {}
+      this.status = 0
+      this.responseText = ''
+      this.respuesta = respuestas.shift()
+      pedidos.push(this)
+    }
+    open(metodo, url) {
+      Object.assign(this, { metodo, url })
+    }
+    setRequestHeader(nombre, valor) {
+      this.cabeceras[nombre] = valor
+    }
+    getResponseHeader(nombre) {
+      return nombre.toLowerCase() === 'content-type' && this.respuesta?.json !== undefined ? 'application/json; charset=utf-8' : null
+    }
+    abort() {
+      this.abortado = true
+      queueMicrotask(() => this.onabort?.())
+    }
+    send(cuerpo) {
+      this.cuerpo = cuerpo
+      queueMicrotask(() => {
+        if (this.abortado) return
+        const r = this.respuesta
+        if (r === 'red') return this.onerror?.()
+        for (const loaded of r.progreso ?? []) this.upload.onprogress?.({ lengthComputable: true, loaded, total: 100 })
+        this.upload.onload?.()
+        this.status = r.status
+        this.responseText = r.json === undefined ? 'no es json' : JSON.stringify(r.json)
+        this.onload?.()
+      })
+    }
+  }
+  return Object.assign(Xhr, { pedidos })
+}
+
+describe('api.subir (la subida de fotos, con XMLHttpRequest)', () => {
+  test('POST del formulario tal cual, a /administracion/api/fotos, con Accept JSON; progreso, "procesando" y el data', async () => {
+    const Xhr = xhrFalso({ status: 201, json: { data: { id: 7 } }, progreso: [10, 45, 100] })
+    const api = crearApi({ xhr: Xhr })
+    const formulario = { soy: 'un FormData' }
+    const progreso = []
+    let procesando = 0
+    const foto = await api.subir('/fotos', formulario, { alProgreso: (f) => progreso.push(f), alProcesar: () => procesando++ })
+    assert.deepEqual(foto, { id: 7 })
+    const [p] = Xhr.pedidos
+    assert.deepEqual([p.metodo, p.url], ['POST', '/administracion/api/fotos'])
+    assert.equal(p.cuerpo, formulario)
+    assert.deepEqual(p.cabeceras, { Accept: 'application/json' }, 'sin Content-Type: lo pone el navegador (multipart)')
+    assert.deepEqual(progreso, [0.1, 0.45, 1, 1])
+    assert.equal(procesando, 1)
+  })
+
+  test('401: reingreso y la subida se repite entera; si no vuelve, SESION_TERMINADA', async () => {
+    const Xhr = xhrFalso({ status: 401, json: { error: 'Tenés que iniciar sesión.' } }, { status: 201, json: { data: { id: 8 } } })
+    let reingresos = 0
+    const api = crearApi({ xhr: Xhr, reingresar: async () => ++reingresos > 0 })
+    assert.deepEqual(await api.subir('/fotos', {}), { id: 8 })
+    assert.equal(Xhr.pedidos.length, 2)
+    assert.equal(reingresos, 1)
+
+    const sinVolver = crearApi({ xhr: xhrFalso({ status: 401, json: { error: 'Tenés que iniciar sesión.' } }), reingresar: async () => false })
+    await assert.rejects(sinVolver.subir('/fotos', {}), (err) => err.status === 401 && err.message === SESION_TERMINADA)
+  })
+
+  test('403 con debeCambiarClave avisa; 413 y 415 con su mensaje y sus campos; sin red, status 0; abortar sale tal cual', async () => {
+    let avisos = 0
+    const api = crearApi({
+      xhr: xhrFalso(
+        { status: 403, json: { error: 'Cambiala.', debeCambiarClave: true } },
+        { status: 413, json: { error: 'La foto pesa 25 MB; el máximo es 20 MB.', campos: { foto: 'La foto pesa 25 MB; el máximo es 20 MB.' } } },
+        { status: 415, json: { error: 'HEIC', campos: { foto: 'HEIC' } } },
+        'red',
+        { status: 502 },
+        { status: 201, json: { data: {} } },
+      ),
+      alDebeCambiarClave: () => avisos++,
+    })
+    await assert.rejects(api.subir('/fotos', {}), (err) => err.status === 403 && err.debeCambiarClave)
+    assert.equal(avisos, 1)
+    await assert.rejects(api.subir('/fotos', {}), (err) => err.status === 413 && err.campos.foto === 'La foto pesa 25 MB; el máximo es 20 MB.')
+    await assert.rejects(api.subir('/fotos', {}), (err) => err.status === 415 && err.message === 'HEIC')
+    await assert.rejects(api.subir('/fotos', {}), (err) => err.status === 0 && err.message === SIN_CONEXION)
+    await assert.rejects(api.subir('/fotos', {}), (err) => err.status === 502 && err.campos === null)
+    const control = new AbortController()
+    const enCurso = api.subir('/fotos', {}, { signal: control.signal })
+    control.abort()
+    await assert.rejects(enCurso, (err) => err.name === 'AbortError')
+    // Con la señal ya abortada, ni se arma el pedido.
+    await assert.rejects(api.subir('/fotos', {}, { signal: control.signal }), (err) => err.name === 'AbortError')
   })
 })
 
@@ -270,8 +401,27 @@ describe('navegacion.js', () => {
   })
 
   test('la barra: Usuarios solo para admin, en el mismo lugar para todos', () => {
-    assert.deepEqual(seccionesPara('editor').map((s) => s.texto), ['Inicio', 'Visitas', 'Datos del museo'])
-    assert.deepEqual(seccionesPara('admin').map((s) => s.texto), ['Inicio', 'Visitas', 'Datos del museo', 'Usuarios'])
+    assert.deepEqual(seccionesPara('editor').map((s) => s.texto), [
+      'Inicio',
+      'Novedades',
+      'Exposiciones',
+      'Visitas',
+      'Datos del museo',
+    ])
+    assert.deepEqual(seccionesPara('admin').map((s) => s.texto), [
+      'Inicio',
+      'Novedades',
+      'Exposiciones',
+      'Visitas',
+      'Datos del museo',
+      'Usuarios',
+    ])
+    // Las fichas de muestras y salas son de Exposiciones.
+    const exposiciones = SECCIONES.find((s) => s.a === '/exposiciones')
+    assert.ok(esDeLaSeccion(exposiciones, '/muestras/12'))
+    assert.ok(esDeLaSeccion(exposiciones, '/salas/nueva'))
+    assert.ok(!esDeLaSeccion(exposiciones, '/muestrasx'))
+    assert.ok(!esDeLaSeccion(SECCIONES.find((s) => s.a === '/novedades'), '/muestras/12'))
     assert.equal(SECCIONES[0].a, '/')
   })
 })
@@ -293,5 +443,151 @@ describe('reingreso.js', () => {
   test('la misma persona y el mismo rol (o ninguna sesión conocida): se repite el pedido y nada más', () => {
     assert.equal(queHacerAlReingresar(sesion(1, 'admin'), sesion(1, 'admin')), 'igual')
     assert.equal(queHacerAlReingresar(null, sesion(1, 'admin')), 'igual')
+  })
+})
+
+describe('contenidos.js y la ficha (E3.3 y E3.4)', () => {
+  test('leerFiltros: lo que no sirve en la dirección queda vacío y la página en 1; consultaDe saca lo vacío', () => {
+    const p = (texto) => new URLSearchParams(texto)
+    assert.deepEqual(leerFiltros(p('estado=publicado&tipo=actividad&q=%20taller%20&pagina=3'), TIPOS_NOVEDAD), {
+      estado: 'publicado',
+      tipo: 'actividad',
+      q: 'taller',
+      pagina: 3,
+    })
+    assert.deepEqual(leerFiltros(p('estado=otro&tipo=evento&pagina=-2'), TIPOS_NOVEDAD), { estado: '', tipo: '', q: '', pagina: 1 })
+    assert.deepEqual(leerFiltros(p('tipo=noticia&pagina=x'), null), { estado: '', tipo: '', q: '', pagina: 1 })
+    assert.equal(leerFiltros(p(`q=${'a'.repeat(300)}`), null).q.length, 100)
+    assert.equal(consultaDe({ estado: '', tipo: 'noticia', q: 'año 2026', pagina: 1 }), '?tipo=noticia&q=a%C3%B1o+2026')
+    assert.equal(consultaDe({ estado: '', q: '', pagina: 2 }), '?pagina=2')
+    assert.equal(consultaDe({}), '')
+  })
+
+  test('traerTodas: página por página, de a 100, hasta la última', async () => {
+    const pedidos = []
+    const api = {
+      get: async (ruta) => {
+        pedidos.push(ruta)
+        const pagina = Number(new URLSearchParams(ruta.split('?')[1]).get('pagina'))
+        return { items: [pagina], paginas: 3 }
+      },
+    }
+    assert.deepEqual(await traerTodas(api, '/salas'), [1, 2, 3])
+    assert.deepEqual(pedidos, ['/salas?por=100&pagina=1', '/salas?por=100&pagina=2', '/salas?por=100&pagina=3'])
+  })
+
+  test('cuerpoDe: lo que no es del tipo va vacío, la inscripción con https, la dirección vacía en null', () => {
+    const ficha = {
+      tipo: 'actividad',
+      titulo: 'Taller',
+      slug: 'taller',
+      resumen: null,
+      cuerpo: null,
+      eventoInicio: '2026-11-20T18:30',
+      eventoFin: null,
+      lugar: 'Patio',
+      costo: null,
+      enlaceInscripcion: null,
+    }
+    const valores = { ...valoresDe('novedades', ficha), enlaceInscripcion: 'forms.gle/abc', slug: '  ' }
+    const cuerpo = cuerpoDe('novedades', valores, { id: 7 })
+    assert.deepEqual(cuerpo, {
+      tipo: 'actividad',
+      titulo: 'Taller',
+      slug: null,
+      resumen: '',
+      portadaId: 7,
+      cuerpo: null,
+      eventoInicio: '2026-11-20T18:30',
+      eventoFin: null,
+      lugar: 'Patio',
+      costo: '',
+      enlaceInscripcion: 'https://forms.gle/abc',
+    })
+    const noticia = cuerpoDe('novedades', { ...valores, tipo: 'noticia' }, null)
+    assert.deepEqual([noticia.eventoInicio, noticia.lugar, noticia.enlaceInscripcion, noticia.portadaId], [null, null, null, null])
+    const muestra = cuerpoDe(
+      'muestras',
+      { ...valoresDe('muestras', { tipo: 'permanente', titulo: 'M', fechaInicio: '2026-01-01', salaId: 4 }), slug: 'm' },
+      null,
+    )
+    assert.deepEqual([muestra.fechaInicio, muestra.salaId, muestra.descripcion], [null, 4, null])
+    assert.deepEqual(Object.keys(cuerpoDe('salas', valoresDe('salas', { nombre: 'Sala' }), null)).sort(), [
+      'descripcion',
+      'nombre',
+      'portadaId',
+      'resumen',
+      'slug',
+    ])
+  })
+
+  test('comparable: espacios, el párrafo vacío del editor y las claves en otro orden no son cambios', () => {
+    const guardada = {
+      nombre: 'Sala 1',
+      slug: 'sala-1',
+      resumen: 'Resumen',
+      descripcion: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Hola' }] }] },
+    }
+    const base = comparable('salas', cuerpoDe('salas', valoresDe('salas', guardada), null))
+    // Como lo da el editor: con un párrafo vacío al final y las claves en otro orden.
+    const delEditor = {
+      content: [{ content: [{ text: 'Hola', type: 'text' }], type: 'paragraph' }, { type: 'paragraph' }],
+      type: 'doc',
+    }
+    const v = { ...valoresDe('salas', guardada), nombre: ' Sala 1 ', resumen: 'Resumen ', texto: delEditor }
+    assert.equal(JSON.stringify(comparable('salas', cuerpoDe('salas', v, null))), JSON.stringify(base))
+    const cambiado = { ...v, resumen: 'Otro' }
+    assert.notEqual(JSON.stringify(comparable('salas', cuerpoDe('salas', cambiado, null))), JSON.stringify(base))
+    // Un valor todavía inválido (una fecha a medio escribir) se compara tal cual.
+    const m = valoresDe('muestras', { tipo: 'temporal', titulo: 'M', slug: 'm' })
+    assert.equal(comparable('muestras', cuerpoDe('muestras', { ...m, fechaInicio: '2026-13-01' }, null)).fechaInicio, '2026-13-01')
+  })
+
+  test('CONTENIDOS: rutas del panel y de la API, coherentes con los campos de la ficha', () => {
+    assert.equal(CONTENIDOS.novedades.ficha(3), '/novedades/3')
+    assert.equal(CONTENIDOS.salas.lista, '/exposiciones?pestana=salas')
+    for (const [tipo, c] of Object.entries(CONTENIDOS)) {
+      assert.equal(c.tipo, tipo)
+      assert.ok(CAMPOS_FICHA[tipo].includes(c.campoTitulo), tipo)
+      assert.ok(CAMPOS_FICHA[tipo].includes(c.campoTexto), tipo)
+      assert.equal(CAMPOS_FICHA[tipo].includes('fotos'), c.conGaleria, tipo)
+    }
+  })
+
+  test('fusionarGuardado: lo del servidor solo en lo que no se tocó mientras se guardaba (COD-02)', () => {
+    const ficha = {
+      id: 1,
+      tipo: 'noticia',
+      titulo: 'Título arreglado',
+      resumen: 'Resumen',
+      slug: 'titulo-arreglado',
+      cuerpo: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Guardado.' }] }] },
+    }
+    const enviados = { ...valoresDe('novedades', { ...ficha, titulo: ' Título arreglado ', slug: null }), texto: { mandado: true } }
+    // Nada se tocó: todo lo del servidor, también el texto (la forma canónica) y la dirección que armó.
+    const sinTocar = fusionarGuardado('novedades', enviados, enviados, ficha)
+    assert.equal(sinTocar.titulo, 'Título arreglado')
+    assert.equal(sinTocar.slug, 'titulo-arreglado')
+    assert.deepEqual(sinTocar.texto, ficha.cuerpo)
+    // Mientras se guardaba se escribió en el texto y en el resumen: eso queda; lo demás, del servidor.
+    const escrito = { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Guardado. Y más.' }] }] }
+    const durante = { ...enviados, resumen: 'Otro resumen', texto: escrito }
+    const fusion = fusionarGuardado('novedades', durante, enviados, ficha)
+    assert.equal(fusion.texto, escrito)
+    assert.equal(fusion.resumen, 'Otro resumen')
+    assert.equal(fusion.titulo, 'Título arreglado')
+    // Si ya es igual a lo del servidor, devuelve el mismo objeto (no vuelve a dibujar).
+    assert.equal(fusionarGuardado('novedades', sinTocar, sinTocar, ficha), sinTocar)
+  })
+
+  test('textosDelSitio: hasta que estén las páginas (E4) no dice que ya está en el sitio (FLU-04)', () => {
+    const sin = textosDelSitio(CONTENIDOS.novedades, false)
+    for (const texto of Object.values(sin)) assert.doesNotMatch(texto, /ya está en el sitio|salen al sitio|ya no está en el sitio/)
+    assert.equal(sin.publicada, `Publicada. ${SIN_PAGINAS_TODAVIA}`)
+    assert.equal(sin.guardadaPublicada, 'Guardado.')
+    const con = textosDelSitio(CONTENIDOS.muestras, true)
+    assert.equal(con.publicada, 'Publicada: la muestra ya está en el sitio.')
+    // Por defecto, la constante de compartido/contenidos.js (hoy apagada).
+    assert.deepEqual(textosDelSitio(CONTENIDOS.salas), textosDelSitio(CONTENIDOS.salas, false))
   })
 })

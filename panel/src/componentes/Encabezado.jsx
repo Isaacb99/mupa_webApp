@@ -6,7 +6,8 @@
 // El foco va cuando cambia la ruta, no cuando el componente se monta: dos pantallas que usan el mismo componente
 // (las provisorias, Pendiente.jsx) también lo reciben, y el doble montaje de StrictMode en desarrollo no lo mueve.
 // En ese momento la página también vuelve arriba de todo (el panel no usa <ScrollRestoration />: guarda en
-// sessionStorage, ver rutas.jsx).
+// sessionStorage, ver rutas.jsx). Un título con una palabra o una dirección larga corta donde haga falta
+// (wrap-anywhere; corrección de E3, 16/10/2026: a 320 px la ficha quedaba con scroll horizontal).
 import { useEffect, useLayoutEffect, useRef } from 'react'
 import { useLocation } from 'react-router'
 
@@ -35,7 +36,7 @@ export function Encabezado({ titulo, children }) {
   }, [pathname])
   return (
     <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-      <h1 ref={h1} tabIndex={-1} className="text-3xl font-bold">
+      <h1 ref={h1} tabIndex={-1} className="min-w-0 text-3xl font-bold wrap-anywhere">
         {titulo}
       </h1>
       {children}

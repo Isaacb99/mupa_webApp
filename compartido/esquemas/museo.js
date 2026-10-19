@@ -3,8 +3,8 @@
 //
 // El PUT es PARCIAL: cambia solo los campos que trae (cada pantalla manda los suyos, así una no pisa lo que guardó la
 // otra) y tiene que traer al menos uno. Lo que no está en el esquema se descarta (z.object quita las claves de más): a
-// Sequelize llega solo lo validado. Los tres textos con formato (comoLlegar, normas, accesibilidad) llegan con el
-// editor en E3.2: hasta entonces este esquema no los tiene, así que el PUT no los cambia ni los borra.
+// Sequelize llega solo lo validado. Los tres textos con formato de Visitas (comoLlegar, normas, accesibilidad: el JSON
+// del editor, E3.2) los valida textoRico.js y se guardan en su forma canónica; vacíos, null.
 // emailDestinoContacto está en el esquema, pero solo un admin lo puede mandar: la ruta da 403 a un editor que lo
 // incluya, antes de validar (server/api/museo.js).
 //
@@ -25,6 +25,7 @@ import {
   URL_MAX,
   urlHttps,
 } from './campos.js'
+import { textoRico } from './textoRico.js'
 import { z } from './zod.js'
 
 /** Las redes que el sitio sabe mostrar (valor -> nombre visible). */
@@ -88,6 +89,9 @@ export const CAMPOS_MUSEO = Object.freeze({
   }),
   mapaEmbedUrl: mapaEmbed,
   mapaUrl: opcional(urlHttps()),
+  comoLlegar: textoRico,
+  normas: textoRico,
+  accesibilidad: textoRico,
   notaHorarios: opcional(textoVariasLineas(300)),
   notaTarifas: opcional(textoVariasLineas(300)),
   compraActiva: siNo('La compra externa'),

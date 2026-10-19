@@ -46,7 +46,7 @@ export function Confirmar({
         if (sigueAbierto.current) alCancelar()
       }}
     >
-      <h2 id={idTitulo} className="text-xl font-bold">
+      <h2 id={idTitulo} className="text-xl font-bold wrap-anywhere">
         {titulo}
       </h2>
       <div id={idTexto} className="mt-3 grid gap-2">

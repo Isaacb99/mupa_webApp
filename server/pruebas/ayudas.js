@@ -14,7 +14,8 @@
 // - levantar(env): la app entera (como en producción, con URL_PUBLICA https://mupa.ar/ y TRUST_PROXY=1, así cada
 //   prueba elige la IP con X-Forwarded-For) sobre un build falso, en un puerto libre y con los límites en cero.
 //   Devuelve pedir(), crearUsuario(rol), cookiePara(rol) y cerrar(). levantar(env, { registroTareas }) le pasa a la
-//   app un registro de tareas diarias (server/tareas.js) para GET /estado.
+//   app un registro de tareas diarias (server/tareas.js) para GET /estado; { almacen } le pasa el de las fotos.
+// - multipart(): un cuerpo multipart/form-data para POST /fotos (E3.1).
 // - escucharLogs() y contarConsultas(): lo que el servicio escribe en el log y las consultas a la base.
 // Las contraseñas de las cuentas de prueba se generan al azar y viven solo en memoria.
 import { randomBytes } from 'node:crypto'
@@ -201,6 +202,31 @@ export function pedir(puerto, metodo, ruta, o = {}) {
   })
 }
 
+/**
+ * Un cuerpo multipart/form-data armado a mano (como lo manda un navegador), para pedir() con { cuerpo, tipo }.
+ * @param {{ campos?: Record<string, string>, archivos?: { campo?: string, nombre?: string, tipo?: string, datos: Buffer }[],
+ *   boundary?: string }} [partes]
+ * @returns {{ cuerpo: Buffer, tipo: string }}
+ */
+export function multipart({ campos = {}, archivos = [], boundary = `----mupa${randomBytes(8).toString('hex')}` } = {}) {
+  const trozos = []
+  for (const [nombre, valor] of Object.entries(campos)) {
+    trozos.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="${nombre}"\r\n\r\n${valor}\r\n`))
+  }
+  for (const { campo = 'foto', nombre = 'foto.jpg', tipo = 'image/jpeg', datos } of archivos) {
+    trozos.push(
+      Buffer.from(
+        `--${boundary}\r\nContent-Disposition: form-data; name="${campo}"; filename="${nombre}"\r\n` +
+          `Content-Type: ${tipo}\r\n\r\n`,
+      ),
+      datos,
+      Buffer.from('\r\n'),
+    )
+  }
+  trozos.push(Buffer.from(`--${boundary}--\r\n`))
+  return { cuerpo: Buffer.concat(trozos), tipo: `multipart/form-data; boundary=${boundary}` }
+}
+
 /** "nombre=valor" de la cookie de sesión de una respuesta (para mandarla en el pedido siguiente), o null. */
 export function cookieDe(respuesta, nombre) {
   const lista = respuesta.h['set-cookie'] ?? []
@@ -211,10 +237,12 @@ export function cookieDe(respuesta, nombre) {
 /**
  * La app entera en un puerto libre, con la base de prueba.
  * @param {Record<string, string | undefined>} [env]  pisa la configuración de prueba (undefined: la saca)
- * @param {{ registroTareas?: ReturnType<typeof import('../tareas.js').crearRegistroDeTareas> }} [opciones]
- *   registroTareas: el registro de las tareas diarias que lee GET /estado (sin él, ninguna falló)
+ * @param {{ registroTareas?: ReturnType<typeof import('../tareas.js').crearRegistroDeTareas>,
+ *   almacen?: ReturnType<typeof import('../fotos/almacen.js').crearAlmacen> }} [opciones]
+ *   registroTareas: el registro de las tareas diarias que lee GET /estado (sin él, ninguna falló); almacen: el de las
+ *   fotos (sin él, la app arma uno)
  */
-export async function levantar(env = {}, { registroTareas = null } = {}) {
+export async function levantar(env = {}, { registroTareas = null, almacen = null } = {}) {
   const dir = buildFalso()
   const variables = {
     NODE_ENV: 'production',
@@ -235,6 +263,7 @@ export async function levantar(env = {}, { registroTareas = null } = {}) {
     estaticos: estaticosDelBuild(dir),
     fechaHome: build.fecha,
     registroTareas,
+    almacen,
   })
   const servidor = app.listen(0, '127.0.0.1')
   await new Promise((r) => servidor.once('listening', r))
