@@ -12,19 +12,21 @@
 //  7. estáticos públicos con la CSP pública: /assets un año e immutable; la raíz de dist/client (favicon, og.jpg,
 //     el .html de Search Console) un día, por nombre exacto: ni la plantilla del SSR ni los dotfiles (los .htaccess
 //     de public/ nunca salen)
-//  8. /robots.txt, /sitemap.xml y las páginas (SSR) o la 404; no hay API fuera de /administracion/api
+//  8. /robots.txt, /sitemap.xml (con lo publicado, desde E4.6), POST /contacto (el formulario, desde E4.5:
+//     server/contacto.js) y las páginas (SSR) o la 404; no hay API fuera de /administracion/api
 //  9. errores (server/errores.js)
 import { readdirSync } from 'node:fs'
 import { resolve } from 'node:path'
 import express from 'express'
-import { hoyEnSanJuan } from '../compartido/fechas.js'
 import { RUTA_PANEL } from '../compartido/panel.js'
+import { esBaseNoDisponible } from './contenido-publico.js'
 import { probarBase } from './db/conexion.js'
 import { manejadorDeErrores } from './errores.js'
 import { crearAlmacen } from './fotos/almacen.js'
 import { crearRutaDeFotos } from './fotos/servir.js'
 import { crearControlDeHost } from './hosts.js'
 import { codigoDeError, log } from './log.js'
+import { crearRecepcion } from './contacto.js'
 import { crearPanel } from './panel.js'
 import { crearRutasPublicas } from './rutas-publicas.js'
 import { cabecerasComunes, cspPublica, noIndexarFueraDelHostPublico, redireccionesPublicas } from './seguridad.js'
@@ -86,6 +88,8 @@ export function estaticosDelBuild(dirBuild) {
  *   el panel sale de dist/panel
  * @param {ReturnType<typeof crearAlmacen> | null} [opciones.almacen]  las fotos en la base, con su caché: el mismo
  *   para /fotos, la API y las tareas diarias (servidor.js y dev.js lo crean y lo pasan); sin él, uno propio
+ * El formulario de contacto (E4.5) es el de ssr.contacto (server/contacto.js), con su correo: el mismo para la página,
+ * POST /contacto y el panel (el aviso del Inicio y Mensajes).
  */
 export function crearApp({
   config,
@@ -99,6 +103,7 @@ export function crearApp({
   almacen = null,
 }) {
   const fotos = almacen ?? (sequelize ? crearAlmacen(sequelize) : null)
+  const { contacto } = ssr
   const app = express()
   app.disable('x-powered-by')
   app.set('trust proxy', config.TRUST_PROXY)
@@ -139,7 +144,15 @@ export function crearApp({
   // 5. Panel.
   app.use(
     RUTA_PANEL,
-    crearPanel({ dirBuild: config.DIR_BUILD, config, sequelize, registroTareas, almacen: fotos, vite: vitePanel }),
+    crearPanel({
+      dirBuild: config.DIR_BUILD,
+      config,
+      sequelize,
+      registroTareas,
+      almacen: fotos,
+      vite: vitePanel,
+      correo: contacto?.correo ?? null,
+    }),
   )
 
   // 6 a 8. Sitio público.
@@ -149,10 +162,28 @@ export function crearApp({
   app.get('/robots.txt', (req, res) => {
     res.set('Cache-Control', 'public, max-age=3600').type('text').send(robotsTxt(config.urlPublica))
   })
-  app.get('/sitemap.xml', (req, res) => {
-    const xml = sitemapXml([{ loc: config.urlPublica, lastmod: hoyEnSanJuan(fechaHome) }])
-    res.set('Cache-Control', 'public, max-age=3600').type('application/xml').send(xml)
+  // La clave de IndexNow (server/indexnow.js), solo si está configurada: con ella IndexNow comprueba los avisos.
+  if (config.INDEXNOW_CLAVE) {
+    app.get(`/${config.INDEXNOW_CLAVE}.txt`, (req, res) => {
+      res.set('Cache-Control', 'public, max-age=3600').type('text').send(config.INDEXNOW_CLAVE)
+    })
+  }
+  // El sitemap (plan 6.5): las páginas fijas y lo publicado, leído en cada pedido (no-cache, como el HTML: lo que se
+  // publica entra en el pedido siguiente). Si la base falla, 503: uno sin los contenidos le diría al buscador que
+  // ya no están.
+  app.get('/sitemap.xml', async (req, res) => {
+    let entradas
+    try {
+      entradas = await ssr.sitemap(fechaHome)
+    } catch (err) {
+      if (!esBaseNoDisponible(err)) throw err
+      log('aviso', 'sitemap_sin_base', { codigo: err.causa ?? codigoDeError(err) })
+      return res.status(503).set({ 'Cache-Control': 'no-store', 'Retry-After': '60' }).type('text').send('No disponible.')
+    }
+    res.set('Cache-Control', 'no-cache').type('application/xml').send(sitemapXml(entradas))
   })
+  // El formulario de contacto (plan 8): sin JavaScript, CSRF por origen, límites y la página otra vez con lo escrito.
+  if (contacto) app.post('/contacto', ...crearRecepcion({ config, contacto, ssr }))
   app.use(crearRutasPublicas({ ssr }))
 
   // 9.

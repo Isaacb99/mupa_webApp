@@ -593,21 +593,8 @@ describe('autenticación', { skip: base.motivo ?? false }, () => {
     }
   })
 
-  test('ninguna respuesta pública lleva Set-Cookie, aunque el pedido traiga la cookie de sesión', async () => {
-    const s = await levantar()
-    try {
-      const { cookie } = await s.cookiePara('admin')
-      for (const ruta of ['/', '/salud', '/robots.txt', '/sitemap.xml', '/no-existe', '/favicon.svg', '/assets/app-abc123.js', '/assets/falta.js', '/index.html', '/administracion/']) {
-        const r = await s.pedir('GET', ruta, { cookie })
-        assert.ok(r.status < 500, `${ruta}: ${r.status}`)
-        assert.equal(r.h['set-cookie'], undefined, ruta)
-      }
-      const post = await s.pedir('POST', '/', { cookie, cuerpo: {} })
-      assert.equal(post.h['set-cookie'], undefined)
-    } finally {
-      await s.cerrar()
-    }
-  })
+  // "Ninguna respuesta pública lleva Set-Cookie, aunque el pedido traiga la cookie de sesión" pasó a ssr.test.js (E4.8),
+  // con las páginas internas de E4.
 
   test('la tarea diaria borra las sesiones vencidas por máximo y por inactividad', async () => {
     const s = await levantar()

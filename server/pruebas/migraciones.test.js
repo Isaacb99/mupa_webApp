@@ -54,6 +54,7 @@ const TABLAS_DE = {
   '20261016-03-fotos.js': ['fotos', 'fotos_archivos'],
   '20261016-04-salas-muestras.js': ['galeria_muestras', 'muestras', 'salas'],
   '20261016-05-novedades.js': ['galeria_novedades', 'novedades'],
+  '20261019-06-mensajes-contacto.js': ['mensajes_contacto'],
 }
 
 describe('migraciones', { skip: base.motivo ?? false }, () => {
@@ -90,6 +91,7 @@ describe('migraciones', { skip: base.motivo ?? false }, () => {
       'galeria_muestras',
       'galeria_novedades',
       'horario_semanal',
+      'mensajes_contacto',
       'muestras',
       'museo',
       'novedades',
@@ -142,6 +144,9 @@ describe('migraciones', { skip: base.motivo ?? false }, () => {
       'galeria_novedades_pkey',
       'horario_dia_iso',
       'horario_semanal_pkey',
+      'mensajes_contacto_envio_valido',
+      'mensajes_contacto_mensaje_largo',
+      'mensajes_contacto_pkey',
       'muestras_actualizado_por_fkey',
       'muestras_creado_por_fkey',
       'muestras_estado_valido',
@@ -210,6 +215,7 @@ describe('migraciones', { skip: base.motivo ?? false }, () => {
       'novedades_portada',
       'galeria_muestras_foto',
       'galeria_novedades_foto',
+      'mensajes_fecha',
     ]) {
       assert.ok(indices.includes(indice), `el índice ${indice}`)
     }
@@ -249,6 +255,17 @@ describe('migraciones', { skip: base.motivo ?? false }, () => {
       })
     await rechaza(tarifa(false, null), 'tarifas_precio_o_gratuita')
     await rechaza(tarifa(false, -1), 'tarifas_precio_no_negativo')
+    // Los mensajes del formulario (migración 06, E4.9): el estado del envío y el largo del mensaje.
+    const mensaje = (texto, envio = 'pendiente') =>
+      sql(`INSERT INTO mensajes_contacto (nombre, email, mensaje, envio) VALUES ('A', 'a@example.com', :texto, :envio)`, {
+        texto,
+        envio,
+      })
+    await rechaza(mensaje('Hola', 'perdido'), 'mensajes_contacto_envio_valido', '23514')
+    await rechaza(mensaje('x'.repeat(5001)), 'mensajes_contacto_mensaje_largo', '23514')
+    await mensaje('x'.repeat(5000))
+    assert.deepEqual(await sql(`SELECT envio, error FROM mensajes_contacto`), [{ envio: 'pendiente', error: null }])
+    await sql('DELETE FROM mensajes_contacto')
     await rechaza(sql(`INSERT INTO sesiones (usuario_id, token_hash, expira_en) VALUES (2147483647, :h, now())`, { h: 'a'.repeat(64) }), 'sesiones_usuario_id_fkey')
     // Dos sesiones con el mismo hash de token, de una cuenta que existe.
     const [{ id: usuarioId }] = await sql(`SELECT id FROM usuarios WHERE email = 'repetido@example.com'`)

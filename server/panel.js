@@ -70,8 +70,18 @@ function paginaDeVite(vite, raiz) {
  * @param {ReturnType<import('./fotos/almacen.js').crearAlmacen> | null} [opciones.almacen]  el de las fotos (el
  *   mismo que sirve /fotos, server/app.js)
  * @param {import('vite').ViteDevServer | null} [opciones.vite]  el Vite del panel (solo server/dev.js)
+ * @param {ReturnType<import('./correo.js').crearCorreo> | null} [opciones.correo]  el correo del formulario de contacto
+ *   (el aviso del Inicio, E4.9)
  */
-export function crearPanel({ dirBuild, config, sequelize = null, registroTareas = null, almacen = null, vite = null }) {
+export function crearPanel({
+  dirBuild,
+  config,
+  sequelize = null,
+  registroTareas = null,
+  almacen = null,
+  vite = null,
+  correo = null,
+}) {
   const panel = express.Router()
   panel.use(cspPanel({ desarrollo: Boolean(vite) }))
   panel.use(function barrasDelPanel(req, res, next) {
@@ -99,7 +109,7 @@ export function crearPanel({ dirBuild, config, sequelize = null, registroTareas 
     res.set('Cache-Control', 'no-store')
     next()
   })
-  panel.use('/api', crearApi({ config, sequelize, registroTareas, almacen }))
+  panel.use('/api', crearApi({ config, sequelize, registroTareas, almacen, correo }))
   if (vite) panel.use(middlewaresDeVite(vite))
   const pagina = vite ? paginaDeVite(vite, vite.config.root) : paginaDelBuild(dirBuild)
   panel.get('/{*resto}', async (req, res) => {

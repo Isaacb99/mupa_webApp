@@ -1,8 +1,8 @@
 // La barra superior del panel y las rutas de vuelta. Código sin React ni DOM (lo prueban las pruebas del servidor).
 //
 // La barra va siempre en el mismo lugar y en el mismo orden (WCAG 3.2.6, plan 5.2): Inicio, Novedades,
-// Exposiciones, Visitas y Datos del museo para todos; Mensajes y Usuarios para admin. Una sección nueva (Mensajes en
-// E4.9) se suma acá, en su lugar, y su ruta en rutas.jsx. "Ayuda" (el manual, /administracion/manual.pdf) se suma con
+// Exposiciones, Visitas y Datos del museo para todos; Mensajes y Usuarios para admin. Una sección nueva se suma acá, en
+// su lugar, y su ruta en rutas.jsx (Mensajes entró con E4.9). "Ayuda" (el manual, /administracion/manual.pdf) se suma con
 // E6.2. Novedades y Exposiciones entraron con E3.3 y E3.4; las fichas de una muestra o una sala (/muestras/12,
 // /salas/3) son de Exposiciones (tambien), así la barra marca dónde se está.
 
@@ -22,6 +22,7 @@ export const SECCIONES = Object.freeze([
   { a: '/exposiciones', texto: 'Exposiciones', tambien: ['/muestras', '/salas'] },
   { a: '/visitas', texto: 'Visitas' },
   { a: '/museo', texto: 'Datos del museo' },
+  { a: '/mensajes', texto: 'Mensajes', rol: 'admin' },
   { a: '/usuarios', texto: 'Usuarios', rol: 'admin' },
 ])
 

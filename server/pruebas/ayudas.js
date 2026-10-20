@@ -2,19 +2,23 @@
 //
 // - prepararBase(): contra DATABASE_URL_TEST, que tiene que ser localhost y terminar en _test (exigirBaseDePrueba:
 //   si no, tira y la prueba FALLA; nunca toca otra base). Si la variable no está (o está vacía) o no se llega a la
-//   base (Postgres apagado: ECONNREFUSED, ENOTFOUND, ETIMEDOUT, EHOSTUNREACH o sin respuesta en 3 s), devuelve
-//   { motivo } y las pruebas con base se saltean con ese aviso; las que no la necesitan siguen corriendo. Cualquier
-//   otro error es una DATABASE_URL_TEST mal escrita (contraseña equivocada 28P01, base que no existe 3D000…) y la
-//   prueba FALLA con un mensaje que lo dice: si se salteara, npm test daría verde sin haber probado nada. Si
-//   responde: toma un candado de la base (pg_advisory_lock, en una conexión propia, hasta cerrarBase) y recién ahí
-//   DROP SCHEMA public CASCADE, CREATE SCHEMA public y todas las migraciones. Con el candado, dos archivos nunca usan
-//   mupa_test a la vez aunque se corran en paralelo (node --test sin --test-concurrency=1, un IDE): el segundo espera.
+//   base (Postgres apagado: ECONNREFUSED, ENOTFOUND, ETIMEDOUT, EHOSTUNREACH), devuelve { motivo } y las pruebas
+//   con base se saltean con ese aviso; las que no la necesitan siguen corriendo. Si la base no contesta a tiempo
+//   (TOPE: la PC cargada), reintenta hasta 3 veces de a 5 s y después la prueba FALLA (antes se salteaba: COD-03 de la
+//   verificación de E4). Cualquier otro error es una DATABASE_URL_TEST mal escrita (contraseña equivocada 28P01, base
+//   que no existe 3D000…) y la prueba FALLA con un mensaje que lo dice: si se salteara, npm test daría verde sin haber
+//   probado nada. Si responde: toma un candado de la base (pg_advisory_lock, en una conexión propia, hasta
+//   cerrarBase) y recién ahí DROP SCHEMA public CASCADE, CREATE SCHEMA public y todas las migraciones. Con el candado,
+//   dos archivos nunca usan mupa_test a la vez aunque se corran en paralelo (node --test sin --test-concurrency=1, un
+//   IDE): el segundo espera.
 // - salteoVisible(base): sin base, una prueba salteada más, así el resumen final dice "skipped" (el describe salteado
 //   no registra sus pruebas y el total parecía un verde completo).
 // - levantar(env): la app entera (como en producción, con URL_PUBLICA https://mupa.ar/ y TRUST_PROXY=1, así cada
 //   prueba elige la IP con X-Forwarded-For) sobre un build falso, en un puerto libre y con los límites en cero.
 //   Devuelve pedir(), crearUsuario(rol), cookiePara(rol) y cerrar(). levantar(env, { registroTareas }) le pasa a la
-//   app un registro de tareas diarias (server/tareas.js) para GET /estado; { almacen } le pasa el de las fotos.
+//   app un registro de tareas diarias (server/tareas.js) para GET /estado; { almacen } le pasa el de las fotos y
+//   { obtener } otra plantilla y otro render (ssr.test.js: el de verdad) y { correo } el correo del formulario de
+//   contacto (contacto.test.js: en memoria).
 // - multipart(): un cuerpo multipart/form-data para POST /fotos (E3.1).
 // - escucharLogs() y contarConsultas(): lo que el servicio escribe en el log y las consultas a la base.
 // Las contraseñas de las cuentas de prueba se generan al azar y viven solo en memoria.
@@ -29,6 +33,8 @@ import { crearApp, estaticosDelBuild } from '../app.js'
 import { hashClave, vencimientoTemporal } from '../auth/claves.js'
 import { crearSesion, nombreCookie } from '../auth/sesiones.js'
 import { leerConfig } from '../config.js'
+import { crearContacto } from '../contacto.js'
+import { crearCorreo } from '../correo.js'
 import { crearConexion, probarBase } from '../db/conexion.js'
 import { exigirBaseDePrueba } from '../db/guardas.js'
 import { crearMigrador } from '../db/migrar.js'
@@ -45,8 +51,13 @@ let sequelize = null
 let candado = null
 // Un número cualquiera, siempre el mismo: identifica el candado de las pruebas con base.
 const CANDADO_PRUEBAS = 7_314_001
-// No se llega a la base: las pruebas con base se saltean. TOPE es el de probarBase (no contestó en 3 s).
-const SIN_CONEXION = new Set(['ECONNREFUSED', 'ENOTFOUND', 'ETIMEDOUT', 'EHOSTUNREACH', 'TOPE'])
+// No se llega a la base: las pruebas con base se saltean.
+const SIN_CONEXION = new Set(['ECONNREFUSED', 'ENOTFOUND', 'ETIMEDOUT', 'EHOSTUNREACH'])
+// Se llega pero no contesta a tiempo (TOPE de probarBase): con la PC cargada pasa (otras pruebas, varios Chrome), y
+// saltear el archivo daba un verde con "skipped" que parecía bueno (COD-03 de la verificación de E4). Con
+// DATABASE_URL_TEST puesta se reintenta y, si sigue sin contestar, la prueba FALLA.
+const INTENTOS_BASE = 3
+const TOPE_INTENTO_MS = 5_000
 // Se llega pero la URL está mal: la prueba falla con esto.
 const MAL_CONFIGURADA = {
   '28P01': 'el usuario o la contraseña no son correctos',
@@ -63,18 +74,29 @@ export async function prepararBase() {
   // Antes de abrir la conexión: si no es local o no termina en _test, tira y la prueba falla.
   exigirBaseDePrueba(URL_PRUEBA)
   sequelize = crearConexion(leerConfig({}), { url: URL_PRUEBA })
-  try {
-    await probarBase(sequelize, 3_000)
-  } catch (err) {
-    await sequelize.close().catch(() => {})
-    sequelize = null
-    const codigo = codigoDeError(err)
-    if (SIN_CONEXION.has(codigo)) return saltear(`la base de prueba no responde (${codigo})`)
-    // El mensaje de Postgres o del driver nunca trae la URL ni la contraseña.
-    throw new Error(
-      `DATABASE_URL_TEST está mal configurada: ${MAL_CONFIGURADA[codigo] ?? err.message}${codigo ? ` (${codigo})` : ''}. ` +
-        'Corregila en .env o dejala vacía para saltear las pruebas con base.',
-    )
+  for (let intento = 1; ; intento++) {
+    try {
+      await probarBase(sequelize, TOPE_INTENTO_MS)
+      break
+    } catch (err) {
+      const codigo = codigoDeError(err)
+      if (codigo === 'TOPE' && intento < INTENTOS_BASE) continue
+      await sequelize.close().catch(() => {})
+      sequelize = null
+      if (SIN_CONEXION.has(codigo)) return saltear(`la base de prueba no responde (${codigo})`)
+      if (codigo === 'TOPE') {
+        throw new Error(
+          `La base de prueba no contestó en ${INTENTOS_BASE} intentos de ${TOPE_INTENTO_MS / 1000} s (TOPE): ` +
+            'está trabada o la PC está muy cargada. Volvé a correr las pruebas (o dejá DATABASE_URL_TEST vacía para ' +
+            'saltear las que usan la base).',
+        )
+      }
+      // El mensaje de Postgres o del driver nunca trae la URL ni la contraseña.
+      throw new Error(
+        `DATABASE_URL_TEST está mal configurada: ${MAL_CONFIGURADA[codigo] ?? err.message}${codigo ? ` (${codigo})` : ''}. ` +
+          'Corregila en .env o dejala vacía para saltear las pruebas con base.',
+      )
+    }
   }
   // Espera a que ningún otro archivo de pruebas esté usando la base. Si este proceso termina de golpe, la conexión se
   // cierra y Postgres suelta el candado solo.
@@ -240,9 +262,14 @@ export function cookieDe(respuesta, nombre) {
  * @param {{ registroTareas?: ReturnType<typeof import('../tareas.js').crearRegistroDeTareas>,
  *   almacen?: ReturnType<typeof import('../fotos/almacen.js').crearAlmacen> }} [opciones]
  *   registroTareas: el registro de las tareas diarias que lee GET /estado (sin él, ninguna falló); almacen: el de las
- *   fotos (sin él, la app arma uno)
+ *   fotos (sin él, la app arma uno); obtener: la plantilla y el render de las páginas (sin él, el build falso, que
+ *   dibuja solo <main data-pagina>; ssr.test.js pasa el render de verdad, cargado con Vite); topesContacto: otros topes
+ *   de tiempo del formulario de contacto (server/contacto.js, TOPES_CONTACTO: contacto.test.js, para no esperar 4 s)
  */
-export async function levantar(env = {}, { registroTareas = null, almacen = null } = {}) {
+export async function levantar(
+  env = {},
+  { registroTareas = null, almacen = null, obtener = null, correo = null, topesContacto = {} } = {},
+) {
   const dir = buildFalso()
   const variables = {
     NODE_ENV: 'production',
@@ -255,7 +282,16 @@ export async function levantar(env = {}, { registroTareas = null, almacen = null
   }
   const config = leerConfig(Object.fromEntries(Object.entries(variables).filter(([, v]) => v !== undefined)))
   const build = await cargarBuild(dir)
-  const ssr = crearSsr({ config, obtener: build.obtener, museoPublico: crearMuseoPublico(config, { sequelize }) })
+  // El correo del formulario de contacto: el de la configuración (smtp: sin SMTP_USUARIO no hay formulario) o el que
+  // arme la prueba con ella (correo: (config) => crearCorreo(config, { modo: 'memoria' })).
+  const elCorreo = correo ? correo(config) : crearCorreo(config)
+  const ssr = crearSsr({
+    config,
+    obtener: obtener ?? build.obtener,
+    museoPublico: crearMuseoPublico(config, { sequelize }),
+    sequelize,
+    contacto: crearContacto({ config, sequelize, correo: elCorreo, topes: topesContacto }),
+  })
   const app = crearApp({
     config,
     ssr,
@@ -272,6 +308,8 @@ export async function levantar(env = {}, { registroTareas = null, almacen = null
   return {
     config,
     puerto,
+    /** El correo del formulario de contacto de esta app (en memoria: enviados y simularFalla). */
+    correo: elCorreo,
     /** Nombre de la cookie de sesión de esta app (__Secure-mupa_sesion con https). */
     nombreCookie: cookie,
     pedir: (metodo, ruta, o = {}) => pedir(puerto, metodo, ruta, { host: config.hostPublico, ...o }),

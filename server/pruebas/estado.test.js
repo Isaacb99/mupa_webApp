@@ -62,6 +62,7 @@ describe('el registro de las tareas diarias (sin base)', () => {
     } finally {
       console.log = original
     }
+    // La de los mensajes viejos usa query, que en esta base anda; la de la casilla, sin correo, no prueba nada.
     assert.deepEqual(
       registro.fallidas().map((f) => [f.tarea, f.codigo]),
       [['sesiones_vencidas', 'ECONNREFUSED']],
@@ -81,9 +82,13 @@ describe('el registro de las tareas diarias (sin base)', () => {
     } finally {
       console.log = original
     }
+    // Las que usan query fallan (las fotos y, desde E4.9, los mensajes viejos); las demás corren igual.
     assert.deepEqual(
       otro.fallidas().map((f) => [f.tarea, f.codigo]),
-      [['fotos_huerfanas', '57014']],
+      [
+        ['fotos_huerfanas', '57014'],
+        ['mensajes_viejos', '57014'],
+      ],
     )
   })
 
@@ -130,7 +135,7 @@ describe('GET /estado', { skip: base.motivo ?? false }, () => {
     assert.deepEqual(deEditor, {
       paraCompletar: ['direccion', 'telefono', 'emailPublico', 'horario', 'tarifas'],
       unSoloAdmin: true,
-      correo: { estado: 'sin_configurar' },
+      correo: { estado: 'sin_configurar', formulario: false, desde: null, codigo: null, sinEnviar: 0 },
       tareasFallidas: [],
     })
     // El espacio: lo que ocupa la base (una recién migrada ocupa unos pocos MB) y el contratado (1024 por defecto).

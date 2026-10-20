@@ -294,7 +294,8 @@ describe('con CANONICO=0 (antes del corte)', () => {
   })
 
   test('404 real con la página NoEncontrada, también /api fuera del panel', async () => {
-    for (const ruta of ['/no-existe', '/api/usuarios', '/exposiciones']) {
+    // Desde E4, /exposiciones es una página (sin base, sin contenidos): una que no está en la tabla sigue siendo 404.
+    for (const ruta of ['/no-existe', '/api/usuarios', '/exposicion', '/exposiciones/a/b', '/novedades/Con-Mayusculas']) {
       const r = await pedir(s.puerto, ruta)
       assert.equal(r.status, 404, ruta)
       assert.equal(estadoDe(r.cuerpo).pagina, 'no-encontrada', ruta)

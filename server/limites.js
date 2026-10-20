@@ -14,13 +14,19 @@
 // | /administracion/api/* con sesión     | 300 por minuto            | usuario                                     |
 // | POST /administracion/api/fotos       | 60 por hora (E3.1)        | usuario: cada subida ocupa la cola de sharp |
 // |                                      |                           | (cuentan también las que se rechazan)       |
-// El de POST /contacto (E4.5) se suma acá.
+// | POST /contacto (E4.5)                | 5 por hora                | IP                                          |
+// |                                      | 50 por día (de San Juan)  | todos juntos: por debajo del tope diario de |
+// |                                      |                           | la casilla de envío (100 en Hostinger)      |
+// Los de POST /contacto (crearLimitesDeContacto) van después del esquema: cuentan todo mensaje válido (también si se
+// corta la conexión) y un error de validación no gasta intentos. No responden ellos: marcan el pedido
+// (req.limiteContacto) y la página de Contacto se dibuja con el aviso y lo que la persona escribió (server/contacto.js).
 //
 // La IP es req.ip, que depende de trust proxy (TRUST_PROXY, un número de saltos, nunca true: plan 10.1); las IPv6 se
 // agrupan por /56 (ipKeyGenerator). Ni la IP ni el correo van al log: solo que se alcanzó un límite, y una sola línea
 // por ventana y clave (el primer pedido bloqueado), no una por pedido: quien insiste no llena el log.
 // Se crean con cada app (server/api/indice.js): cada prueba arranca con los contadores en cero.
 import { ipKeyGenerator, rateLimit } from 'express-rate-limit'
+import { hoyEnSanJuan } from '../compartido/fechas.js'
 import { log } from './log.js'
 
 const QUINCE_MINUTOS = 15 * 60_000
@@ -99,4 +105,39 @@ export function crearLimites() {
       ),
     }),
   }
+}
+
+/**
+ * Los límites de POST /contacto (plan 4.7): 5 por hora por IP y 50 por día entre todos (el día de San Juan: el
+ * contador vuelve a cero a la medianoche). Se crean con cada app (server/contacto.js). En vez de responder, marcan el
+ * pedido con req.limiteContacto = 'limite_ip' o 'limite_dia' (y Retry-After) y siguen: la ruta dibuja la página con el
+ * aviso y lo escrito (429). El de todos no cuenta un pedido que ya frenó el de la IP.
+ * - Van DESPUÉS del esquema y del repetido (server/contacto.js): un error de validación o un doble clic no llegan acá.
+ *   Todo lo que llega cuenta y no se descuenta nunca (sin skipFailedRequests: express-rate-limit descontaba el pedido
+ *   cuya conexión se cerraba antes de la respuesta, y cortando la conexión se mandaban mensajes sin límite, COD-01 de
+ *   la verificación de E4). Un 503 (la base y el correo caídos a la vez) también cuenta: es raro y es más seguro.
+ * - Sin las cabeceras RateLimit (standardHeaders: false): la del límite de todos contaba en público cuántos mensajes
+ *   recibió el museo en el día y cuántos faltaban para cerrar el formulario (CON-03). La página ya dice lo que hace
+ *   falta, y el 429 lleva Retry-After.
+ */
+export function crearLimitesDeContacto() {
+  const comunes = { standardHeaders: false, legacyHeaders: false }
+  const marcar = (codigo, evento) => (req, res, next) => {
+    if (req.rateLimit?.used === req.rateLimit?.limit + 1) log('aviso', evento)
+    const reinicio = req.rateLimit?.resetTime?.getTime?.()
+    if (reinicio) res.set('Retry-After', String(Math.max(1, Math.ceil((reinicio - Date.now()) / 1000))))
+    req.limiteContacto = codigo
+    next()
+  }
+  return [
+    rateLimit({ ...comunes, windowMs: 60 * 60_000, limit: 5, handler: marcar('limite_ip', 'limite_contacto_ip') }),
+    rateLimit({
+      ...comunes,
+      windowMs: 24 * 60 * 60_000,
+      limit: 50,
+      keyGenerator: () => `dia-${hoyEnSanJuan()}`,
+      skip: (req) => Boolean(req.limiteContacto),
+      handler: marcar('limite_dia', 'limite_contacto_dia'),
+    }),
+  ]
 }

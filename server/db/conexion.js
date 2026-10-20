@@ -3,6 +3,7 @@
 // (migrar.js, semillas/, scripts/admin.js) y las pruebas.
 // El esquema lo llevan SOLO las migraciones (server/db/migrar.js, plan 3.3): nunca se sincroniza desde los modelos.
 import { Sequelize, QueryTypes } from 'sequelize'
+import { conTope } from '../tope.js'
 import { definirModelos } from './asociaciones.js'
 
 /**
@@ -38,17 +39,7 @@ export function crearConexion(config, { url = config.DATABASE_URL } = {}) {
  */
 export async function probarBase(sequelize, tope = 2_000) {
   const inicio = performance.now()
-  let reloj
-  const consulta = sequelize.query('SELECT 1 AS uno', { type: QueryTypes.SELECT })
-  // Si gana el tope, la consulta sigue y falla o termina sola más tarde: que no quede un rechazo sin atender.
-  consulta.catch(() => {})
-  const vencida = new Promise((_, rechazar) => {
-    reloj = setTimeout(() => rechazar(Object.assign(new Error('La base no contestó a tiempo'), { code: 'TOPE' })), tope)
-  })
-  try {
-    await Promise.race([consulta, vencida])
-    return Math.round(performance.now() - inicio)
-  } finally {
-    clearTimeout(reloj)
-  }
+  // Si gana el tope, la consulta sigue y falla o termina sola más tarde (conTope atiende su rechazo).
+  await conTope(sequelize.query('SELECT 1 AS uno', { type: QueryTypes.SELECT }), tope, 'La base no contestó a tiempo')
+  return Math.round(performance.now() - inicio)
 }

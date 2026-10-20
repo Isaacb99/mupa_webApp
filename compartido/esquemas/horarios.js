@@ -10,7 +10,8 @@
 import { opcional, siNo, textoLinea } from './campos.js'
 import { z } from './zod.js'
 
-export const DIAS = Object.freeze(['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'])
+// Los nombres de los días están en compartido/horarios.js (sin zod: también los usa el sitio, E4.1).
+export { DIAS } from '../horarios.js'
 export const FRANJAS_MAX = 2
 
 const HORA = /^([01]\d|2[0-3]):[0-5]\d$/

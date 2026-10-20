@@ -59,7 +59,7 @@ describe('permisos de la API', { skip: base.motivo ?? false }, () => {
     assert.equal(typeof r.json.error, 'string', quien)
   }
 
-  test('la tabla: las rutas de E1 a E3.4, cada una con su rol', () => {
+  test('la tabla: las rutas de E1 a E4.9, cada una con su rol', () => {
     const tabla = RUTAS.map(({ metodo, ruta, rol }) => `${metodo} ${ruta} ${rol}`).sort()
     // Las de cada contenido (E3.3 y E3.4, server/api/contenido.js): listado, alta, ficha, cambio, eliminar, publicar y
     // despublicar; la galería en muestras y novedades; el orden en salas y muestras.
@@ -83,6 +83,7 @@ describe('permisos de la API', { skip: base.motivo ?? false }, () => {
         'DELETE /usuarios/:id/sesiones admin',
         'GET /estado editor',
         'GET /horarios editor',
+        'GET /mensajes admin',
         'GET /museo editor',
         'GET /sesion editor',
         'GET /tarifas editor',
@@ -151,7 +152,8 @@ describe('permisos de la API', { skip: base.motivo ?? false }, () => {
       assert.deepEqual(r.json, { error: 'No tenés permiso para esto.' })
       cabecerasDelPanel(r, `${metodo} ${ruta}`)
     }
-    assert.equal(rutasDeAdmin, 5)
+    // Usuarios (5) y, desde E4.9, GET /mensajes.
+    assert.equal(rutasDeAdmin, 6)
   })
 
   test('CSRF: Sec-Fetch-Site cross-site, same-site o none, Origin ajeno o ninguno: 403 sin hacer nada', async () => {
@@ -325,7 +327,8 @@ describe('permisos de la API', { skip: base.motivo ?? false }, () => {
 
   test('lo que no está en la tabla: 404 en JSON, con o sin sesión; /api fuera de /administracion: la 404 del sitio', async () => {
     for (const [metodo, ruta] of [
-      ['GET', 'api:/mensajes'],
+      ['GET', 'api:/mensajes/1'],
+      ['DELETE', 'api:/mensajes'],
       ['GET', 'api:/horarios/1'],
       ['DELETE', 'api:/tarifas'],
       ['GET', 'api:/fotos'],

@@ -4,7 +4,8 @@
 // navegador ya empieza por el principio (y "Ir al contenido" es lo primero del Tab). Toda pantalla (también los
 // errores) tiene uno, y uno solo.
 // El foco va cuando cambia la ruta, no cuando el componente se monta: dos pantallas que usan el mismo componente
-// (las provisorias, Pendiente.jsx) también lo reciben, y el doble montaje de StrictMode en desarrollo no lo mueve.
+// (las fichas de Novedades y Exposiciones, por ejemplo) también lo reciben, y el doble montaje de StrictMode en
+// desarrollo no lo mueve.
 // En ese momento la página también vuelve arriba de todo (el panel no usa <ScrollRestoration />: guarda en
 // sessionStorage, ver rutas.jsx). Un título con una palabra o una dirección larga corta donde haga falta
 // (wrap-anywhere; corrección de E3, 16/10/2026: a 320 px la ficha quedaba con scroll horizontal).

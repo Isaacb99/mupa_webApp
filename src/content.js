@@ -75,12 +75,136 @@ export const ui = {
   portada: 'Portada',
 }
 
-// Página 404 (src/paginas/NoEncontrada.jsx, E0.4): textos de interfaz, no del museo. Con E4.1 suma los enlaces a las
-// secciones del menú.
+// Menú del sitio (E4.1, plan 6.7): textos de interfaz, no del museo. El menú es provisorio hasta que la diseñadora
+// entregue el header (E6.3). Las secciones van en este orden en el menú, en el menú del celular y en la 404. "Comprar
+// entradas" sale solo con la compra externa activa (Visitas en el panel), con el texto que cargó el museo o este.
+export const navegacion = {
+  etiqueta: 'Principal',
+  secciones: [
+    { ruta: '/exposiciones', texto: 'Exposiciones' },
+    { ruta: '/visitas', texto: 'Visitas' },
+    { ruta: '/novedades', texto: 'Novedades' },
+    { ruta: '/contacto', texto: 'Contacto' },
+  ],
+  comprar: 'Comprar entradas',
+  abrir: 'Menú',
+  cerrar: 'Cerrar',
+}
+
+// Página 404 (src/paginas/NoEncontrada.jsx): textos de interfaz, no del museo. Debajo, el inicio y las secciones del
+// menú (plan 6.5).
 export const noEncontrada = {
   titulo: 'No encontramos esta página',
   texto: 'Puede que la dirección esté mal escrita o que la página ya no exista.',
   volver: 'Volver al inicio',
+  secciones: 'Secciones del sitio',
+}
+
+// Páginas internas (E4.2 a E4.4: Exposiciones, una muestra, Visitas, Novedades y una novedad): solo textos de interfaz
+// (títulos de sección, rótulos, botones), neutros y mínimos. Todo lo demás es lo que carga el museo en el panel y llega
+// en estado.datos; lo que no está cargado no se dibuja, ni su título (plan 6.1). Las fechas ("Del 1 de octubre al 30 de
+// noviembre de 2026"), las situaciones ("Actual", "Finalizó el …") y los precios ("$ 3.000") ya vienen como texto del
+// servidor (server/paginas.js, plan 6.2). Los títulos de las páginas son los del menú; el servidor repite los mismos en
+// el <title> (server/seo.js).
+export const paginas = {
+  exposiciones: { titulo: 'Exposiciones', muestras: 'Muestras', salas: 'Salas', enLaSala: 'En esta sala' },
+  muestra: { sala: 'Sala' },
+  visitas: {
+    titulo: 'Visitas',
+    horario: 'Horario',
+    dia: 'Día',
+    horas: 'Horario',
+    cerrado: 'Cerrado',
+    tarifas: 'Tarifas',
+    gratis: 'Gratis',
+    comoLlegar: 'Cómo llegar',
+    normas: 'Normas del museo',
+    accesibilidad: 'Accesibilidad',
+  },
+  novedades: {
+    titulo: 'Novedades',
+    proximas: 'Próximas actividades',
+    noticias: 'Noticias',
+    paginas: 'Páginas de novedades',
+    anterior: 'Anterior',
+    siguiente: 'Siguiente',
+    pagina: (n, total) => `Página ${n} de ${total}`,
+  },
+  novedad: {
+    realizada: 'Realizada',
+    cuando: 'Cuándo',
+    lugar: 'Lugar',
+    costo: 'Costo',
+    inscripcion: 'Inscribirse',
+  },
+  // La galería de una muestra o de una novedad.
+  fotos: 'Fotos',
+  // Delante del crédito de una foto ("Foto: Ana Pérez").
+  credito: 'Foto:',
+}
+
+// Contacto (E4.5, src/paginas/Contacto.jsx): solo textos de interfaz, neutros y mínimos. Los datos (dirección, teléfono,
+// correo público, redes y el mapa) son los que carga el museo en el panel (estado.museo) y lo que no está cargado no se
+// dibuja. El formulario sale solo si hay casilla de envío y dirección de destino (server/contacto.js). Los errores
+// llegan del servidor como códigos (compartido/contacto.js) y acá están sus textos: los de cada campo y los de todo el
+// formulario, que terminan con "o escribinos a <correo público>" si el museo cargó uno.
+export const contacto = {
+  titulo: 'Contacto',
+  datos: 'Datos de contacto',
+  direccion: 'Dirección',
+  telefono: 'Teléfono',
+  correo: 'Correo',
+  redes: 'Redes',
+  // El title del <iframe> del mapa (lo anuncia el lector de pantalla).
+  mapa: 'Mapa con la ubicación del museo',
+  abrirMapa: 'Abrir en Google Maps',
+  formulario: {
+    titulo: 'Escribinos',
+    obligatorios: 'Todos los campos son obligatorios.',
+    nombre: 'Nombre',
+    email: 'Correo electrónico',
+    mensaje: 'Mensaje',
+    enviar: 'Enviar',
+    // Mientras sale (después del primer clic: el segundo no manda otra vez).
+    enviando: 'Enviando…',
+    // El campo trampa (oculto: lo llenan solo los robots). Por si alguien lo ve sin los estilos.
+    trampa: 'No completes este campo',
+    enviado: 'Recibimos tu mensaje. Gracias por escribirnos.',
+    revisar: 'Revisá estos datos',
+    errores: {
+      nombre: {
+        falta: 'Escribí tu nombre.',
+        largo: 'El nombre puede tener hasta 100 caracteres.',
+        una_linea: 'El nombre tiene que ir en una sola línea.',
+        ilegible: 'El nombre tiene caracteres que no se pudieron leer. Escribilo de nuevo.',
+      },
+      email: {
+        falta: 'Escribí tu correo electrónico.',
+        largo: 'El correo electrónico es demasiado largo.',
+        invalido: 'Escribí un correo electrónico válido, por ejemplo nombre@dominio.com.',
+      },
+      mensaje: {
+        falta: 'Escribí tu mensaje.',
+        corto: 'El mensaje tiene que tener al menos 10 caracteres.',
+        largo: 'El mensaje puede tener hasta 5.000 caracteres.',
+        enlaces: 'El mensaje puede tener hasta 3 enlaces.',
+        ilegible: 'El mensaje tiene caracteres que no se pudieron leer. Escribilo de nuevo.',
+      },
+    },
+    // Los de todo el formulario (sin el punto final: se agrega "o escribinos a <correo>" si hay).
+    generales: {
+      limite_ip: 'Mandaste varios mensajes en la última hora. Probá más tarde',
+      limite_dia: 'El formulario recibió muchos mensajes hoy. Probá mañana',
+      no_enviado: 'No pudimos enviar tu mensaje. Probá más tarde',
+      no_disponible: 'El formulario no está disponible en este momento. Probá más tarde',
+    },
+    oEscribinos: 'o escribinos a',
+    // Si el formulario se apagó mientras la persona escribía: lo que escribió, para copiarlo y mandarlo por correo.
+    escrito: 'Tu mensaje',
+  },
+  // Texto de privacidad debajo del formulario (plan 8: que el mensaje se guarda 180 días). Lo escribe el museo y todavía
+  // no lo mandó: vacío, no se dibuja. No inventarlo.
+  privacidad: '',
 }
 
 export const hero = {
@@ -389,7 +513,21 @@ export const areas = {
   ],
 }
 
-export const footer = {
+// Pie de todas las páginas (src/components/Pie.jsx, E4.1). Los datos del museo (dirección, horario, teléfono, correo
+// y redes) no están acá: salen de estado.museo, lo que se carga en el panel, y lo que no está cargado no se dibuja.
+// Acá van solo los rótulos.
+export const pie = {
   instituciones: identidad.instituciones,
   legal: '© Museo Paleontológico de San Juan',
+  // Las secciones del sitio también en el pie: andan sin JavaScript y antes de que cargue (el botón Menú del celular
+  // necesita JavaScript), y en la 404 (A11Y-03 de la verificación de E4).
+  secciones: 'Secciones del sitio',
+  // Línea de privacidad (plan 6.7 y 9, Ley 25.326: la medición de visitas y los mensajes del formulario). La escribe
+  // el museo y todavía no la mandó: vacía, no se dibuja. No inventarla.
+  privacidad: '',
+  direccion: 'Dirección',
+  horario: 'Horario',
+  cerrado: 'cerrado',
+  contacto: 'Contacto',
+  redes: 'Redes',
 }

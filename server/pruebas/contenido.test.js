@@ -1,7 +1,7 @@
 // Contenidos (E3.3, E3.4 y E3.5; plan 3.2, 4.3, 5.3, 5.4 y 13.1): novedades, muestras y salas por la API del panel
-// (server/api/contenido.js). Todavía no hay páginas públicas (llegan con E4): lo de "un borrador da 404 en el sitio y
-// publicar se ve en el pedido siguiente" lo suma E4, cuando las prenda (PAGINAS_PUBLICAS_DE_CONTENIDO); hasta entonces
-// se prueba que esas direcciones den la 404 del sitio.
+// (server/api/contenido.js). Desde E4 (las páginas públicas, PAGINAS_PUBLICAS_DE_CONTENIDO prendida): un borrador da
+// 404 en el sitio, publicar se ve en el pedido siguiente y despublicar vuelve a dar 404 (lo demás del sitio público,
+// en ssr.test.js).
 // Sin base (corren siempre): la dirección web (crearSlug, -2, -3…), la página pública, los estados calculados, la hora
 // de San Juan de las actividades, los esquemas (lo que falta para publicar, javascript:) y el grep de sync( y de
 // dangerouslySetInnerHTML.
@@ -118,12 +118,12 @@ describe('la dirección web, la página pública, los estados y las horas (sin b
     assert.equal(slugNumerado('noche', 2, 180), 'noche-2')
   })
 
-  test('urlPublica (plan 6.1) y "Ver en el sitio" apagado hasta E4', () => {
+  test('urlPublica (plan 6.1) y "Ver en el sitio" prendido desde E4', () => {
     assert.equal(urlPublica('novedades', 'noche'), '/novedades/noche')
     assert.equal(urlPublica('muestras', 'triasico'), '/exposiciones/triasico')
     assert.equal(urlPublica('salas', 'sala-1'), '/exposiciones#sala-sala-1')
     assert.throws(() => urlPublica('otra', 'x'))
-    assert.equal(PAGINAS_PUBLICAS_DE_CONTENIDO, false)
+    assert.equal(PAGINAS_PUBLICAS_DE_CONTENIDO, true)
   })
 
   test('la situación de una muestra con el "hoy" de San Juan', () => {
@@ -734,6 +734,10 @@ describe('contenidos con base', { skip: base.motivo ?? false }, () => {
     assert.deepEqual([primera.salas, primera.muestras, primera.novedades, primera.fotos], [2, 3, 4, 5])
     const segunda = await cargarEjemplo(base.sequelize)
     assert.equal(segunda.contenidosReemplazados, 9)
+    // Desde E4.9, 3 mensajes del formulario, uno que no salió por correo; al repetirla, se reemplazan.
+    assert.deepEqual([segunda.mensajes, segunda.mensajesReemplazados], [3, 3])
+    const mensajes = await sql(`SELECT envio, error FROM mensajes_contacto WHERE nombre LIKE 'EJEMPLO · %' ORDER BY created_at`)
+    assert.deepEqual(mensajes.map((m) => [m.envio, m.error]), [['enviado', null], ['enviado', null], ['fallido', 'EAUTH']])
     const ejemplo = (tabla, campo) => sql(`SELECT * FROM ${tabla} WHERE ${campo} LIKE 'EJEMPLO · %' ORDER BY id`)
     const muestras = await ejemplo('muestras', 'titulo')
     const novedades = await ejemplo('novedades', 'titulo')
@@ -910,13 +914,41 @@ describe('contenidos con base', { skip: base.motivo ?? false }, () => {
     assert.equal(cuenta.status, 413)
   })
 
-  test('sin páginas públicas todavía (E4): sus direcciones dan la 404 del sitio, publicadas o no', async () => {
-    const n = await novedadCompleta({ titulo: 'Publicada sin página' })
+  test('el sitio (E4): un borrador da 404; publicado, se ve en el pedido siguiente; despublicado, otra vez 404', async () => {
+    const n = await novedadCompleta({ titulo: 'Recién publicada en el sitio' })
+    const ruta = urlPublica('novedades', n.slug)
+    const enElListado = async () => (await s.pedir('GET', '/novedades')).texto.includes(ruta)
+    assert.equal((await s.pedir('GET', ruta)).status, 404, 'un borrador no existe para el sitio')
+    assert.equal(await enElListado(), false)
     await api('POST', `/novedades/${n.id}/publicar`)
-    for (const ruta of [urlPublica('novedades', n.slug), '/exposiciones/algo', '/novedades', '/exposiciones']) {
-      const r = await s.pedir('GET', ruta)
-      assert.equal(r.status, 404, ruta)
-      assert.equal(r.h['set-cookie'], undefined)
-    }
+    const publicada = await s.pedir('GET', ruta)
+    assert.equal(publicada.status, 200)
+    assert.equal(publicada.h['set-cookie'], undefined)
+    assert.equal(await enElListado(), true)
+    // Un cambio guardado también se ve en el pedido siguiente (sin caché de HTML).
+    const cambio = await api('PUT', `/novedades/${n.id}`, novedadVacia({ titulo: n.titulo, slug: n.slug, resumen: 'Otro resumen', cuerpo: parrafo('El texto.'), portadaId: n.portada.id }))
+    assert.equal(cambio.status, 200, cambio.texto)
+    assert.match((await s.pedir('GET', ruta)).texto, /Otro resumen/)
+    await api('POST', `/novedades/${n.id}/despublicar`)
+    assert.equal((await s.pedir('GET', ruta)).status, 404, 'despublicada: otra vez 404')
+    assert.equal(await enElListado(), false)
+    // Lo mismo con una muestra (y su sala).
+    const sala = await api('POST', '/salas', { nombre: 'Sala del sitio' })
+    const portada = await foto()
+    await api('PUT', `/salas/${sala.json.data.id}`, salaVacia({ nombre: 'Sala del sitio', resumen: 'Una sala', portadaId: portada.id }))
+    const m = await api('POST', '/muestras', { titulo: 'Muestra del sitio', tipo: 'permanente' })
+    const fotoMuestra = await foto()
+    await api('PUT', `/muestras/${m.json.data.id}`, muestraVacia({ titulo: 'Muestra del sitio', tipo: 'permanente', resumen: 'R', descripcion: parrafo('D'), portadaId: fotoMuestra.id, salaId: sala.json.data.id }))
+    const rutaMuestra = urlPublica('muestras', m.json.data.slug)
+    assert.equal((await s.pedir('GET', rutaMuestra)).status, 404)
+    assert.equal((await api('POST', `/muestras/${m.json.data.id}/publicar`)).status, 200)
+    assert.equal((await s.pedir('GET', rutaMuestra)).status, 200)
+    // La sala, todavía borrador: la muestra no la nombra; publicada, sí (con su ancla).
+    assert.doesNotMatch((await s.pedir('GET', rutaMuestra)).texto, /sala-sala-del-sitio/)
+    assert.equal((await api('POST', `/salas/${sala.json.data.id}/publicar`)).status, 200)
+    assert.match((await s.pedir('GET', rutaMuestra)).texto, /\/exposiciones#sala-sala-del-sitio/)
+    assert.match((await s.pedir('GET', '/exposiciones')).texto, /"ancla":"sala-sala-del-sitio"/)
+    await api('POST', `/muestras/${m.json.data.id}/despublicar`)
+    assert.equal((await s.pedir('GET', rutaMuestra)).status, 404)
   })
 })

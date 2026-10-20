@@ -4,9 +4,9 @@
 //     igual sale (/salud no la mira y la Home usa el último museo bueno);
 //  3. lee una sola vez la plantilla y el render del build (DIR_BUILD, por defecto dist) y la página del panel
 //     (dist/panel/index.html, server/panel.js);
-//  4. (E4.5) verificará la casilla de envío del formulario, sin esperar;
-//  5. escucha en PORT y programa las tareas diarias (server/tareas.js: hoy, borrar las sesiones vencidas y las fotos
-//     huérfanas);
+//  4. crea el correo del formulario de contacto (server/correo.js) y el formulario (server/contacto.js);
+//  5. escucha en PORT y programa las tareas diarias (server/tareas.js: borrar las sesiones vencidas, las fotos
+//     huérfanas y los mensajes de más de 180 días, y verificar la casilla de envío, sin esperar: también al arrancar);
 //  6. ante SIGTERM (Render, en cada deploy) o SIGINT: deja de aceptar conexiones, termina las que están en curso
 //     (cerrando las keep-alive, server/apagado.js), cierra la base y sale. Render manda SIGKILL a los 30 s.
 //
@@ -18,6 +18,8 @@ import { crearApagado } from './apagado.js'
 import { avisosDeConfig, configDelProceso } from './config.js'
 import { crearApp, estaticosDelBuild } from './app.js'
 import { crearConexion, probarBase } from './db/conexion.js'
+import { crearContacto } from './contacto.js'
+import { crearCorreo } from './correo.js'
 import { crearAlmacen } from './fotos/almacen.js'
 import { codigoDeError, log } from './log.js'
 import { crearMuseoPublico } from './museo.js'
@@ -36,7 +38,16 @@ try {
   process.exit(1)
 }
 
-const ssr = crearSsr({ config, obtener: build.obtener, museoPublico: crearMuseoPublico(config, { sequelize }) })
+// El correo del formulario de contacto: el mismo para la página, POST /contacto, el Inicio del panel y la tarea que
+// verifica la casilla (así el aviso del Inicio ve lo que pasó en cada envío).
+const correo = crearCorreo(config)
+const ssr = crearSsr({
+  config,
+  obtener: build.obtener,
+  museoPublico: crearMuseoPublico(config, { sequelize }),
+  sequelize,
+  contacto: crearContacto({ config, sequelize, correo }),
+})
 // Cómo salió cada tarea diaria: lo lee el Inicio del panel.
 const registroTareas = crearRegistroDeTareas()
 // Las fotos (con su caché en memoria): las mismas para /fotos, la API del panel y la tarea de las huérfanas.
@@ -79,8 +90,9 @@ if (sequelize) {
     .then((ms) => log('info', 'base_ok', { ms }))
     .catch((err) => log('aviso', 'base_no_responde', { mensaje: err.message, codigo: codigoDeError(err) }))
 }
-// Al arrancar y una vez por día (server/tareas.js): hoy, borrar las sesiones vencidas y las fotos huérfanas.
-const tareas = programarTareas({ sequelize, registro: registroTareas, almacen })
+// Al arrancar y una vez por día (server/tareas.js): borrar las sesiones vencidas, las fotos huérfanas y los mensajes
+// viejos, y verificar la casilla de envío del formulario.
+const tareas = programarTareas({ sequelize, registro: registroTareas, almacen, correo })
 
 async function apagar(senal) {
   if (apagado.apagando) {

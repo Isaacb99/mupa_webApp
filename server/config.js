@@ -2,7 +2,8 @@
 // está mal algo, el proceso no arranca y dice qué (nunca el valor: puede ser una contraseña).
 // En desarrollo todo tiene un valor por defecto razonable salvo la base, que es opcional: sin DATABASE_URL (o con
 // SIN_BASE) la Home se sirve igual y /salud/base responde 503. En producción son obligatorias URL_PUBLICA y la base.
-// Las variables del correo (SMTP_*) llegan con el formulario de contacto (E4.5); por ahora solo CORREO_MODO.
+// El correo del formulario de contacto (E4.5, server/correo.js): CORREO_MODO y las SMTP_*. Sin SMTP_USUARIO (la casilla
+// de envío) no hay formulario; con ella, en modo smtp, también SMTP_HOST y SMTP_CLAVE (y SMTP_PUERTO, 465 por defecto).
 // Las fotos van en la base (decisión del 15/10/2026, plan 16.1): no hay DIR_FOTOS. ESPACIO_BASE_MB (E3.1) es el
 // tamaño contratado de la base, para el aviso de espacio del Inicio del panel.
 import { z } from 'zod'
@@ -53,6 +54,19 @@ const esquema = z.object({
   CANONICO: bandera,
   TRUST_PROXY: z.coerce.number().int().min(0).max(10).default(0),
   CORREO_MODO: z.enum(['smtp', 'consola', 'memoria']).optional(),
+  // La casilla de envío del formulario de contacto (plan 8): smtp.hostinger.com, 465 (SSL) o 587 (STARTTLS), la
+  // dirección de la casilla (también el From) y su contraseña. Los mensajes de error nunca muestran el valor.
+  SMTP_HOST: z
+    .string()
+    .regex(/^[A-Za-z0-9.-]{1,253}$/, { error: 'tiene que ser el nombre del servidor, p. ej. smtp.hostinger.com' })
+    .optional(),
+  SMTP_PUERTO: z.coerce.number().int().min(1).max(65535).default(465),
+  SMTP_USUARIO: z
+    .string()
+    .max(254)
+    .email({ error: 'tiene que ser la dirección de la casilla, p. ej. web@mupa.ar' })
+    .optional(),
+  SMTP_CLAVE: z.string().max(500).optional(),
   // Sin base (plan 2.5 y 6.7): la Home con un museo de ejemplo. 1 o "maximo": todos los campos llenos; "vacio": nada.
   SIN_BASE: z.enum(['0', '1', 'maximo', 'vacio']).default('0'),
   DIR_BUILD: z.string().min(1).default('dist'),
@@ -63,6 +77,11 @@ const esquema = z.object({
     .optional(),
   // La pone Render: el host aceptado antes del corte (sitio, panel y formulario).
   RENDER_EXTERNAL_URL: urlWeb.optional(),
+  // IndexNow (E4.6, opcional; server/indexnow.js): sin ella no se avisa nada ni se sirve el archivo de la clave.
+  INDEXNOW_CLAVE: z
+    .string()
+    .regex(/^[A-Za-z0-9-]{8,128}$/, { error: 'de 8 a 128 letras, números o guiones' })
+    .optional(),
 })
 
 // Una variable definida vacía (USERWAY_ID= en el .env) cuenta como no definida.
@@ -71,6 +90,9 @@ function sinVacias(env) {
 }
 
 const hostDe = (url) => (url ? new URL(url).host.toLowerCase() : null)
+
+/** ¿Es el servidor de esta misma máquina? (el SMTP falso de las pruebas: ahí la contraseña no sale a la red). */
+export const esServidorLocal = (host) => /^(localhost|127\.\d{1,3}\.\d{1,3}\.\d{1,3})$/i.test(String(host ?? ''))
 
 /** Valida las variables y devuelve la configuración congelada. Tira un Error con la lista de problemas. */
 export function leerConfig(env = process.env) {
@@ -90,6 +112,16 @@ export function leerConfig(env = process.env) {
     if (!v.DATABASE_URL && !sinBase) problemas.push('DATABASE_URL: obligatoria en producción (o SIN_BASE=1)')
     // consola escribiría en los logs los mensajes del público (plan 8).
     if (correoModo !== 'smtp') problemas.push('CORREO_MODO: en producción solo puede ser smtp')
+  }
+  // Con la casilla y en smtp, el servidor y la contraseña (sin la casilla, el formulario queda apagado: no hace falta).
+  if (correoModo === 'smtp' && v.SMTP_USUARIO) {
+    if (!v.SMTP_HOST) problemas.push('SMTP_HOST: obligatoria con SMTP_USUARIO (smtp.hostinger.com)')
+    if (!v.SMTP_CLAVE) problemas.push('SMTP_CLAVE: obligatoria con SMTP_USUARIO (la contraseña de la casilla)')
+    // En producción, solo los puertos con TLS (plan 8): con otro, si el servidor no ofrece STARTTLS, nodemailer manda
+    // la contraseña sin cifrar (COD-05 de la verificación de E4). Salvo contra esta misma máquina (las pruebas).
+    if (produccion && v.SMTP_HOST && ![465, 587].includes(v.SMTP_PUERTO) && !esServidorLocal(v.SMTP_HOST)) {
+      problemas.push('SMTP_PUERTO: en producción, 465 (SSL) o 587 (STARTTLS)')
+    }
   }
   // Nunca el museo de ejemplo donde lo pueda ver el público (saldría en el pie y en el JSON-LD): ni en Render (que
   // define RENDER) ni con URL_PUBLICA en mupa.ar, en ningún entorno. SIN_BASE sigue sirviendo para la prueba de

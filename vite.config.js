@@ -16,8 +16,11 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineConfig(({ isSsrBuild }) => ({
   plugins: [react(), tailwindcss()],
   base: '/',
-  // public/ (favicon, og.jpg, el archivo de Search Console) va solo al build del navegador.
-  build: { copyPublicDir: !isSsrBuild },
+  // public/ (favicon, og.jpg, el archivo de Search Console) va solo al build del navegador. El manifiesto
+  // (dist/client/.vite/manifest.json, desde E4): con él el servidor sabe qué archivo JS tiene cada página y lo pide de
+  // antemano con <link rel="modulepreload"> (server/ssr.js; plan 6.2). No se sirve: Express publica solo /assets y los
+  // archivos sueltos de la raíz.
+  build: { copyPublicDir: !isSsrBuild, manifest: !isSsrBuild },
   // Solo en desarrollo: el pre-empaquetado de dependencias arranca de la entrada del sitio. Si no, Vite recorre todos
   // los .html de la carpeta, también panel/index.html (y las copias de tools/salida), y empaqueta lo del panel acá.
   optimizeDeps: { entries: ['index.html'] },

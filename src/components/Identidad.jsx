@@ -399,6 +399,7 @@ export default function Identidad() {
                     width={ancho}
                     height={alto}
                     loading="lazy"
+                    data-logo-blanco=""
                     style={{ '--ancho': `${(ancho ?? 200) / 16}rem` }}
                     className="w-[calc(var(--ancho)*0.7)] lg:w-(--ancho)"
                   />

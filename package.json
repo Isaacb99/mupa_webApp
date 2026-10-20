@@ -17,6 +17,7 @@
     "semilla:ejemplo": "node --env-file-if-exists=.env server/db/semillas/ejemplo.js",
     "crear-admin": "node --env-file-if-exists=.env server/scripts/admin.js crear",
     "restablecer-admin": "node --env-file-if-exists=.env server/scripts/admin.js restablecer",
+    "probar-correo": "node --env-file-if-exists=.env server/scripts/probar-correo.js",
     "test": "node --env-file-if-exists=.env --test --test-concurrency=1 \"server/pruebas/**/*.test.js\""
   },
   "dependencies": {
@@ -26,6 +27,7 @@
     "helmet": "^8.3.0",
     "lenis": "^1.3.26",
     "multer": "^2.4.0",
+    "nodemailer": "10.0.16",
     "pg": "^8.23.1",
     "pg-hstore": "^2.3.4",
     "react": "^19.2.5",

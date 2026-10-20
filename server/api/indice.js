@@ -21,7 +21,7 @@
 // binario nativo no cargó): 503 en JSON en las rutas que usan contraseñas.
 // Rol "editor" = cualquier cuenta; "admin" = solo admins; null = sin sesión (entrar y salir).
 // /estado (el Inicio) desde E2.2; museo, horarios y tarifas desde E2.3 y E2.4; fotos desde E3.1; novedades, muestras y
-// salas desde E3.3 y E3.4 (server/api/contenido.js, una fábrica para los tres); mensajes con E4.9. Una ruta nueva va en
+// salas desde E3.3 y E3.4 (server/api/contenido.js, una fábrica para los tres); mensajes desde E4.9. Una ruta nueva va en
 // su archivo (un arreglo de Definicion) y en DEFINICIONES: así entra sola en el recorrido de
 // server/pruebas/permisos.test.js. Express prueba las rutas en el orden de la tabla: una fija (/tarifas/orden,
 // /salas/orden, /muestras/orden) va antes que la de su :id.
@@ -30,6 +30,7 @@ import { hashDeRelleno } from '../auth/claves.js'
 import { crearRequiereSesion, exigirClaveCambiada, requiereRol } from '../auth/middleware.js'
 import { httpError } from '../errores.js'
 import { crearAlmacen } from '../fotos/almacen.js'
+import { crearIndexNow } from '../indexnow.js'
 import { crearCola } from '../fotos/cola.js'
 import { crearLimites } from '../limites.js'
 import { crearControlDeOrigen, exigirJson } from '../seguridad.js'
@@ -39,6 +40,7 @@ import { parseId } from './entrada.js'
 import { rutasDeEstado } from './estado.js'
 import { rutasDeFotos } from './fotos.js'
 import { rutasDeHorarios } from './horarios.js'
+import { rutasDeMensajes } from './mensajes.js'
 import { rutasDeMuseo } from './museo.js'
 import { rutasDeSesion } from './sesion.js'
 import { rutasDeTarifas } from './tarifas.js'
@@ -67,6 +69,9 @@ import { rutasDeUsuarios } from './usuarios.js'
  * @property {ReturnType<typeof import('../tareas.js').crearRegistroDeTareas> | null} registroTareas
  * @property {ReturnType<typeof crearAlmacen>} almacen  las fotos en la base (server/fotos/almacen.js)
  * @property {ReturnType<typeof crearCola>} colaDeFotos  el procesado de fotos, de a una (server/fotos/cola.js)
+ * @property {ReturnType<typeof crearIndexNow>} indexNow  avisa a los buscadores lo publicado (server/indexnow.js, E4.6)
+ * @property {ReturnType<typeof import('../correo.js').crearCorreo> | null} correo  el correo del formulario de
+ *   contacto, para el aviso del Inicio (GET /estado, E4.9); null: sin casilla
  */
 
 /** @type {Definicion[]} */
@@ -80,6 +85,7 @@ const DEFINICIONES = [
   ...rutasDeTarifas,
   ...rutasDeFotos,
   ...rutasDeContenidos,
+  ...rutasDeMensajes,
 ]
 
 /**
@@ -119,9 +125,9 @@ function validarCuerpo(esquema) {
  *   almacen?: Contexto['almacen'] | null }} deps
  *   registroTareas: cómo salieron las tareas diarias (server/tareas.js), para GET /estado; null: ninguna falló.
  *   almacen: el de las fotos, el mismo que sirve /fotos (server/app.js), así lo que se borra sale también de su caché;
- *   sin él, uno propio.
+ *   sin él, uno propio. correo: el del formulario de contacto (server/correo.js), para GET /estado.
  */
-export function crearApi({ config, sequelize, registroTareas = null, almacen = null }) {
+export function crearApi({ config, sequelize, registroTareas = null, almacen = null, correo = null }) {
   const api = express.Router()
   api.use(crearControlDeOrigen(config))
   api.use(exigirJson)
@@ -151,6 +157,8 @@ export function crearApi({ config, sequelize, registroTareas = null, almacen = n
     registroTareas,
     almacen: almacen ?? crearAlmacen(sequelize),
     colaDeFotos: crearCola(),
+    indexNow: crearIndexNow(config),
+    correo,
   }
 
   for (const def of DEFINICIONES) {

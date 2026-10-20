@@ -284,4 +284,10 @@
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
   }
+
+  /* Los logos blancos (SVG en <img>: los colores forzados no los tocan) con alto contraste en un tema claro, como el
+     del Windows: el fondo pasa a blanco y desaparecian. Invertidos quedan negros (A11Y-04 de la verificacion de E4). */
+  @media (forced-colors: active) and (prefers-color-scheme: light) {
+    img[data-logo-blanco] { filter: invert(1); }
+  }
 }

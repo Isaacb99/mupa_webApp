@@ -6,7 +6,7 @@
 // - redireccionesPublicas: /index.html, /preview y las barras, sin dejar salir nunca un Location que empiece con //.
 // - crearControlDeOrigen / exigirJson: la CSRF de la API del panel (por Sec-Fetch-Site y Origin, plan 4.6) y el
 //   Content-Type de las rutas JSON (multipart en POST /fotos, MULTIPART); los monta server/api/indice.js. Desde E4.5
-//   la CSRF vale también para POST /contacto.
+//   la misma regla (crearVerificadorDeOrigen) vale también para POST /contacto (server/contacto.js).
 import helmet from 'helmet'
 import { esHostPublico } from './hosts.js'
 import { consultaDe, destinoPublico } from './normalizar.js'
@@ -30,14 +30,24 @@ const GA4 = {
   ],
   img: ['https://*.google-analytics.com', 'https://*.googletagmanager.com'],
 }
-// UserWay (E4.7): todavía no se carga. Sus dominios entran a la CSP solo si hay USERWAY_ID, y se confirman al
-// integrarlo mirando la consola (plan 6.6 y 9).
+// UserWay (E4.7, src/userway.js): se carga solo si hay USERWAY_ID, y sus dominios entran a la CSP solo en ese caso.
+// Los de la guía de UserWay (https://userway.org/tutorials/installations/widget-javascript-protection/, leída el
+// 19/10/2026): https://*.userway.org en script-src, style-src (con 'unsafe-inline', que ya está), img-src (con data:),
+// frame-src, font-src y connect-src; su ayuda sobre frame-src (help.userway.org, artículo 6208857) nombra además
+// userway.org sin subdominio. A CONFIRMAR AL INTEGRARLO, con el ID del museo, mirando la consola (plan 6.6 y 9).
 const USERWAY = ['https://*.userway.org']
+const USERWAY_MARCOS = [...USERWAY, 'https://userway.org']
+// El mapa de Contacto (E4.5): el <iframe> de "Insertar mapa" de Google Maps, que la base solo acepta si empieza con
+// https://www.google.com/maps/embed? (museo_mapa_embed_google, migración 02). Lo de adentro del marco lo pide la página
+// de Google con su propia CSP, no la del sitio. frame-src lleva además 'self': hasta E4.5 no estaba escrita y valía la
+// de default-src ('self'); sin él, un marco del propio sitio quedaba bloqueado (tools/parallax-compuerta.js carga la
+// Home dentro de un <iframe> de la misma página y daba ok: false).
+const MAPA = ['https://www.google.com']
 
 /**
- * CSP de las páginas públicas. Lo que necesita hoy la Home: lo propio, las imágenes inline (data:, Vite incrusta los
- * SVG chicos) y GA4. 'unsafe-inline' en estilos por los style= que dibuja el SSR; no hay scripts inline (el estado y
- * el JSON-LD son JSON, no se ejecutan). frame-src (el mapa de Contacto, www.google.com) se suma con E4.5.
+ * CSP de las páginas públicas. Lo propio, las imágenes inline (data:, Vite incrusta los SVG chicos), GA4, el mapa de
+ * Contacto (frame-src: lo propio y www.google.com, y nada más) y, con USERWAY_ID, UserWay. 'unsafe-inline' en estilos por los
+ * style= que dibuja el SSR; no hay scripts inline (el estado y el JSON-LD son JSON, no se ejecutan).
  * En desarrollo (server/dev.js) se agregan el script inline del preámbulo de React Refresh y el websocket de Vite.
  */
 export function textoCspPublica({ userway = false, desarrollo = false } = {}) {
@@ -49,7 +59,7 @@ export function textoCspPublica({ userway = false, desarrollo = false } = {}) {
     'img-src': ["'self'", 'data:', ...GA4.img, ...uw],
     'style-src': ["'self'", "'unsafe-inline'", ...uw],
     'font-src': ["'self'", ...uw],
-    ...(userway ? { 'frame-src': uw } : {}),
+    'frame-src': ["'self'", ...MAPA, ...(userway ? USERWAY_MARCOS : [])],
     'frame-ancestors': ["'self'"],
     'base-uri': ["'self'"],
     'form-action': ["'self'"],
@@ -135,7 +145,8 @@ function esOrigenLocal(origen) {
 }
 
 /**
- * CSRF por origen (plan 4.6, OWASP), en todo pedido que no sea GET, HEAD ni OPTIONS:
+ * ¿El pedido viene del sitio? La regla de la CSRF por origen (plan 4.6, OWASP), para todo pedido que no sea GET, HEAD
+ * ni OPTIONS (la API del panel, crearControlDeOrigen, y el formulario de contacto, server/contacto.js):
  * - con Sec-Fetch-Site (todos los navegadores actuales), solo same-origin. same-site se rechaza: incluiría cualquier
  *   otro subdominio de mupa.ar;
  * - sin Sec-Fetch-Site, el Origin tiene que ser uno de los del sitio (fuera de producción, también uno local:
@@ -143,17 +154,25 @@ function esOrigenLocal(origen) {
  * Lo que no cubre: un script que corre en una página pública del mismo origen llega como same-origin (el riesgo
  * aceptado de plan 9). Sin el paquete cors: no hay pedidos de otros orígenes que atender.
  */
-export function crearControlDeOrigen(config) {
+export function crearVerificadorDeOrigen(config) {
   const permitidos = origenesPermitidos(config)
   const localesTambien = !config.produccion
-  return function controlDeOrigen(req, res, next) {
-    if (METODOS_SEGUROS.has(req.method) || EXCEPTUADAS.includes(req.path)) return next()
+  /** @param {import('express').Request} req  @returns {boolean} */
+  return function esDelSitio(req) {
     const sitio = req.get('sec-fetch-site')
     const origen = req.get('origin')
-    const ok = sitio
+    return sitio
       ? sitio === 'same-origin'
       : origen != null && (permitidos.has(origen) || (localesTambien && esOrigenLocal(origen)))
-    if (!ok) return res.status(403).json({ error: 'Origen no permitido.' })
+  }
+}
+
+/** La CSRF de la API del panel (crearVerificadorDeOrigen en lo que no es GET, HEAD ni OPTIONS): 403 en JSON. */
+export function crearControlDeOrigen(config) {
+  const esDelSitio = crearVerificadorDeOrigen(config)
+  return function controlDeOrigen(req, res, next) {
+    if (METODOS_SEGUROS.has(req.method) || EXCEPTUADAS.includes(req.path)) return next()
+    if (!esDelSitio(req)) return res.status(403).json({ error: 'Origen no permitido.' })
     next()
   }
 }

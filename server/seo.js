@@ -10,6 +10,15 @@
 // - <meta name="robots" content="noindex"> si el host no es el público de producción (la cabecera X-Robots-Tag la
 //   pone server/seguridad.js);
 // - todo valor va escapado como HTML, y el JSON-LD con jsonEnScript(), el mismo escape que el estado.
+// Desde E4.6 (plan 6.4 y 6.5), las páginas internas: título "<Título> · MuPa"; la descripción, el resumen de la muestra
+// o la novedad (hasta 160 caracteres, cortado en una palabra) o una línea neutra para las páginas fijas; og:image con el
+// og.jpg de la portada y sus medidas (o /og.jpg); el JSON-LD con un @graph: Museum en todas (con dirección, teléfono,
+// correo, redes y horario si están cargados: nunca se inventan) y NewsArticle en las novedades. El sitemap suma las
+// páginas fijas y las muestras y novedades publicadas (también las finalizadas o realizadas), con su lastmod.
+
+import { urlPublica as rutaDeContenido } from '../compartido/contenidos.js'
+import { hoyEnSanJuan } from '../compartido/fechas.js'
+import { urlFoto } from '../compartido/fotos.js'
 
 /** Escapa texto para meterlo en HTML (contenido o atributo entre comillas dobles). */
 export function escaparHtml(texto) {
@@ -55,14 +64,85 @@ const OG_IMAGEN = {
   alt: 'Fachada del Museo Paleontológico de San Juan con el logo MuPa',
 }
 
+// El museo para los datos estructurados: lo de siempre (nombre, logo, imagen, descripción, provincia y país) y, desde
+// E4.6, lo que el museo cargue en el panel (estado.museo): la dirección, el teléfono, el correo, las redes y el horario
+// por franja. Lo vacío se omite: no se inventa ningún dato. El logo es el ícono de 180 px: Google lo pide de 112 px o
+// más y que se vea bien sobre blanco.
+const NOMBRE_MUSEO = 'Museo Paleontológico de San Juan'
+const DESCRIPCION_MUSEO =
+  'Institución dedicada en exclusividad a la divulgación, educación y preservación del patrimonio del Período ' +
+  'Triásico, principalmente proveniente del Parque Provincial Ischigualasto (Patrimonio de la Humanidad por la ' +
+  'UNESCO).'
+const DIAS_SCHEMA = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+const HORA = /^([01]\d|2[0-3]):[0-5]\d$/
+
+const lleno = (v) => typeof v === 'string' && v.trim() !== ''
+/** Un objeto sin las claves vacías (undefined, null, "" o una lista vacía). */
+const sinVacios = (objeto) =>
+  Object.fromEntries(
+    Object.entries(objeto).filter(([, v]) => v != null && v !== '' && !(Array.isArray(v) && v.length === 0)),
+  )
+
 /**
- * Datos estructurados (schema.org): el nombre del sitio que Google muestra arriba del resultado (WebSite) y la ficha
- * del museo (Museum). Solo datos que el museo ya publicó: la dirección, los horarios, el teléfono, el mail y las
- * redes salen de la tabla museo cuando estén cargados (E4.6: address.streetAddress, openingHoursSpecification,
- * telephone, email, sameAs). No se inventa ningún dato. El logo es el ícono de 180 px: Google lo pide de 112 px o
- * más y que se vea bien sobre blanco.
+ * El horario como OpeningHoursSpecification (plan 6.4): una por franja, con los días que la comparten. Sin ningún día
+ * abierto (el horario sin cargar), ninguna.
+ * @param {{ dia: number, abierto: boolean, franjas: { abre: string, cierra: string }[] }[]} horarios
  */
-function grafoHome(url) {
+export function horarioSchema(horarios) {
+  const porFranja = new Map()
+  for (const h of Array.isArray(horarios) ? horarios : []) {
+    if (!h?.abierto || !Number.isInteger(h.dia) || h.dia < 1 || h.dia > 7) continue
+    for (const f of Array.isArray(h.franjas) ? h.franjas : []) {
+      if (!HORA.test(f?.abre) || !HORA.test(f?.cierra)) continue
+      const clave = `${f.abre}-${f.cierra}`
+      if (!porFranja.has(clave)) porFranja.set(clave, { abre: f.abre, cierra: f.cierra, dias: [] })
+      porFranja.get(clave).dias.push(h.dia)
+    }
+  }
+  return [...porFranja.values()]
+    .sort((a, b) => (a.abre < b.abre ? -1 : a.abre > b.abre ? 1 : 0))
+    .map(({ abre, cierra, dias }) => ({
+      '@type': 'OpeningHoursSpecification',
+      dayOfWeek: [...new Set(dias)].sort((a, b) => a - b).map((d) => `https://schema.org/${DIAS_SCHEMA[d - 1]}`),
+      opens: abre,
+      closes: cierra,
+    }))
+}
+
+/** El nodo Museum (en todas las páginas, plan 6.4), con @id absoluto. */
+export function museoSchema(url, museo) {
+  const m = museo ?? {}
+  return sinVacios({
+    '@type': 'Museum',
+    '@id': `${url}#museo`,
+    name: NOMBRE_MUSEO,
+    alternateName: 'MuPa',
+    url,
+    logo: `${url}apple-touch-icon.png`,
+    image: `${url}${OG_IMAGEN.archivo}`,
+    description: DESCRIPCION_MUSEO,
+    address: sinVacios({
+      '@type': 'PostalAddress',
+      streetAddress: lleno(m.direccion) ? m.direccion : null,
+      addressLocality: lleno(m.localidad) ? m.localidad : null,
+      postalCode: lleno(m.codigoPostal) ? m.codigoPostal : null,
+      addressRegion: lleno(m.provincia) ? m.provincia : 'San Juan',
+      addressCountry: 'AR',
+    }),
+    telephone: lleno(m.telefono) ? m.telefono : null,
+    email: lleno(m.emailPublico) ? m.emailPublico : null,
+    sameAs: (Array.isArray(m.redes) ? m.redes : [])
+      .map((r) => r?.url)
+      .filter((u) => lleno(u) && u.startsWith('https://')),
+    openingHoursSpecification: horarioSchema(m.horarios),
+  })
+}
+
+/**
+ * Datos estructurados de la Home (schema.org): el nombre del sitio que Google muestra arriba del resultado (WebSite) y
+ * la ficha del museo (Museum).
+ */
+function grafoHome(url, museo) {
   return {
     '@context': 'https://schema.org',
     '@graph': [
@@ -71,35 +151,148 @@ function grafoHome(url) {
         '@id': `${url}#sitio`,
         url,
         name: 'MuPa',
-        alternateName: ['Museo Paleontológico de San Juan', NOMBRE_SITIO],
+        alternateName: [NOMBRE_MUSEO, NOMBRE_SITIO],
         inLanguage: 'es-AR',
         publisher: { '@id': `${url}#museo` },
       },
-      {
-        '@type': 'Museum',
-        '@id': `${url}#museo`,
-        name: 'Museo Paleontológico de San Juan',
-        alternateName: 'MuPa',
-        url,
-        logo: `${url}apple-touch-icon.png`,
-        image: `${url}${OG_IMAGEN.archivo}`,
-        description:
-          'Institución dedicada en exclusividad a la divulgación, educación y preservación del patrimonio del Período ' +
-          'Triásico, principalmente proveniente del Parque Provincial Ischigualasto (Patrimonio de la Humanidad por la ' +
-          'UNESCO).',
-        address: { '@type': 'PostalAddress', addressRegion: 'San Juan', addressCountry: 'AR' },
-      },
+      museoSchema(url, museo),
     ],
   }
 }
 
+/** Las páginas internas llevan el museo (plan 6.4). */
+const grafoMuseo = (url, museo) => ({ '@context': 'https://schema.org', '@graph': [museoSchema(url, museo)] })
+
 /**
- * Qué lleva el <head> de cada página: { titulo, descripcion, ogDescripcion, ruta, imagen, tipoOg, jsonld, indexable }.
- * ruta: la del canonical (null = sin canonical); jsonld: función de la URL pública.
+ * Una novedad como NewsArticle (plan 6.4): el título (hasta 110), las fechas, la imagen y el museo como autor y editor.
+ * El autor va como Organization con el nombre y la dirección del sitio, y no como una referencia al nodo Museum: en
+ * schema.org Museum no es una Organization (es un lugar) y author y publisher piden Person u Organization.
+ */
+function articuloSchema(url, datos, canonica, imagen) {
+  const museo = { '@type': 'Organization', name: NOMBRE_MUSEO, url, logo: `${url}apple-touch-icon.png` }
+  return sinVacios({
+    '@type': 'NewsArticle',
+    '@id': `${canonica}#articulo`,
+    mainEntityOfPage: canonica,
+    headline: cortarEnPalabra(datos.titulo, 110),
+    description: datos.resumen ?? null,
+    image: [imagen],
+    datePublished: datos.publicadaEn,
+    dateModified: datos.actualizadaEn ?? datos.publicadaEn,
+    inLanguage: 'es-AR',
+    author: museo,
+    publisher: museo,
+  })
+}
+
+/**
+ * Corta un texto en max caracteres, en una palabra y con "…" al final si hacía falta cortarlo (la descripción, plan
+ * 6.4: hasta 160).
+ */
+export function cortarEnPalabra(texto, max = 160) {
+  const limpio = String(texto ?? '')
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (limpio.length <= max) return limpio
+  const corte = limpio.slice(0, max - 1)
+  const espacio = corte.lastIndexOf(' ')
+  return `${(espacio > max / 2 ? corte.slice(0, espacio) : corte).replace(/[\s,;:.\-–—]+$/, '')}…`
+}
+
+/**
+ * Las medidas del og.jpg de una foto (server/fotos/procesar.js: 1200 de ancho con su proporción, sin agrandar y con el
+ * alto hasta 16383).
+ */
+export function medidasOg(ancho, alto) {
+  const escala = Math.min(1, 1200 / ancho, 16383 / alto)
+  return { ancho: Math.round(ancho * escala), alto: Math.round(alto * escala) }
+}
+
+/** La tarjeta al compartir una página con portada: su og.jpg con sus medidas (o la del sitio, si no tiene). */
+function imagenDe(portada) {
+  if (!portada?.clave || !(portada.ancho > 0) || !(portada.alto > 0)) return OG_IMAGEN
+  return {
+    archivo: urlFoto(portada.clave, 'og.jpg').slice(1),
+    ...medidasOg(portada.ancho, portada.alto),
+    alt: portada.alt || null,
+  }
+}
+
+// Las páginas fijas: los mismos títulos que el menú (src/content.js) y una línea neutra que dice qué hay en cada una,
+// sin datos del museo. A validar con el museo, como la de la Home.
+const FIJAS = {
+  exposiciones: {
+    titulo: 'Exposiciones',
+    descripcion: 'Las muestras actuales, próximas y permanentes del Museo Paleontológico de San Juan, y sus salas.',
+  },
+  visitas: {
+    titulo: 'Visitas',
+    descripcion: 'Horario, tarifas y lo que hay que saber para visitar el Museo Paleontológico de San Juan.',
+  },
+  novedades: {
+    titulo: 'Novedades',
+    descripcion: 'Noticias y próximas actividades del Museo Paleontológico de San Juan.',
+  },
+  contacto: {
+    titulo: 'Contacto',
+    descripcion: 'Cómo comunicarse con el Museo Paleontológico de San Juan.',
+  },
+}
+
+const conMarca = (titulo) => `${titulo} · MuPa`
+
+/**
+ * Qué lleva el <head> de cada página: { titulo, descripcion, ogTitulo, ogDescripcion, ruta, imagen, tipoOg, jsonld,
+ * indexable, publicada, actualizada }. ruta: la del canonical (null = sin canonical); jsonld: función de la URL
+ * pública; publicada y actualizada: las fechas de una novedad (article:published_time y modified_time).
  */
 export function seoDe(estado) {
-  if (estado.pagina === 'home') {
-    return { ...HOME, ruta: '/', imagen: OG_IMAGEN, tipoOg: 'website', jsonld: grafoHome, indexable: true }
+  const { pagina, museo } = estado
+  const datos = estado.datos ?? {}
+  if (pagina === 'home') {
+    return {
+      ...HOME,
+      ruta: '/',
+      imagen: OG_IMAGEN,
+      tipoOg: 'website',
+      jsonld: (url) => grafoHome(url, museo),
+      indexable: true,
+    }
+  }
+  if (Object.hasOwn(FIJAS, pagina)) {
+    const { titulo, descripcion } = FIJAS[pagina]
+    // Las páginas 2 en adelante de /novedades: con su número en el título y en el canonical.
+    const n = pagina === 'novedades' && Number.isInteger(datos.pagina) && datos.pagina > 1 ? datos.pagina : null
+    return {
+      titulo: conMarca(n ? `${titulo}, página ${n}` : titulo),
+      descripcion,
+      ruta: n ? `/novedades?pagina=${n}` : `/${pagina}`,
+      imagen: OG_IMAGEN,
+      tipoOg: 'website',
+      jsonld: (url) => grafoMuseo(url, museo),
+      indexable: true,
+    }
+  }
+  if ((pagina === 'muestra' || pagina === 'novedad') && typeof datos.slug === 'string') {
+    const ruta = rutaDeContenido(pagina === 'muestra' ? 'muestras' : 'novedades', datos.slug)
+    const imagen = imagenDe(datos.portada)
+    const esNovedad = pagina === 'novedad'
+    return {
+      titulo: conMarca(datos.titulo),
+      ogTitulo: datos.titulo,
+      descripcion: datos.resumen ? cortarEnPalabra(datos.resumen) : null,
+      ruta,
+      imagen,
+      tipoOg: esNovedad ? 'article' : 'website',
+      publicada: esNovedad ? datos.publicadaEn : null,
+      actualizada: esNovedad ? datos.actualizadaEn : null,
+      jsonld: (url) => {
+        const grafo = grafoMuseo(url, museo)
+        if (esNovedad) grafo['@graph'].push(articuloSchema(url, datos, url + ruta.slice(1), url + imagen.archivo))
+        return grafo
+      },
+      indexable: true,
+    }
   }
   // NoEncontrada (estado 404): sin canonical ni tarjeta, y nunca indexable.
   return { titulo: 'Página no encontrada · MuPa', ruta: null, indexable: false }
@@ -128,19 +321,23 @@ export function armarHead(estado, { urlPublica, indexar }) {
   )
   if (seo.tipoOg && canonica) {
     const og = (propiedad, valor) => `<meta property="og:${propiedad}" content="${e(valor)}" />`
+    const descripcionOg = seo.ogDescripcion ?? seo.descripcion
     lineas.push(
       og('type', seo.tipoOg),
       og('site_name', NOMBRE_SITIO),
-      og('title', seo.titulo),
-      og('description', seo.ogDescripcion ?? seo.descripcion),
+      og('title', seo.ogTitulo ?? seo.titulo),
+      ...(descripcionOg ? [og('description', descripcionOg)] : []),
       og('url', canonica),
       og('image', urlPublica + seo.imagen.archivo),
       og('image:width', String(seo.imagen.ancho)),
       og('image:height', String(seo.imagen.alto)),
-      og('image:alt', seo.imagen.alt),
+      ...(seo.imagen.alt ? [og('image:alt', seo.imagen.alt)] : []),
       og('locale', 'es_AR'),
       '<meta name="twitter:card" content="summary_large_image" />',
     )
+    const articulo = (propiedad, valor) => `<meta property="article:${propiedad}" content="${e(valor)}" />`
+    if (seo.publicada) lineas.push(articulo('published_time', seo.publicada))
+    if (seo.actualizada) lineas.push(articulo('modified_time', seo.actualizada))
   }
   if (seo.jsonld) lineas.push(`<script type="application/ld+json">${jsonEnScript(seo.jsonld(urlPublica))}</script>`)
   return lineas.join('\n    ')
@@ -155,8 +352,34 @@ export function robotsTxt(urlPublica) {
 }
 
 /**
- * sitemap.xml. Por ahora solo la Home; con E4 suma las rutas fijas y las muestras y novedades publicadas (también
- * las finalizadas), con lastmod = updated_at. Nunca /administracion.
+ * Las entradas del sitemap (plan 6.5): las páginas fijas (la Home con la fecha del build; Exposiciones y Novedades con
+ * la última modificación de lo que publican; las demás sin fecha) y las muestras y novedades publicadas (también las
+ * finalizadas o realizadas), con lastmod = updated_at (el día, en San Juan). Nunca /administracion.
+ * @param {{ urlPublica: string, fijas: string[], fechaHome: Date,
+ *   contenidos: { tipo: 'muestras' | 'novedades' | 'salas', slug: string, actualizadoEn: Date | null }[] }} opciones
+ * @returns {{ loc: string, lastmod?: string }[]}
+ */
+export function entradasDelSitemap({ urlPublica, fijas, contenidos, fechaHome }) {
+  const dia = (fecha) => (fecha instanceof Date && !Number.isNaN(fecha.getTime()) ? hoyEnSanJuan(fecha) : undefined)
+  const ultima = (tipos) => {
+    const fechas = contenidos.filter((c) => tipos.includes(c.tipo) && c.actualizadoEn).map((c) => c.actualizadoEn.getTime())
+    return fechas.length ? dia(new Date(Math.max(...fechas))) : undefined
+  }
+  const fechaDeFija = {
+    '/': dia(fechaHome),
+    '/exposiciones': ultima(['muestras', 'salas']),
+    '/novedades': ultima(['novedades']),
+  }
+  return [
+    ...fijas.map((ruta) => ({ loc: urlPublica + ruta.slice(1), lastmod: fechaDeFija[ruta] })),
+    ...contenidos
+      .filter((c) => c.tipo !== 'salas')
+      .map((c) => ({ loc: urlPublica + rutaDeContenido(c.tipo, c.slug).slice(1), lastmod: dia(c.actualizadoEn) })),
+  ]
+}
+
+/**
+ * sitemap.xml, con las entradas de entradasDelSitemap().
  * @param {{ loc: string, lastmod?: string }[]} entradas
  */
 export function sitemapXml(entradas) {

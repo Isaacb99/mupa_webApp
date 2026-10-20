@@ -19,7 +19,7 @@
 // pestañas Muestras y Salas, y /muestras/nueva, /muestras/:id, /salas/nueva y /salas/:id). Las fichas de los tres son
 // la misma pantalla (pantallas/contenido/Ficha.jsx), montada de nuevo para cada id (si no, al ir de una ficha a otra
 // quedaría lo escrito en la anterior); el alta, pantallas/contenido/Nuevo.jsx. /muestras y /salas solos llevan a
-// Exposiciones.
+// Exposiciones. Desde E4.9, Mensajes (/mensajes, solo admin): los del formulario de contacto del sitio.
 import { createBrowserRouter, data, Outlet, redirect, useLoaderData } from 'react-router'
 import { RUTA_PANEL } from '../../compartido/panel.js'
 import { Marco } from './componentes/Marco.jsx'
@@ -31,6 +31,7 @@ import Cuenta from './pantallas/Cuenta.jsx'
 import { ErrorDePantalla, ErrorGeneral, NoEncontrada } from './pantallas/Errores.jsx'
 import Ingresar, { cargarIngresar } from './pantallas/Ingresar.jsx'
 import Inicio, { cargarInicio } from './pantallas/Inicio.jsx'
+import Mensajes, { cargarMensajes } from './pantallas/Mensajes.jsx'
 import Exposiciones, { cargarExposiciones, revalidarExposiciones } from './pantallas/Exposiciones.jsx'
 import Museo, { cargarMuseo } from './pantallas/Museo.jsx'
 import Novedades, { cargarNovedades } from './pantallas/Novedades.jsx'
@@ -138,6 +139,7 @@ export const rutas = [
               { path: 'salas/:id', loader: protegida({ cargar: cargarFicha('salas') }), Component: fichaDe('salas') },
               { path: 'visitas', loader: protegida({ cargar: cargarVisitas }), Component: Visitas },
               { path: 'museo', loader: protegida({ cargar: cargarMuseo }), Component: Museo },
+              { path: 'mensajes', loader: protegida({ rol: 'admin', cargar: cargarMensajes }), Component: Mensajes },
               { path: 'usuarios', loader: protegida({ rol: 'admin', cargar: cargarUsuarios }), Component: Usuarios },
               { path: 'cuenta', loader: protegida(), Component: Cuenta },
               { path: '*', loader: protegida(), Component: NoEncontrada },

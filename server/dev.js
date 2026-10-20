@@ -40,6 +40,8 @@ const { createServer: crearVite } = await import('vite')
 const { crearApp } = await import('./app.js')
 const { crearConexion } = await import('./db/conexion.js')
 const { crearAlmacen } = await import('./fotos/almacen.js')
+const { crearContacto } = await import('./contacto.js')
+const { crearCorreo } = await import('./correo.js')
 const { crearMuseoPublico } = await import('./museo.js')
 const { crearSsr, partir } = await import('./ssr.js')
 const { crearRegistroDeTareas, programarTareas } = await import('./tareas.js')
@@ -71,7 +73,16 @@ async function obtener(req) {
 }
 
 const sequelize = crearConexion(config)
-const ssr = crearSsr({ config, obtener, museoPublico: crearMuseoPublico(config, { sequelize }) })
+// El correo del formulario de contacto (en desarrollo, CORREO_MODO=consola: el mail se escribe en la terminal), el
+// mismo para la página, POST /contacto, el Inicio del panel y la tarea que verifica la casilla.
+const correo = crearCorreo(config)
+const ssr = crearSsr({
+  config,
+  obtener,
+  museoPublico: crearMuseoPublico(config, { sequelize }),
+  sequelize,
+  contacto: crearContacto({ config, sequelize, correo }),
+})
 const registroTareas = crearRegistroDeTareas()
 // Las fotos (con su caché en memoria): las mismas para /fotos, la API del panel y la tarea de las huérfanas.
 const almacen = sequelize ? crearAlmacen(sequelize) : null
@@ -112,7 +123,7 @@ if (config.host === '127.0.0.1' && (await ocupadoEnIpv6(config.PORT))) {
 }
 
 // Las tareas diarias, como en producción (si la base no está migrada, avisan en el log y siguen).
-const tareas = programarTareas({ sequelize, registro: registroTareas, almacen })
+const tareas = programarTareas({ sequelize, registro: registroTareas, almacen, correo })
 
 servidor.listen(config.PORT, config.host, () => {
   const base = sequelize ? 'con base' : config.sinBase ? `SIN_BASE=${config.sinBase}` : 'sin base (no hay DATABASE_URL)'

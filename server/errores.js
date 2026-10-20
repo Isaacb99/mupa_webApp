@@ -4,9 +4,10 @@
 // - Los errores se traducen SOLO acá (plan 4.1): ZodError -> 400 con los campos; unique de Sequelize -> 409;
 //   40P01 (deadlock de Postgres) y 23503 (una clave foránea: algo que se borró o se empezó a usar en el medio; desde
 //   E3, una red: los pedidos de las fotos ya se bloquean para que no pase) -> 409 "reintentá"; un httpError() -> su
-//   status y su mensaje; el resto -> 500 genérico. Las tres primeras, SOLO en /administracion/api (desde E4.5, también en POST /contacto): ahí son la
+//   status y su mensaje; el resto -> 500 genérico. Las tres primeras, SOLO en /administracion/api: ahí son la
 //   entrada del pedido. En una página pública, un ZodError viene de validar datos del servidor (la base, en
-//   leerMuseo o en las páginas de E4) y es un 500 con su línea en el log, no un 400 del visitante.
+//   leerMuseo o en las páginas de E4) y es un 500 con su línea en el log, no un 400 del visitante. POST /contacto
+//   (E4.5) valida por su cuenta y vuelve a dibujar la página con los errores (server/contacto.js): no llega acá.
 // - En /administracion/api/…: { error, campos? } en JSON, en castellano.
 // - Un 4xx en el resto (p. ej. un estático que falta): texto corto, nunca 500.
 // - Un 5xx: una página simple, sin el bundle del sitio, con no-store. En el log, con el stack; un 5xx que es un

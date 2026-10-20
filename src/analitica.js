@@ -24,6 +24,21 @@ const SECCIONES = { identidad: 'ver_identidad', obra: 'ver_obra', areas: 'ver_ar
 const PIE = 'ver_pie'
 // ms después de un clic en que la apertura de una banda se toma como hecha con ese clic (si no, la abrió el scroll).
 const VENTANA_CLIC = 1000
+// Los umbrales con que se mira el pie: de 5 en 5 % hasta la mitad (ver pieVisto).
+const UMBRALES_PIE = Array.from({ length: 10 }, (_, i) => (i + 1) / 20)
+
+/**
+ * ¿Se vio el pie? Cuando se ve la mitad de él o, si es más alto que la pantalla, cuando ocupa media pantalla. Con un
+ * umbral fijo de 0,5, un pie de más de dos pantallas no contaba nunca: el pie crece con los datos del museo y, con todo
+ * lo que admite el panel, en el celular mide 1400 px o más (HOME-01 de la verificación de E4).
+ * @param {IntersectionObserverEntry} entrada
+ */
+export function pieVisto({ isIntersecting, intersectionRect, boundingClientRect, rootBounds }) {
+  if (!isIntersecting) return false
+  const pantalla = rootBounds?.height ?? window.innerHeight
+  // Medio píxel de tolerancia: las medidas del observador vienen redondeadas.
+  return intersectionRect.height >= Math.min(boundingClientRect.height, pantalla) / 2 - 0.5
+}
 
 function gtag() {
   // gtag.js espera el objeto arguments tal cual, no un array.
@@ -58,16 +73,17 @@ function medirSecciones() {
     const seccion = document.getElementById(id)
     if (seccion) observador.observe(seccion)
   }
-  // El pie es bajo y está al final: nunca llega al centro de la pantalla. Cuenta cuando se ve la mitad.
+  // El pie está al final y puede no llegar nunca al centro de la pantalla: cuenta cuando se ve la mitad de él (o media
+  // pantalla, si es más alto: pieVisto).
   const pie = document.querySelector('footer')
   if (!pie) return
   const alFinal = new IntersectionObserver(
     ([entrada]) => {
-      if (!entrada.isIntersecting) return
+      if (!pieVisto(entrada)) return
       alFinal.disconnect()
       registrar(PIE, { seccion: 'pie' })
     },
-    { threshold: 0.5 },
+    { threshold: UMBRALES_PIE },
   )
   alFinal.observe(pie)
 }
@@ -103,6 +119,33 @@ function medirAreas() {
   }
 }
 
+// "Comprar entradas" (E4.7, plan 6.6): el clic en cualquier enlace de compra (los que llevan data-entradas: el del
+// menú, el del menú del celular y el de Visitas), en todas las páginas. El enlace lleva a otro sitio y la página se va
+// enseguida: GA4 manda sus eventos con sendBeacon, que sale aunque la página se cierre (no hace falta pedirlo).
+// origen: menu (el del header) o pagina (el de adentro de la página).
+function medirEntradas(estado) {
+  document.addEventListener(
+    'click',
+    (e) => {
+      const enlace = e.target.closest?.('a[data-entradas]')
+      if (!enlace) return
+      registrar('clic_entradas', { origen: enlace.closest('main') ? 'pagina' : 'menu', pagina: estado.pagina })
+    },
+    true,
+  )
+}
+
+// Un mensaje del formulario de contacto (E4.5, plan 6.6): se llega a /contacto?enviado=<marca> con el 303 de POST
+// /contacto, y estado.datos.enviado es true solo si la marca la firmó el servidor hace menos de 10 minutos
+// (server/paginas.js): abrir una dirección con ?enviado= guardada o compartida no cuenta (CON-04 de la verificación de
+// E4). Solo en una navegación nueva: si la persona recarga esa página o vuelve a ella con Atrás, no se cuenta otra vez.
+function medirContacto(estado) {
+  if (estado.pagina !== 'contacto' || estado.datos?.enviado !== true) return
+  const navegacion = performance.getEntriesByType?.('navigation')?.[0]
+  if (navegacion && navegacion.type !== 'navigate') return
+  registrar('enviar_contacto', { formulario: 'contacto' })
+}
+
 function arrancar(estado) {
   window.dataLayer = window.dataLayer || []
   gtag('js', new Date())
@@ -116,6 +159,9 @@ function arrancar(estado) {
   script.async = true
   script.src = `https://www.googletagmanager.com/gtag/js?id=${GA4_ID}`
   document.head.append(script)
+  // En todas las páginas: el clic en "Comprar entradas" y, en /contacto, el mensaje enviado (E4.7, plan 6.6).
+  medirEntradas(estado)
+  medirContacto(estado)
   // Las secciones y las bandas son de la Home: en otra página (la 404, y desde E4 las internas, que son cortas)
   // cualquier <footer> dispararía ver_pie (plan 6.6). page_view sale en todas.
   if (estado.pagina !== 'home') return

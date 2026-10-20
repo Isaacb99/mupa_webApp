@@ -720,21 +720,28 @@ describe('GET y PUT /museo, y el museo en las páginas', { skip: base.motivo ?? 
     assert.equal((await fila()).accesibilidad, null)
   })
 
-  test('la Home lleva los textos en el estado; con </script> en un texto el HTML sigue entero', async () => {
+  test('los textos van solo en los datos de /visitas, no en el museo común (COD-04); con </script> el HTML sigue entero', async () => {
     const malicioso = '</script><script>alert(1)</script><!--'
     assert.equal((await put(editor, { accesibilidad: unParrafo(malicioso) })).status, 200)
-    const r = await s.pedir('GET', '/')
+    // La Home (y cualquier otra página) no los lleva.
+    const home = await s.pedir('GET', '/')
+    assert.equal(home.status, 200)
+    for (const campo of ['comoLlegar', 'normas', 'accesibilidad']) assert.ok(!(campo in estadoDe(home.texto).museo), campo)
+    assert.ok(!home.texto.includes('No se come en las salas'))
+    // /visitas sí, en sus datos.
+    const r = await s.pedir('GET', '/visitas')
     assert.equal(r.status, 200)
     assert.ok(!r.texto.includes('<script>alert(1)'), 'el texto no sale como HTML')
-    const { museo } = estadoDe(r.texto)
-    assert.deepEqual(museo.comoLlegar, TEXTO_CANONICO)
-    assert.deepEqual(museo.normas, unParrafo('No se come en las salas.'))
-    assert.deepEqual(museo.accesibilidad, unParrafo(malicioso))
+    const { datos, museo } = estadoDe(r.texto)
+    assert.ok(!('comoLlegar' in museo))
+    assert.deepEqual(datos.comoLlegar, TEXTO_CANONICO)
+    assert.deepEqual(datos.normas, unParrafo('No se come en las salas.'))
+    assert.deepEqual(datos.accesibilidad, unParrafo(malicioso))
     // Lo que alguien escribió a mano en la base y el esquema no admite no se publica.
     await sql(
       `UPDATE museo SET normas = '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"x","marks":[{"type":"link","attrs":{"href":"javascript:alert(1)"}}]}]}]}' WHERE id = 1`,
     )
-    assert.equal(estadoDe((await s.pedir('GET', '/')).texto).museo.normas, null)
+    assert.equal(estadoDe((await s.pedir('GET', '/visitas')).texto).datos.normas, null)
     await sql('UPDATE museo SET normas = NULL, accesibilidad = NULL WHERE id = 1')
   })
 

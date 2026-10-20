@@ -7,8 +7,8 @@
 //   del título: minúsculas, sin acentos, con guiones (crearSlug). En el alta, si ya está, se le agrega -2, -3…
 //   (slugNumerado). Se puede cambiar hasta la primera publicación; después queda fija (los enlaces que ya circulan
 //   dejarían de andar).
-// - urlPublica(tipo, slug): la página pública de cada uno, relativa al sitio (plan 6.1). Las páginas llegan con E4:
-//   hasta entonces PAGINAS_PUBLICAS_DE_CONTENIDO está apagada y el panel no muestra "Ver en el sitio" (E4 la prende).
+// - urlPublica(tipo, slug): la página pública de cada uno, relativa al sitio (plan 6.1). Las páginas están desde E4
+//   (E4.2 y E4.4): PAGINAS_PUBLICAS_DE_CONTENIDO está prendida y el panel muestra "Ver en el sitio".
 
 /** El patrón de una dirección web (también es un CHECK de las tablas): minúsculas, números y guiones sueltos. */
 export const PATRON_SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/
@@ -20,10 +20,11 @@ export const SLUG_MAX = Object.freeze({ novedades: 180, muestras: 180, salas: 14
 const SLUG_SI_VACIO = Object.freeze({ novedades: 'novedad', muestras: 'muestra', salas: 'sala' })
 
 /**
- * ¿Ya están las páginas públicas de los contenidos (E4.2 y E4.4)? Mientras no, el panel no ofrece "Ver en el sitio":
- * la dirección daría la 404 del sitio. E4 la pone en true cuando estén las tres (novedades, muestras y salas).
+ * ¿Ya están las páginas públicas de los contenidos? Desde E4.2 y E4.4 sí (/novedades/<slug>, /exposiciones/<slug> y
+ * las salas en /exposiciones#sala-<slug>): el panel ofrece "Ver en el sitio" y dice que lo publicado ya está en el
+ * sitio (panel/src/contenidos.js, textosDelSitio). Hasta E4 estaba apagada: la dirección daba la 404 del sitio.
  */
-export const PAGINAS_PUBLICAS_DE_CONTENIDO = false
+export const PAGINAS_PUBLICAS_DE_CONTENIDO = true
 
 // Las letras que la descomposición de Unicode no separa de su marca (ß, æ, ø…).
 const LETRAS = { ß: 'ss', æ: 'ae', œ: 'oe', ø: 'o', đ: 'd', ð: 'd', þ: 'th', ł: 'l', ı: 'i' }

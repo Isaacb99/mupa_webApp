@@ -11,7 +11,8 @@
 // - Lo que no conoce (un nodo que el esquema no admite) no lo dibuja.
 // - clases: las de cada elemento ({ p, h, ul, ol, li, a }), que pone la página que lo usa. Este archivo no trae estilos
 //   propios a propósito: Tailwind escanea src/ entero y cualquier clase nueva escrita acá cambiaría el CSS del sitio.
-// Hoy no lo usa ninguna página: llega con Visitas (E4.3) y las páginas de novedades y exposiciones.
+// Lo usan Visitas (E4.3), las salas de Exposiciones y las fichas de una muestra y de una novedad (E4.2 y E4.4), con las
+// clases de src/components/estilos.js (CLASES_TEXTO).
 import { esEnlacePermitido } from '../../compartido/enlaces.js'
 
 const tiene = (nodo, tipo) => Array.isArray(nodo.marks) && nodo.marks.some((m) => m?.type === tipo)

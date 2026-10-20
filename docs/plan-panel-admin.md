@@ -1,6 +1,6 @@
 # Plan de implementación: panel de administración y sitio institucional del MuPa
 
-**Fecha:** versión 3, 08/10/2026 (panel en `https://mupa.ar/administracion`; los cambios en hPanel de Hostinger los hace una persona del museo). Al día con lo implementado hasta E3 (16/10/2026).
+**Fecha:** versión 3, 08/10/2026 (panel en `https://mupa.ar/administracion`; los cambios en hPanel de Hostinger los hace una persona del museo). Al día con lo implementado hasta E4 (20/10/2026).
 **Estado:** plan aprobado por el desarrollador: pendiente.
 **Repo:** `C:\Users\badia\OneDrive\Escritorio\isaac\MUPA\SITIO WEB\mupa-web` (`github.com/Isaacb99/mupa_webApp`, rama `master`). Este archivo va en `docs/plan-panel-admin.md`.
 
@@ -24,7 +24,7 @@
 - El Sitio institucional y el Panel completos.
 - La base preparada para el plano (módulo 4) y la venta de entradas (módulo 5), sin implementarlos.
 
-**Avance al 16/10/2026:** E0, E1 y E2 implementadas y commiteadas (`b0bfb1f`, `64e4e28` y `f2be728`); E3 (fotos, editor de texto, novedades, salas y muestras) implementada, verificada y corregida, sin commitear. Cada sección anota, con su fecha, lo que la implementación cambió respecto de lo planeado ("Cómo quedó en…", "Desvío de…", "Corrección de…"). Lo que todavía no existe (E4 en adelante) es a crear.
+**Avance al 20/10/2026:** E0 a E3 implementadas y commiteadas (`b0bfb1f`, `64e4e28`, `f2be728` y `d0a7d36`); E4 (el sitio público: menú, pie, páginas internas, SEO, contacto con correo, Mensajes, GA4 y UserWay) implementada entre el 19 y el 20/10/2026, verificada y corregida, sin commitear, **con un aspecto provisorio** hecho con el lenguaje de la Home hasta que llegue el diseño de la diseñadora (E6.3). Cada sección anota, con su fecha, lo que la implementación cambió respecto de lo planeado ("Cómo quedó en…", "Desvío de…", "Corrección de…"). Lo que todavía no existe (E5 y E6) es a crear.
 
 ---
 
@@ -34,7 +34,7 @@
 |---|---|---|---|
 | Forma general | **Un solo servicio Node y un solo host.** Reparte por ruta: `/administracion/*` es el panel (SPA y API); el resto es el sitio público (SSR, fotos y formulario) | Se despliega una sola cosa. La Home sigue siendo el mismo código | Dos servicios separados |
 | Dirección del panel | **`https://mupa.ar/administracion`** (decisión del desarrollador, 08/10/2026). Antes del corte, `https://mupa-web.onrender.com/administracion` | No depende del DNS ni de hPanel, al que el desarrollador no tiene acceso: funciona desde el primer deploy. Más simple: un dominio, un certificado y una configuración. El riesgo de compartir origen con UserWay y GA4 está acotado y aceptado (9) | `panel.mupa.ar`: aislaba la sesión de los scripts de terceros, pero necesita un registro DNS que solo puede cargar el museo en hPanel |
-| Stack | Lo que ya está instalado (React 19.3.0, Vite 8.3.0, Tailwind 4.3.3, Lenis 1.3.26) más Express **5.2.1**, Sequelize **6.37.8**, pg ^8.21.0, PostgreSQL **17** y nodemailer **10** | Es el stack que el desarrollador ya conoce. Express 5 manda los rechazos async al manejador de errores ([migración](https://expressjs.com/en/guide/migrating-5.html), 08/10/2026) | Next.js (decisión del desarrollador) |
+| Stack | Lo que ya está instalado (React 19.3.0, Vite 8.3.0, Tailwind 4.3.3, Lenis 1.3.26) más Express **5.2.1**, Sequelize **6.37.8**, pg ^8.21.0, PostgreSQL **17** y nodemailer **10** (10.0.16 desde E4.5) | Es el stack que el desarrollador ya conoce. Express 5 manda los rechazos async al manejador de errores ([migración](https://expressjs.com/en/guide/migrating-5.html), 08/10/2026) | Next.js (decisión del desarrollador) |
 | Páginas públicas | SSR en cada pedido con `renderToString`, **sin caché de HTML**. Multipágina con recarga completa, sin router en el cliente | Con el tráfico de un museo alcanza, y "al instante" sale sin invalidar nada. Los buscadores reciben todo y se conserva lo medido de la Home | Caché LRU de HTML (se suma si las métricas lo piden, ver 14), SPA pública, streaming con Suspense |
 | Indexación y medición | Se deciden **por host**: `noindex` y GA4 apagado en todo host que no sea `mupa.ar`. Además, `/administracion/*` lleva siempre `noindex` y nunca GA4. Canonical y sitemap siempre con `https://mupa.ar/` | El día del cambio de DNS, `mupa.ar` nunca sale con `noindex` | Variables `INDEXAR` y `MEDIR` |
 | Panel | SPA en `/administracion` con entrada propia de Vite (`base: '/administracion/'`), React Router 7 en **modo Data** (`createBrowserRouter` con `basename`) y sin kit de componentes | No toca el bundle público. `useBlocker` solo existe en los modos Data y Framework ([useBlocker](https://reactrouter.com/api/hooks/useBlocker), 08/10/2026) | `<BrowserRouter>` declarativo. CMS (decisión del desarrollador) |
@@ -83,7 +83,7 @@ Render, Virginia
  │     /administracion/assets/* (dist/panel)  /administracion/api/*
  │     cualquier otro GET → index.html del panel (no-store)
  │   el resto  SITIO PÚBLICO:
- │     /assets/* (dist/client)  /robots.txt  /sitemap.xml  POST /contacto
+ │     /assets/* (dist/client)  /robots.txt  /sitemap.xml  POST /contacto  /<clave de IndexNow>.txt (opcional, E4.6)
  │     SSR en cada pedido: /  /exposiciones  /exposiciones/:slug  /visitas  /novedades  /novedades/:slug  /contacto
  │   desde el corte (CANONICO=1), otro host → 301 a https://mupa.ar/ + la misma ruta
  │   sin disco persistente: las fotos van en la base (16.1)
@@ -108,14 +108,16 @@ mupa-web/
   .env.example             variables sin valores; en .gitignore agregar "!.env.example" (hoy ".env.*" lo ignora)
   .github/dependabot.yml   alertas y PR de seguridad
   src/                     SITIO PÚBLICO
-    main.jsx               lee #estado e hidrata (2.3)
-    entry-server.jsx       export function render(estado)
-    Raiz.jsx               elige la página por estado.pagina y la envuelve en Layout
+    main.jsx               lee #estado, baja la página e hidrata (2.3; desde E4, cargarPagina antes de hydrateRoot)
+    entry-server.jsx       export async function render(estado) (desde E4, async: espera la página)
+    Raiz.jsx               elige la página por estado.pagina (import() dinámico desde E4, 6.2) y la envuelve en Layout
     paginas/               Home.jsx (el App.jsx de hoy), Exposiciones.jsx, Muestra.jsx, Visitas.jsx,
                            Novedades.jsx, Novedad.jsx, Contacto.jsx, NoEncontrada.jsx
-    components/            los de hoy + Layout, Menu, Foto, TextoRico, TablaHorarios, ListaTarifas, FormularioContacto
-                           (TextoRico.jsx existe desde E3.2, sin usar hasta E4)
-    hooks/, content.js, analitica.js (recibe el estado), index.css (@import "tailwindcss" source("."))
+    components/            los de hoy + Layout, Header, Logo, Menu, MenuMovil, Pie (era Footer), Foto, GaleriaFotos,
+                           Tarjeta, Seccion, Ficha, TablaHorarios, ListaTarifas, Aviso, BotonCompra, Paginacion,
+                           FormularioContacto, DatosDeContacto, datosMuseo.js y estilos.js (E4; aspecto provisorio
+                           hasta E6.3) y TextoRico (desde E3.2; lo usan las páginas desde E4)
+    hooks/, content.js, analitica.js (recibe el estado), userway.js (E4.7), index.css (@import "tailwindcss" source("."))
   panel/                   PANEL (SPA, solo cliente; se publica en /administracion)
     index.html, public/manual.pdf (sale en /administracion/manual.pdf)
     src/ main.jsx, rutas.jsx (createBrowserRouter, basename '/administracion'), api.js, sesion.jsx, panel.css
@@ -137,18 +139,25 @@ mupa-web/
     contenidos.js          (E3.3, era slug.js) la dirección web (crearSlug, slugNumerado), urlPublica y
                            PAGINAS_PUBLICAS_DE_CONTENIDO
     fotos.js, enlaces.js   (E3.1 y E3.2, sin zod) las constantes y los mensajes de las fotos; la regla de los enlaces
-    estados.js, panel.js (RUTA_PANEL = '/administracion'); textoRico.js (a texto plano) si E4 lo necesita
+    horarios.js, redes.js  (E4.1, sin zod) el horario resumido y los días; las redes que el sitio sabe mostrar (los
+                           esquemas los reexportan: así el pie no importa zod)
+    contacto.js            (E4.5, sin zod) los topes del formulario, los códigos de error, unaLinea y sinInvisibles
+    estados.js, panel.js (RUTA_PANEL = '/administracion'); el textoRico.js "a texto plano" no hizo falta en E4
   server/
     servidor.js            conecta, verifica la casilla de envío, escucha, tareas diarias, apagado ordenado
     app.js                 arma la app (la usan las pruebas)
     config.js              variables validadas con zod; en producción no arranca si CORREO_MODO ≠ smtp
     dev.js                 Express + Vite en middlewareMode
     hosts.js               hosts aceptados y redirección canónica (el panel se reparte por ruta, en app.js)
-    ssr.js                 plantilla partida, render por pedido, último `museo` bueno
+    ssr.js                 plantilla partida, render por pedido, último `museo` bueno, modulepreload por página (E4)
     rutas-publicas.js      tabla ruta → { pagina, params, cargar }
+    paginas.js             (E4) el cargar() de cada página interna: datos planos, fechas y precios ya como texto
+    contenido-publico.js   (E4) lo publicado, una consulta por página, fotos con sus campos públicos, tope de 4 s
     seo.js                 <head>, JSON-LD, jsonEnScript(), robots, sitemap
-    contacto.js            GET/POST /contacto
+    contacto.js            POST /contacto (la página es una ruta más de la tabla) y el servicio del formulario
     correo.js              nodemailer (SMTP), modos, estado del correo
+    indexnow.js            (E4.6, opcional) el aviso a los buscadores al publicar
+    tope.js                (E4) conTope y el error de la base que no responde, para las cuatro esperas con tope
     seguridad.js           helmet, CSP pública y del panel (por ruta), CSRF, redirecciones normalizadas
     limites.js, errores.js, tareas.js, log.js
     principal.js           "¿me ejecutaron directamente?" de los comandos (import.meta.main, o la ruta real)
@@ -161,8 +170,8 @@ mupa-web/
     scripts/               admin.js (crear y restablecer), probar-correo.js
     pruebas/               ayudas.js, auth, permisos, migraciones, estado, museo, visitas, textoRico, fotos, contenido,
                            panel-api, contacto y ssr (*.test.js; más los de E0 y E1: esqueleto, apagado, api-sin-base,
-                           comandos, guardas y log); las imágenes de prueba las arma fotos.test.js con sharp (no hay
-                           archivos/)
+                           comandos, guardas y log; desde E4, layout.test.js y smtpFalso.js, un SMTP falso con
+                           node:net); las imágenes de prueba las arma fotos.test.js con sharp (no hay archivos/)
   public/                  igual que hoy (favicon.*, og.jpg, google19017c966a32aec2.html)
   tools/                   los de hoy + rutas-check.mjs; servir.mjs pasa a proxy con latencia delante de npm start
   docs/                    plan-panel-admin.md, operacion.md, manual-panel.md, migracion.md
@@ -191,6 +200,8 @@ Scripts de `package.json`:
 }
 ```
 
+Cómo quedaron: `test` corre `"server/pruebas/**/*.test.js"` y no la carpeta (con comillas: el patrón lo expande Node, y `ayudas.js` y `smtpFalso.js` no se toman como pruebas); `probar-correo` entró con E4.5.
+
 **Desvío de E2 (14/10/2026):** no hay `dev:panel`. El Vite del panel corre adentro de `npm run dev`, como el del sitio (middlewareMode, montado en `/administracion` después de la API, con su websocket de HMR en `/administracion/` y su caché en `node_modules/.vite-panel`), así no hace falta el proxy ni un segundo puerto. En desarrollo, las dos CSP suman `'unsafe-inline'` en scripts y `ws:` (lo que necesita Vite); en producción son las de 9.
 
 **Dependencias nuevas.** Versiones del registro de npm al 08/10/2026; confirmarlas con `npm view <paquete> version` al instalar.
@@ -207,29 +218,29 @@ Scripts de `package.json`:
 | `cookie-parser` | 1.4.7 | runtime |
 | `zod` | 4.6.5 | runtime |
 | `multer` | 2.4.0 (E3.1) | runtime |
-| `nodemailer` | 10.0.16 (pide Node ≥ 20) | runtime |
+| `nodemailer` | 10.0.16 (pide Node ≥ 20). E4.5: fija, sin `^`. Al 20/10/2026 la última es la 10.1.7, pero la 10.1 sacó 8 versiones entre el 10 y el 18/10 (cuatro el mismo 18/10): subir queda a decisión del desarrollador (15) | runtime |
 | `sharp` | 0.35.5 (E3.1: pasó de devDependencies a dependencies; la 0.35.4 tenía un aviso alto en `npm audit`) | runtime |
 | `compression` | 1.8.2, **solo** si Render no comprime (10.1) | runtime |
 | `react-router` | ^7.14.2 (se instaló ^7.18.4, la última 7.x al 14/10/2026; ya existe la 8) | dev (solo entra en el bundle del panel) |
 | `@tiptap/react`, `@tiptap/pm`, `@tiptap/starter-kit`, `@tiptap/core`, `@tiptap/extension-list`, `@tiptap/extension-link` | 3.32.0 (E3.2; `extension-link`, explícita desde la corrección de E3: el enlace no inclusivo, 5.4) | dev (ídem) |
 
 - Sin empaquetador ZIP: era para la copia de las fotos en disco (E3.6), que no existe con 16.1.
-- `npm audit --omit=dev` al cerrar E3 (16/10/2026): los mismos 6 moderados de E1 (`sprintf-js` por umzug y `uuid` por Sequelize, en caminos que no se usan); multer y TipTap no suman avisos.
+- `npm audit --omit=dev` al cerrar E3 (16/10/2026) y al cerrar E4 (20/10/2026): los mismos 6 moderados de E1 (`sprintf-js` por umzug y `uuid` por Sequelize, en caminos que no se usan); multer, TipTap y nodemailer (sin dependencias propias) no suman avisos.
 - `dotenv` no hace falta: Node 24 trae `--env-file-if-exists`.
 - `react`, `react-dom` y `lenis` siguen como dependencias de runtime, porque el bundle SSR las deja externas.
 
-**Qué produce `npm run build`:** `dist/client/` (plantilla, `assets/` con hash y lo de `public/`), `dist/server/entry-server.js` y `dist/panel/` (sus URL empiezan con `/administracion/`). Con `base: '/'`, los dos builds públicos generan las mismas URL `/assets/x-hash.ext`, así que `renderBuiltUrl` ya no hace falta. Se comprueba con la prueba de hidratación sobre el build (13.3).
+**Qué produce `npm run build`:** `dist/client/` (plantilla, `assets/` con hash y lo de `public/`), `dist/server/entry-server.js` y `dist/panel/` (sus URL empiezan con `/administracion/`). Con `base: '/'`, los dos builds públicos generan las mismas URL `/assets/x-hash.ext`, así que `renderBuiltUrl` ya no hace falta. Se comprueba con la prueba de hidratación sobre el build (13.3). Desde E4, el build del navegador deja además `dist/client/.vite/manifest.json` (`build.manifest`): el servidor lo lee al arrancar para saber qué archivo JS tiene cada página (6.2). No se publica (da 404).
 
 **Tailwind:**
 - `src/index.css` pasa a `@import "tailwindcss" source(".");` para que escanee solo `src/` ([detección de clases](https://tailwindcss.com/docs/detecting-classes-in-source-files), 08/10/2026). Hoy escanearía también `docs/`, `tools/` y `CLAUDE.md`.
 - `panel/src/panel.css` hace lo mismo con su carpeta.
-- El CSS público tiene que seguir en ~49,6 kB.
+- El CSS público tiene que seguir en ~49,6 kB. **E4:** las páginas internas suman sus clases (toda clase escrita en `src/`, también en un comentario, entra en el CSS): al cerrar E4, 56.416 B (10,3 kB con Brotli), contra 49.375 al cerrar E3.
 
 **Arranque** (`servidor.js`):
 1. Valida la configuración.
 2. Conecta Sequelize con pool `max: 5`.
 3. Lee una sola vez la plantilla y `entry-server.js` de `DIR_BUILD` (por defecto `dist`).
-4. Verifica la casilla de envío (`transporte.verify()`, sin esperar) y deja el resultado para el Inicio del panel (8).
+4. Verifica la casilla de envío (`transporte.verify()`, sin esperar) y deja el resultado para el Inicio del panel (8). **Cómo quedó (E4.5):** crea un solo correo (`crearCorreo`) que comparten la página de Contacto, `POST /contacto`, el Inicio del panel y las tareas; la verificación es la tarea diaria `casilla_correo`, que corre también al arrancar (punto 5).
 5. Escucha en `PORT` y programa las tareas diarias (una vuelta al arrancar y después a las 04:00 de San Juan, 7). Desde E3.1 crea también el almacén de las fotos (su caché en memoria), que comparten `/fotos`, la API y la tarea de las huérfanas: lo que se borra sale también de la caché.
 6. Ante `SIGTERM`: `server.close()`, `sequelize.close()` y sale. Render manda SIGKILL a los 30 s.
 
@@ -264,6 +275,14 @@ Por qué está armado así:
 - **Si la base falla:** la Home (su `cargar` no consulta nada) sale con el último `museo` bueno o con el pie mínimo; las demás rutas dan una página 503 simple, sin el bundle.
 - **Si la base tarda** (sumado en E2.3, 14/10/2026): el museo tiene un tope de 2 s (`TOPE_MUSEO_MS` en `server/museo.js`); pasado ese tiempo, la página sale con el último `museo` bueno (o el vacío si nunca respondió) en vez de esperar. `leerMuseo` es una sola consulta con las columnas escritas a mano, y lleva el aviso solo si está vigente y la compra solo si está activa.
 
+**Cómo quedó en E4 (19-20/10/2026):**
+- `cargar(ctx)` recibe `{ params, consulta, hoy, ahora, lector, museo, contacto }`: "hoy" y "ahora" se calculan una vez por pedido; `lector` lee lo publicado (`server/contenido-publico.js`); `museo()` es la lectura del museo de ese pedido, que se hace a la vez que la de la página y solo esperan las que la usan (Visitas y Contacto). Devuelve los datos, `null` (404) o `redirigir(destino)` (301). Las funciones están en `server/paginas.js`.
+- **El museo del estado común es `museoComun(museo)`**: todo menos los tres textos con formato de Visitas, que van solo en los datos de `/visitas` (COD-04 de la verificación de E3: con los tres cerca de su tope la Home pasaba de 73 a 357 kB).
+- **Sin el museo de ahora** (`museoPublico.conEstado()` da `alDia: false`: la base falló y es el último bueno), Visitas y Contacto responden la 503 simple; la Home sale igual.
+- **Lo publicado tiene un tope de 4 s** (`TOPE_CONTENIDO_MS`); si la base falla o no contesta, la 503 simple con `no-store` y `Retry-After: 60`. Las cuatro esperas con tope (`probarBase`, el museo, lo publicado y el formulario) usan `conTope` de `server/tope.js` (COD-04 de la verificación de E4: eran cuatro copias de la misma carrera).
+- **`render(estado)` es async** y el `<head>` suma `<link rel="modulepreload">` del archivo de la página y lo que comparte (6.2).
+- `POST /contacto` vuelve a dibujar la página con `dibujarPagina()` (con lo escrito, los errores y `no-store`; 8).
+
 **`main.jsx`** conserva sus imports y el `?diag`:
 
 ```js
@@ -279,6 +298,8 @@ if (nodo) {
 }
 if (/[?&]diag\b/.test(location.search)) import('./diagnostico.js').then((m) => m.default())
 ```
+
+**Cómo quedó en E4:** antes de `hydrateRoot` se baja la página del estado (`cargarPagina(estado.pagina)`, que el servidor ya pidió con `modulepreload`), y después de `iniciarAnalitica(estado)` va `iniciarUserWay(estado)` (6.6).
 
 ### 2.4 Qué responde el servicio, en orden
 
@@ -298,7 +319,7 @@ if (/[?&]diag\b/.test(location.search)) import('./diagnostico.js').then((m) => m
    - barras repetidas o finales, normalizadas con `'/' + req.path.split('/').filter(Boolean).join('/')`: nunca sale un `Location` que empiece con `//`
    - **no** se redirige `*.html`: `/google19017c966a32aec2.html` tiene que dar 200
 7. **Estáticos públicos**, con la CSP pública (9): `/assets` de `dist/client/assets` con `immutable`, un año y `fallthrough: false`; la raíz de `dist/client` con `index: false`, un día y `no-cache` en los `.html`. Los dotfiles no se sirven.
-8. **Público**, con la CSP pública: `/robots.txt`, `/sitemap.xml`, `GET` y `POST /contacto`, rutas SSR (6.1) y la 404. No hay API fuera de `/administracion/api`: `/api/…` da la 404 del sitio.
+8. **Público**, con la CSP pública: `/robots.txt`, `/sitemap.xml`, `GET` y `POST /contacto`, rutas SSR (6.1) y la 404. No hay API fuera de `/administracion/api`: `/api/…` da la 404 del sitio. **Cómo quedó en E4:** `/sitemap.xml` se arma con lo publicado en cada pedido (`no-cache`; si la base falla, 503 con `no-store` y `Retry-After: 60`, 6.5); con `INDEXNOW_CLAVE`, `/<clave>.txt` (6.5); `POST /contacto` con sus middlewares en orden (8); `GET /contacto` es una ruta más de la tabla. El manifiesto del build (`/.vite/manifest.json`) no se sirve.
 9. **Errores:** se respeta `err.status`; en `/administracion/api`, `{error}`; un estático que falta da **404 en texto**, no 500; el resto, una página 500/503 simple sin el bundle; nunca el stack.
 
 ### 2.5 Variables de entorno
@@ -313,12 +334,13 @@ if (/[?&]diag\b/.test(location.search)) import('./diagnostico.js').then((m) => m
 | `CANONICO` | 0 | `sync: false`: 0, y 1 el día del corte | 301 de los otros hosts |
 | `TRUST_PROXY` | 0 | `sync: false`: lo que dé la prueba de 10.1 | número de saltos |
 | `ESPACIO_BASE_MB` | 1024 (por defecto) | 1024 con el plan de 1 GB (el valor por defecto; si la base crece, 5120, 10240…) | el aviso de espacio del Inicio: `GET /estado` compara `pg_database_size` con este total y el panel avisa desde el 80 % (E3.1). Entero de 1 a 10.000.000; otro valor no deja arrancar, con su mensaje (`config.js`) |
-| `CORREO_MODO` | consola | smtp | `memoria` en las pruebas. En producción, solo `smtp` |
-| `SMTP_HOST` | — | `smtp.hostinger.com` | |
-| `SMTP_PUERTO` | — | `sync: false`: 465 (587 si 465 no conecta) | 465 con SSL, 587 con STARTTLS |
-| `SMTP_USUARIO` | — | `sync: false`: `web@mupa.ar` | también es el From. Sin ella, el formulario queda apagado |
-| `SMTP_CLAVE` | — | `sync: false` | la contraseña de la casilla de envío |
-| `USERWAY_ID` | — | `sync: false` | |
+| `CORREO_MODO` | consola | smtp | `memoria` en las pruebas. En producción, solo `smtp`. **E4.5:** sin definir, `consola` en desarrollo, `memoria` en las pruebas y `smtp` en producción |
+| `SMTP_HOST` | — | `smtp.hostinger.com` | obligatoria con `SMTP_USUARIO` en `smtp` (E4.5) |
+| `SMTP_PUERTO` | — | `sync: false`: 465 (587 si 465 no conecta) | 465 con SSL, 587 con STARTTLS. **E4.5:** 465 por defecto; en producción solo 465 o 587, salvo contra la propia máquina (`localhost`, `127.x`: el SMTP falso de las pruebas), y fuera de 465 exige STARTTLS (`requireTLS`; COD-05 de la verificación de E4: si no, la contraseña podía viajar sin cifrar) |
+| `SMTP_USUARIO` | — | `sync: false`: `web@mupa.ar` | también es el From. Sin ella, el formulario queda apagado. En local, para verlo sin mandar nada: `SMTP_USUARIO=web@example.com` con `CORREO_MODO=consola` |
+| `SMTP_CLAVE` | — | `sync: false` | la contraseña de la casilla de envío; obligatoria con `SMTP_USUARIO` en `smtp` (E4.5) |
+| `USERWAY_ID` | — | `sync: false` | sin él no se carga nada de UserWay ni entra a la CSP (E4.7). Letras, números, `_` y `-`, hasta 64 |
+| `INDEXNOW_CLAVE` | — | `sync: false`, opcional | **E4.6:** la clave de IndexNow (de 8 a 128 letras, números o guiones; la elige quien mantiene el sitio). Vacía, apagado: ni avisos ni `/<clave>.txt`. Con clave, avisa solo en producción y con el host `mupa.ar` |
 | `SIN_BASE` | 1 (opcional) | — | Home con un `museo` de ejemplo "máximo" y otro vacío (6.7) |
 | `DIR_BUILD` | `dist` o `dist-dev` | — | prueba de hidratación (13.3) |
 | `DEPURAR_IP` | — | 1 solo durante la prueba de 10.1 | |
@@ -328,7 +350,7 @@ No hay variable para el panel: es la ruta fija `/administracion` (`RUTA_PANEL` e
 
 No hay `DIR_FOTOS`: las fotos van en la base (16.1, decidido el 15/10/2026). `ESPACIO_BASE_MB` la reemplaza en `.env.example` y en `config.js`.
 
-**Prueba de producción en local:** `URL_PUBLICA=http://localhost:5183/` y `NODE_ENV=production`; el panel queda en `http://localhost:5183/administracion/`. Así GA queda activo en local y se usa `analitica-check`. Para no mandar mails de verdad, `CORREO_MODO=smtp` con un `SMTP_HOST` inexistente: el formulario recorre el camino del envío fallido.
+**Prueba de producción en local:** `URL_PUBLICA=http://localhost:5183/` y `NODE_ENV=production`; el panel queda en `http://localhost:5183/administracion/`. Así GA queda activo en local y se usa `analitica-check`. Para no mandar mails de verdad, `CORREO_MODO=smtp` con un `SMTP_HOST` inexistente: el formulario recorre el camino del envío fallido. **Cómo quedó (E4.5):** `CORREO_MODO=smtp SMTP_HOST=smtp.invalid SMTP_USUARIO=web@example.com SMTP_CLAVE=x` (está en `.env.example`); con `CORREO_MODO=consola` la producción no arranca. Las verificaciones de E4 usaron además un SMTP falso local, escrito con `node:net` (`server/pruebas/smtpFalso.js`: acepta, rechaza con 535 o corta), dentro del mismo proceso: ningún mail salió a la red.
 
 **Entorno de prueba:** no hay uno permanente.
 - Antes del corte, producción **es** la prueba: `https://mupa-web.onrender.com` con `noindex` y el panel en `https://mupa-web.onrender.com/administracion`. El museo carga su contenido real ahí mismo. Al cortar, el contenido sigue (es la misma base), pero las sesiones abiertas en `mupa-web.onrender.com` no pasan a `mupa.ar`: hay que volver a entrar.
@@ -512,13 +534,17 @@ CREATE TABLE mensajes_contacto (
   id serial PRIMARY KEY,
   nombre varchar(100) NOT NULL,
   email varchar(254) NOT NULL,
-  mensaje text NOT NULL CHECK (length(mensaje) <= 5000),
-  envio varchar(10) NOT NULL DEFAULT 'pendiente' CHECK (envio IN ('pendiente','enviado','fallido')),
+  mensaje text NOT NULL,
+  envio varchar(10) NOT NULL DEFAULT 'pendiente',
   error varchar(40),                                -- código de nodemailer (EAUTH, ETIMEDOUT…), nunca el texto
-  created_at timestamptz NOT NULL DEFAULT now()
+  created_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT mensajes_contacto_mensaje_largo CHECK (length(mensaje) <= 5000),
+  CONSTRAINT mensajes_contacto_envio_valido CHECK (envio IN ('pendiente','enviado','fallido'))
 );
 CREATE INDEX mensajes_fecha ON mensajes_contacto (created_at DESC);
 ```
+
+**Cómo quedó en E4.9 (19/10/2026):** migración `20261019-06-mensajes-contacto.js`, con las dos restricciones con nombre (las de arriba) y el índice por fecha (la lista del panel y el borrado de los de más de 180 días); modelo `MensajeContacto`, sin asociaciones. Además de los códigos de nodemailer, `error` puede ser `SIN_DESTINO` (el destino no se pudo leer: ver 8, "Lo que quedó abierto"). Un envío que pasa su tope de tiempo deja la fila en `pendiente` hasta que termina, y ahí se anota.
 
 **Galerías:** tablas con FK reales, armadas con la fábrica `definirGaleria(nombre, modeloPadre)`. Por ahora solo muestras y novedades; la de salas se suma con el módulo 4.
 
@@ -563,7 +589,7 @@ await umzug[abajo ? 'down' : 'up']()
 await sequelize.close()
 ```
 
-- **Archivos:** `20261013-01-usuarios.js`, `20261013-02-museo-visitas.js`, `20261016-03-fotos.js`, `20261016-04-salas-muestras.js` y `20261016-05-novedades.js` (hechas; las 03 a 05 llevan la fecha en que se hicieron, no la del calendario, 26/10), y `<fecha>-06-mensajes-contacto.js` con E4.9 (el calendario decía 09/11). Lo único que importa es que la fecha va adelante: el orden alfabético es el de aplicación. Cada uno exporta `up` y `down`; los `CHECK` y los índices van como SQL fijo, en una transacción. Las 03 a 05 son aditivas (el sitio en marcha no usa sus tablas): se aplicaron en `mupa_dev` con `npm run migrar` sin cortar el `npm run dev`.
+- **Archivos:** `20261013-01-usuarios.js`, `20261013-02-museo-visitas.js`, `20261016-03-fotos.js`, `20261016-04-salas-muestras.js` y `20261016-05-novedades.js` (hechas; las 03 a 05 llevan la fecha en que se hicieron, no la del calendario, 26/10), y `20261019-06-mensajes-contacto.js` (E4.9, hecha el 19/10; el calendario decía 09/11). Lo único que importa es que la fecha va adelante: el orden alfabético es el de aplicación. Cada uno exporta `up` y `down`; los `CHECK` y los índices van como SQL fijo, en una transacción. Las 03 a 06 son aditivas (el sitio en marcha no usa sus tablas): se aplicaron en `mupa_dev` con `npm run migrar` sin cortar el `npm run dev` (la 06, el 19/10/2026). La verificación de E4 la probó de ida, vuelta e ida en un esquema aislado: el `down` deja intactas las tablas de la 05 y el segundo `up` da las mismas restricciones e índices.
 - **En producción:** `preDeployCommand: npm run migrar`. Corre después del build y, si falla, aborta el deploy ([render.com/docs/deploys](https://render.com/docs/deploys), 08/10/2026).
 - **Riesgo conocido:** umzug anota la migración en `SequelizeMeta` después de que termina su `up`, fuera de su transacción. Si el pre-deploy muere justo entre el COMMIT de la migración y ese registro, la migración queda aplicada pero figura pendiente, y el deploy siguiente falla al repetirla (la tabla ya existe). Arreglo a mano, desde el Shell de Render: comprobar que el esquema tiene lo de esa migración y registrarla con `INSERT INTO "SequelizeMeta" (name) VALUES ('<archivo>.js')` (anotado en la verificación de E1, 13/10/2026).
 - **Regla expand/contract:** mientras corre el pre-deploy la versión anterior sigue sirviendo. Una columna nueva entra nullable o con default, y lo que se saca se borra en una migración posterior.
@@ -573,7 +599,7 @@ await sequelize.close()
 ### 3.4 Datos iniciales
 
 - **En la migración 02**, que va a producción: la fila `museo` vacía y los 7 días cerrados. No se inventa ningún dato del museo.
-- **`semillas/ejemplo.js`**, solo local (no corre con `NODE_ENV=production`) y crece con cada migración: contenido marcado "EJEMPLO ·", con 2 salas, 3 muestras (actual, próxima y finalizada), 4 novedades (una actividad pasada y otra futura), tarifas, horarios y 3 mensajes de contacto (uno fallido). **E3.3 (16/10/2026):** las salas, muestras y novedades están, publicadas, con las fechas corridas desde hoy y portadas de un color liso hechas con sharp; al repetirla se reemplazan y sus fotos se liberan. La guarda no acepta una URL de la base con parámetros, así que no corre contra un esquema aislado (`?options=-c search_path=…`): la prueba es `contenido.test.js`, que la corre dos veces. En `mupa_dev` no se corrió la versión de E3. Los mensajes de contacto, con E4.9.
+- **`semillas/ejemplo.js`**, solo local (no corre con `NODE_ENV=production`) y crece con cada migración: contenido marcado "EJEMPLO ·", con 2 salas, 3 muestras (actual, próxima y finalizada), 4 novedades (una actividad pasada y otra futura), tarifas, horarios y 3 mensajes de contacto (uno fallido). **E3.3 (16/10/2026):** las salas, muestras y novedades están, publicadas, con las fechas corridas desde hoy y portadas de un color liso hechas con sharp; al repetirla se reemplazan y sus fotos se liberan. La guarda no acepta una URL de la base con parámetros, así que no corre contra un esquema aislado (`?options=-c search_path=…`): la prueba es `contenido.test.js`, que la corre dos veces. En `mupa_dev` no se corrió la versión de E3. **E4.9 (19/10/2026):** suma 3 mensajes de contacto marcados "EJEMPLO ·", uno `fallido`, de hace unas horas; al repetirla también se reemplazan. Tampoco se corrió en `mupa_dev`.
 - **Primer admin:** `npm run crear-admin -- --email … --nombre …` desde el Shell de Render. Crea la cuenta con una contraseña temporal que imprime una sola vez en la terminal. No queda ninguna contraseña en variables ni en los logs.
 
 ### 3.5 Preparado para el plano (módulo 4)
@@ -663,12 +689,12 @@ Van bajo `/administracion/api`, montadas después de `/sesion`, con `requiereSes
 | PUT | `/muestras/:id/galeria`, `/novedades/:id/galeria` | editor | `{fotos:[id], antes?:[id]}` en orden, hasta 40. Con `antes`, 409 si otra persona la cambió |
 | POST | `/fotos` | editor | multipart (sección 7): `foto` y `alt`, `decorativa`, `epigrafe`, `credito`. 201 con la foto |
 | PATCH | `/fotos/:id` | editor | `{alt?, decorativa?, epigrafe?, credito?}`. La portada de algo no puede pasar a decorativa (400, desde E3.3) |
-| GET | `/mensajes` | admin | Solo lectura, de la más nueva a la más vieja, `?pagina=` (50 por página) |
-| GET | `/estado` | editor | Para el Inicio: "Para completar", un solo admin, estado del correo (8), tareas fallidas y el espacio de la base. **E2.2:** devuelve códigos, no textos (`{ paraCompletar, unSoloAdmin, correo, tareasFallidas }`; los textos los pone el panel), en una sola consulta; `unSoloAdmin` llega a los dos roles y el correo de destino figura en `paraCompletar` solo para un admin. **E3.1:** suma `espacio: { usadoMb, totalMb }` (`pg_database_size` contra `ESPACIO_BASE_MB`, a los dos roles); el Inicio avisa desde el 80 %. Era el lugar de las "fotos faltantes" del disco |
+| GET | `/mensajes` | admin | Solo lectura, de la más nueva a la más vieja, `?pagina=` (50 por página). **E4.9 (19/10/2026):** `{ items, total, pagina, por, paginas }`, cada uno `{ id, fecha, nombre, email, mensaje, envio, error }` (`envio`: `pendiente`, `enviado` o `fallido`; `error`, el código); una `?pagina=` que no es un entero de 1 a 100.000, 400 en el campo; una editora, 403 |
+| GET | `/estado` | editor | Para el Inicio: "Para completar", un solo admin, estado del correo (8), tareas fallidas y el espacio de la base. **E2.2:** devuelve códigos, no textos (`{ paraCompletar, unSoloAdmin, correo, tareasFallidas }`; los textos los pone el panel), en una sola consulta; `unSoloAdmin` llega a los dos roles y el correo de destino figura en `paraCompletar` solo para un admin. **E3.1:** suma `espacio: { usadoMb, totalMb }` (`pg_database_size` contra `ESPACIO_BASE_MB`, a los dos roles); el Inicio avisa desde el 80 %. Era el lugar de las "fotos faltantes" del disco. **E4.9:** `correo` pasa a `{ estado: 'sin_configurar' | 'ok' | 'falla', formulario, desde, codigo, sinEnviar }`, a los dos roles y en la misma consulta: `falla` si la casilla falló en su última prueba o envío, o si hay mensajes `fallido` después del último `enviado`; `formulario`, si el sitio lo dibuja (casilla y destino). Nunca direcciones: códigos, fechas y cantidades |
 
 No hay `/copia/fotos`: era la copia de las fotos en disco (E3.6), que con 16.1 no existe (las fotos van en las copias de la base).
 
-`server/api/contenido.js` es una fábrica (modelo, esquema, galería) que arma las rutas de los tres tipos. `api/indice.js` exporta la tabla `[{metodo, ruta, rol}]`, que recorre `permisos.test.js` (al cerrar E3: 22 rutas con cuerpo, 23 con `:id` y 5 de admin).
+`server/api/contenido.js` es una fábrica (modelo, esquema, galería) que arma las rutas de los tres tipos. `api/indice.js` exporta la tabla `[{metodo, ruta, rol}]`, que recorre `permisos.test.js` (al cerrar E3: 22 rutas con cuerpo, 23 con `:id` y 5 de admin; con `GET /mensajes`, desde E4.9, 6 de admin). Desde E4.6, las rutas que publican, despublican, eliminan o cambian algo publicado le avisan a IndexNow (`ctx.indexNow`, 6.5); nunca por un borrador.
 
 **Cómo quedaron las rutas de contenidos (E3.3 y E3.4, 16/10/2026):** las rutas van con el nombre del tipo (`/novedades/:id`, no `/:tipo/:id`), así cada una entra sola en `permisos.test.js`. El listado devuelve `{ items, total, pagina, por, paginas }`, sin los textos con formato ni la galería; acepta `?tipo=` (noticia/actividad, temporal/permanente) y `q` busca en el título (nombre), la dirección y el resumen; novedades de la más nueva a la más vieja (publicación o, si no, creación), salas y muestras en su orden. El alta lleva el título (y el tipo: noticia y temporal si no viene); la dirección sale del título y, si ya está, `-2`, `-3`… (las altas de un tipo van de a una —`LOCK TABLE` en salas y muestras, como las tarifas; un `pg_advisory_xact_lock` en novedades—, y si choca con un cambio de dirección hecho a la vez, se repite). Salas y muestras nuevas van al final del orden. El PUT recibe el esquema completo (un campo que falta, 400); una dirección vacía en un borrador se vuelve a armar con el título; otra dirección en algo que ya se publicó alguna vez, 409 en `slug`. La ficha (GET, PUT, publicar, despublicar, galería) trae los campos, `portada` y `galeria` con los datos de cada foto, `estado`, `publicadoEn`, `slugFijo` y `ultimaEdicion`. Portada, fotos de la galería o sala que ya no existen: 409 en su campo ("volvé a subirla"); se bloquean con `FOR KEY SHARE` hasta el commit. La hora de una actividad va y viene como `AAAA-MM-DDTHH:MM` de San Juan. `PUT /salas/orden` y `/muestras/orden` (`{ids}` con todas; si no, 409) van antes de su `:id` y responden la lista; no cambian la última edición. Desde E3.3, `PATCH /fotos/:id` no deja pasar a decorativa la portada de nada (400). **Corrección de E3 (16/10/2026):** el PUT de un contenido admite 300 kB y, opcional, `portadaAntes` (la portada con que se abrió la ficha: si otra persona la cambió y este pedido no la tocó, queda la suya; si las dos la cambiaron, gana este pero la otra no se borra en el momento); la galería, `antes` (si otra persona la cambió mientras tanto, 409 en `fotos`, en vez de borrar para siempre lo que agregó); el 409 de una foto que ya no está trae `faltan` (los ids), que el panel marca en la galería.
 
@@ -733,7 +759,7 @@ const ok = sitio ? sitio === 'same-origin' : (origen != null && permitidos.inclu
 if (!ok) throw httpError(403, 'Origen no permitido')
 ```
 
-- Es la misma regla para el panel y el formulario: los dos están en el mismo origen.
+- Es la misma regla para el panel y el formulario: los dos están en el mismo origen. **E4.5:** la regla es `crearVerificadorDeOrigen` (`server/seguridad.js`); la API la usa con su 403 en JSON y `POST /contacto` con una página 403 simple, sin línea en el log.
 - `same-site` se rechaza: solo hace falta `same-origin`, y `same-site` incluiría cualquier otro subdominio de `mupa.ar`.
 - **Lo que no cubre:** un script que corre en una página pública del mismo origen llega como `same-origin`. Es el riesgo aceptado de 9.
 - No se usa el paquete `cors`. Las rutas JSON exigen `Content-Type: application/json`, salvo `POST /administracion/api/fotos` (multipart: la lista `MULTIPART` de `server/seguridad.js`, E3.1). El CSRF corre igual en el multipart, antes de multer.
@@ -748,14 +774,20 @@ Fuente: [OWASP CSRF](https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_R
 |---|---|---|
 | `POST /administracion/api/sesion` | 10 cada 15 min | IP |
 | `POST /administracion/api/sesion` | 5 **fallidos** cada 15 min (un ingreso correcto los pone en cero: no se acumulan entre ingresos buenos) | correo + IP: nadie puede dejar afuera al titular desde otra IP |
-| `POST /contacto` | 5 por hora; 50 por día en total | IP; contador global |
+| `POST /contacto` | 5 por hora; 50 por día en total (desde E4.5, el día de San Juan: vuelve a cero a la medianoche) | IP; contador global |
 | `POST /administracion/api/fotos` | 60 por hora (cuentan también las subidas rechazadas; va antes de multer: con un archivo de 25 MB, 429 y no 413) | usuario. Además, como mucho 3 subidas en curso entre todas las cuentas (`cola.reservar()`, 7): la cuarta, 503 |
 | `PUT /administracion/api/cuenta/clave` | 5 con la contraseña actual **equivocada** cada 15 min (el cambio correcto los pone en cero; una nueva que no cumple las reglas no cuenta) | usuario: con una sesión robada no se puede probar la contraseña de a miles (sumado en la corrección de E1, 13/10/2026) |
 | `/administracion/api/*` con sesión | 300 por minuto | usuario |
 
 - **Los 50 por día del formulario** quedan por debajo del límite de la casilla de envío (100 por día en el correo gratuito de Hostinger, ver 8). Un reinicio solo pone el contador en cero.
 - La respuesta 429 dice "Demasiados intentos. Esperá 15 minutos" (en Contacto, "Probá mañana o escribinos a <correo público>"). Es una espera, nunca un bloqueo permanente. **Depende de que `trust proxy` esté bien** (10.1).
-- El log lleva una sola línea por ventana y clave (el primer pedido bloqueado: `limite_ingreso_ip`, `limite_ingreso_correo`, `limite_clave_actual`, `limite_usuario` y, desde E3.1, `limite_fotos`), sin la IP ni el correo (corrección de E1, 13/10/2026).
+- El log lleva una sola línea por ventana y clave (el primer pedido bloqueado: `limite_ingreso_ip`, `limite_ingreso_correo`, `limite_clave_actual`, `limite_usuario`, desde E3.1 `limite_fotos` y desde E4.5 `limite_contacto_ip` y `limite_contacto_dia`), sin la IP ni el correo (corrección de E1, 13/10/2026).
+- **Cómo quedaron los de `POST /contacto` (E4.5 y la corrección de E4, 20/10/2026; `crearLimitesDeContacto`):**
+  - Van **después** del esquema y del mensaje repetido (8): un error de validación o un doble clic no gastan intentos.
+  - **Todo pedido válido que llega cuenta, y nunca se descuenta** (sin `skipFailedRequests`). Con el descuento, express-rate-limit devolvía el lugar del pedido cuya conexión se cortaba antes de la respuesta, pero el mensaje se guardaba y salía igual: cortando la conexión se mandaron 76 mensajes contra un tope de 50 (COD-01 de la verificación, severidad alta). Un 503 (la base y el correo caídos a la vez) también cuenta.
+  - No responden ellos: marcan el pedido y la página se vuelve a dibujar con lo escrito, el aviso y `Retry-After` (429).
+  - **Sin las cabeceras `RateLimit`** (CON-03): la del límite de todos publicaba cuántos mensajes recibió el museo en el día.
+  - Queda, de severidad baja (CON-10): el `Retry-After` del límite de 50 por día sale del primer pedido más 24 h y no de la medianoche de San Juan, cuando vuelve a cero el contador (llega a decir casi un día cuando faltan horas; la página dice "Probá mañana", que está bien). Arreglo: calcularlo hasta las 00:00 del día siguiente con `instanteDeLocal`.
 
 ### 4.8 Quién cambió qué
 
@@ -796,6 +828,8 @@ Fuente: [OWASP CSRF](https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_R
 - **La barra fija** (desde lg): un `ResizeObserver` en `Marco.jsx` pone `--alto-barra` y `scroll-padding-top` es `calc(var(--alto-barra) + 1rem)`: con Novedades y Exposiciones, entre 1024 y ~1180 px la barra pasaba a dos filas y tapaba el foco con Mayús+Tab (WCAG 2.4.11). Entre lg y xl, "Mi cuenta" va sin el nombre.
 - **Cambios sin guardar con detalle** (el `useCambiosSinGuardar(sucio, detalle)` de la corrección de E2): en una ficha dice qué falta, entre los datos de la ficha, las fotos o el orden de la galería, los datos de una foto y las fotos elegidas que todavía no se subieron ("Falta guardar: los datos de la ficha y los datos de una foto.").
 
+**Lo que E4 agregó o cambió (19-20/10/2026):** la pantalla Mensajes (E4.9, 5.2) y el aviso del correo en el Inicio (8); `Pendiente.jsx`, que ya no usaba ninguna ruta, se borró. El principal pasó a 577.027 B (148 kB con Brotli) y 22.197 B de CSS; el editor sigue en 406.999 B. Partirlo sigue siendo decisión del desarrollador (COD-07 de E3).
+
 **Subida de fotos:** con `XMLHttpRequest`, para mostrar el progreso ("Subiendo… 45 %" y después "Procesando foto…"). Antes, el navegador la achica (5.5 y 7).
 
 ### 5.2 Pantallas (bajo `/administracion`)
@@ -812,7 +846,7 @@ Las rutas de la tabla son relativas a `/administracion`: `/novedades` es `https:
 | `/muestras/:id`, `/salas/:id` (+ `/muestras/nueva`, `/salas/nueva`) | Ficha | editor | 5.3 |
 | `/visitas` | Visitas | editor | Horario semanal, Tarifas, Textos, Aviso y Compra de entradas |
 | `/museo` | Datos del museo | editor | Contacto, dirección, mapa, redes. El correo de destino, solo para admin |
-| `/mensajes` | Mensajes | admin | Lista de solo lectura del formulario (8) |
+| `/mensajes` | Mensajes | admin | Lista de solo lectura del formulario (8). **E4.9:** la página en la dirección (`?pagina=2`: Atrás vuelve a la misma; una que no es un número es la primera, una que pasa del total lo dice y lleva a la primera); al cambiar de página, la cuenta se anuncia y recibe el foco, como en Novedades. Cada mensaje con la fecha, el nombre, el correo (`mailto:`), el texto y "Enviado por correo", "No se pudo enviar por correo" (con el código) o "Envío sin confirmar" (`pendiente`: el proceso se cortó entre el guardado y el envío) |
 | `/usuarios` | Usuarios | admin | Alta (nombre, correo, rol) con el diálogo de la temporal; "Dar contraseña temporal"; rol; activar o desactivar; cerrar sesiones (sin copia de fotos: van en la base, 16.1) |
 | `/cuenta` | Mi cuenta | editor | Nombre, contraseña, cerrar sesión en todos lados |
 
@@ -821,6 +855,8 @@ Las rutas de la tabla son relativas a `/administracion`: `/novedades` es `https:
 **Al cerrar E2 (14/10/2026):** la barra tiene Inicio, Visitas, Datos del museo y Usuarios (Novedades y Exposiciones entran con E3.3 y E3.4, Mensajes con E4.9 y Ayuda con E6.2, en `panel/src/navegacion.js`); el enlace dice "Mi cuenta", con el nombre desde pantallas medianas. `/cambiar-clave` sirve también para el cambio voluntario, aunque Mi cuenta ya tiene su propio formulario de contraseña. En el celular el Tab recorre las secciones antes que Mi cuenta y Salir (el orden de escritorio), a propósito. Una cuenta desactivada no puede entrar (4.4): Usuarios le ofrece "Activar" y no "Dar contraseña temporal", y la API rechaza esa temporal con 409 (corregido el 14/10/2026).
 
 **E3.3 y E3.4 (16/10/2026):** la barra suma Novedades y Exposiciones (las fichas de muestras y salas la marcan como Exposiciones, con `aria-current="true"`). El alta tiene pantalla propia en los tres tipos (`/novedades/nueva`, `/muestras/nueva`, `/salas/nueva`: tipo y título; crea el borrador y sigue en la ficha); `/muestras` y `/salas` solos llevan a Exposiciones. Novedades: filtros de estado y tipo y búsqueda en la dirección del panel, de a 20, tabla desde md y tarjetas en el celular. Exposiciones: pestañas Muestras y Salas (patrón de ARIA; la elegida en `?pestana=`; cambiar de pestaña no vuelve a pedir las listas), cada una con Subir y Bajar. El Inicio suma los accesos a las dos. **Corrección de E3:** la cantidad de cada pestaña sale de la lista que se ve, y después de un 409 del orden (otra persona agregó o borró una) la lista se vuelve a pedir y el aviso dice que ya está actualizada. Queda, menor: cada lista copia lo del loader al montarse, así que si el router recarga la pantalla sin desmontarla (un reingreso con otro rol) sigue con lo que tenía hasta volver a entrar.
+
+**E4.9 (19/10/2026):** la barra suma Mensajes para admin (`panel/src/navegacion.js`), y el Inicio, su acceso directo (para admin) y el estado del formulario de contacto ("está en el sitio", "falta el correo al que llegan los mensajes" o el aviso del correo). Ayuda sigue esperando el manual (E6.2).
 
 ### 5.3 Campos por tipo
 
@@ -854,6 +890,7 @@ Las rutas de la tabla son relativas a `/administracion`: `/novedades` es `https:
 - **Botones:** en un borrador, "Guardar borrador" y "Publicar". En una publicada, "Guardar cambios" (aclara que salen al sitio al instante), "Ver en el sitio" y "Despublicar". "Ver en el sitio" abre la página pública con una ruta relativa (mismo host): antes del corte, en `mupa-web.onrender.com`; después, en `mupa.ar`.
 - **Eliminar:** un `<dialog>` nativo con `showModal()` que nombra lo que se borra y propone: "Si solo querés que no se vea, despublicala".
 - **Cómo quedó en E3.3 a E3.5 (16/10/2026):** "Publicar" valida en el panel con el mismo esquema y `problemasParaPublicar`, guarda lo que cambió y publica; el foco pasa a "Despublicar" (y al revés). "Despublicar" pregunta antes. "Ver en el sitio" espera a las páginas de E4 (`PAGINAS_PUBLICAS_DE_CONTENIDO`, en `compartido/contenidos.js`). Guardar manda la ficha y, si cambió, la galería (dos pedidos). Eliminar: el diálogo dice qué pasa con las fotos y, si está publicada, ofrece "Despublicarla en vez de eliminarla"; después vuelve al listado con el aviso. La pregunta por los cambios sin guardar de una ficha dice qué falta (los datos, la galería, los datos de una foto o fotos elegidas sin subir). **Corrección de E3:** después de guardar, lo que devuelve el servidor va solo a los campos que no se tocaron mientras tanto (`fusionarGuardado` de `pantallas/contenido/valores.js`; antes lo escrito durante el guardado se perdía sin aviso), y el panel manda la galería y la portada con las que abrió la ficha (`antes`, `portadaAntes`: 4.3). **Hasta E4 el panel no dice que algo "ya está en el sitio"**: con `PAGINAS_PUBLICAS_DE_CONTENIDO` apagada, publicar dice "Publicada. Las páginas de novedades y exposiciones del sitio todavía no están: lo publicado se va a ver ahí cuando se sumen." (`textosDelSitio` de `panel/src/contenidos.js`). Quedan dos frases del mismo tipo, de severidad baja: la ayuda de "Eliminar" en una ficha publicada ("Si solo querés que no se vea en el sitio, despublicala.") y la de Visitas ("Todo se ve en el sitio en cuanto se guarda.", de E2); el pie y la página de Visitas llegan con E4.
+- **Desde E4 (19/10/2026):** `PAGINAS_PUBLICAS_DE_CONTENIDO` está en `true`: las fichas publicadas muestran "Ver en el sitio" (ruta relativa: `/novedades/<slug>`, `/exposiciones/<slug>` o `/exposiciones#sala-<slug>`) y `textosDelSitio` dice que lo publicado ya está en el sitio. Las dos frases de arriba pasaron a ser ciertas (FLU-04 de E3, resuelto).
 - **Ediciones simultáneas:** gana el último guardado. El manual pide no editar la misma ficha a la vez; el aviso con control de versión está en la fase 2.
 - **Cambios sin guardar:** `useBlocker` al cambiar de pantalla, más `beforeunload`. React Router admite un solo bloqueo por vez: una pantalla con varios formularios (Visitas, Mi cuenta) junta el `sucio` de cada uno en un solo `useCambiosSinGuardar` (E2, 14/10/2026); el diálogo de una tarifa cuenta, y con algo escrito Escape pregunta antes de descartar.
 
@@ -864,7 +901,7 @@ Las rutas de la tabla son relativas a `/administracion`: `/novedades` es `https:
 - **El esquema (`compartido/esquemas/textoRico.js`):** de forma fija (documento > lista > elemento > párrafo > texto: la profundidad no pasa de cinco); hasta 300 párrafos, subtítulos o elementos de lista y 20.000 caracteres; devuelve la **forma canónica** (sin párrafos ni elementos vacíos, textos seguidos con las mismas marcas juntos, marcas en orden fijo, `start` solo si no es 1), que es la que se guarda y la que compara el panel para saber si hay cambios sin guardar; vacío, null; un error por campo, con un mensaje para la persona.
 - Barra: Negrita, Cursiva, Subtítulo, Lista, Lista numerada, Enlace (en un `<dialog>`) y Deshacer, con `aria-pressed`.
 - Se guarda `editor.getJSON()`. El servidor lo valida con zod: nodos `doc`, `paragraph`, `heading` (nivel 2), `bulletList`, `orderedList`, `listItem`, `text` y `hardBreak`; marcas `bold`, `italic` y `link` (`https:`, `http:`, `mailto:` o `tel:`; 500 caracteres como máximo); hasta 300 bloques; las claves desconocidas se descartan. **Cómo quedó (E3.2):** el esquema no es recursivo sino de forma fija (arriba), y lo que se guarda es la forma canónica, no el JSON del editor. El panel manda `completarEnlaces(editor.getJSON())` (no la forma canónica: ver COD-09 en 2.4).
-- El sitio lo dibuja `TextoRico.jsx` sin HTML crudo, con `<strong className="font-bold">` (por la trampa de `bolder` sobre el peso 300 que documenta CLAUDE.md). **E3.2:** vuelve a mirar cada enlace (`esEnlacePermitido`, sin zod), elige el nivel de los subtítulos (`nivelSubtitulo`) y recibe las clases de la página (`clases`): no trae estilos propios, porque una clase nueva en `src/` cambiaría el CSS del sitio. Hoy no lo usa ninguna página (llega con E4.3).
+- El sitio lo dibuja `TextoRico.jsx` sin HTML crudo, con `<strong className="font-bold">` (por la trampa de `bolder` sobre el peso 300 que documenta CLAUDE.md). **E3.2:** vuelve a mirar cada enlace (`esEnlacePermitido`, sin zod), elige el nivel de los subtítulos (`nivelSubtitulo`) y recibe las clases de la página (`clases`): no trae estilos propios, porque una clase nueva en `src/` cambiaría el CSS del sitio. **Desde E4** lo usan la descripción de las salas en Exposiciones, las fichas de muestras y novedades y los tres textos de Visitas, en su propio archivo JS (6.2); las clases las pone cada página (las listas con `list-disc`/`list-decimal` y sangría, lo largo con `wrap-anywhere`) y los subtítulos van un nivel debajo del título de su sección.
 
 ### 5.5 Fotos en el panel
 
@@ -910,7 +947,7 @@ Todas se arman en el servidor en cada pedido y se hidratan en el navegador.
 | `/visitas` | Visitas | Horario, tarifas visibles, textos, aviso vigente, compra externa, "hoy" | `Museum` con `openingHoursSpecification` |
 | `/novedades` | Novedades | "Próximas actividades" y las publicadas por fecha, 12 por página (`?pagina=`) | `Museum` |
 | `/novedades/:slug` | Novedad | La novedad y su galería | `Museum` + `NewsArticle` |
-| `/contacto` | Contacto | `museo`. Lee `?enviado=1`. El POST responde con `no-store` | `Museum` |
+| `/contacto` | Contacto | `museo`. Lee `?enviado=1` (quedó `?enviado=<marca>`: abajo). El POST responde con `no-store` | `Museum` |
 | todo lo demás | NoEncontrada | — | — |
 
 **Reglas:**
@@ -918,6 +955,17 @@ Todas se arman en el servidor en cada pedido y se hidratan en el navegador.
 - **Paginación:** `?pagina=1` responde 301 a `/novedades`. Una página que no es un entero ≥ 2 o que pasa del total da 404.
 - Una sección sin contenido no se dibuja. Nunca se muestra "Contenido pendiente".
 - **El cambio de DNS no se hace sin el contenido mínimo** (12.6).
+
+**Cómo quedó en E4.2 a E4.5 (19/10/2026; `server/paginas.js` y `server/contenido-publico.js`):**
+- **Aspecto provisorio** (decisión del desarrollador del 19/10/2026): la diseñadora todavía no entregó las páginas internas, así que van con el lenguaje de la Home (las fuentes, la paleta, el ancho del contenido y los tamaños y pesos de títulos y párrafos), sin efectos de scroll ni animaciones nuevas, en componentes chicos que dicen en su encabezado que su aspecto es provisorio (E6.3 cambia clases y orden sin tocar datos ni lógica). Los textos de interfaz (títulos de sección, rótulos, botones, mensajes) están en `src/content.js`, neutros y mínimos.
+- **Una consulta por página**, solo lo publicado, con las columnas escritas a mano; de las fotos, solo sus 8 campos públicos (`fotoPublica`). Los textos con formato pasan por `textoRicoPublicable`, con lo validado recordado por su md5. Fechas, situaciones, "Hoy (lunes)" y precios llegan como texto.
+- **`/exposiciones`:** una sola lista de muestras en el orden del panel (las próximas, las actuales y las permanentes, como promete el panel), cada tarjeta con su situación ("Actual", "Próxima", "Permanente") y su período, en vez de secciones separadas por situación. Después, las salas publicadas como secciones `#sala-<slug>`, con su descripción y la lista de sus muestras.
+- **`/exposiciones/:slug`:** la muestra, su sala, la portada, la descripción y la galería; finalizada, 200 con "Finalizó el …" y fuera del listado.
+- **`/visitas`:** la tabla del horario (con "Hoy (lunes)"), las tarifas visibles ("Gratis" en las gratuitas), sus notas, el aviso vigente, "Comprar entradas" si la compra está activa y los tres textos. Si ningún día abre (lo que deja la migración sin horario cargado), la tabla no se dibuja.
+- **`/novedades`:** la lista paginada, de a 12, tiene **solo las noticias**; las actividades van en "Próximas actividades", en la primera página, mientras no se realizaron. Así una actividad no sale dos veces. Una realizada da 200 en su página, con "Realizada" y sin el enlace de inscripción, y no se lista.
+- **`/contacto`:** los datos del museo (dirección, teléfono, correo público, redes y el mapa de "Insertar mapa", más "Abrir en Google Maps") y el formulario (8). **El aviso de enviado no lee `?enviado=1`** sino `?enviado=<marca>`: la hora firmada por el servidor (HMAC con una clave por proceso), que vale 10 minutos; con `?enviado=1`, una marca vencida o una inventada, la página es la de siempre y no se cuenta `enviar_contacto` (CON-04 y COD-02 de la verificación de E4: una dirección guardada o compartida decía "Recibimos tu mensaje").
+- **La 404** va dentro del Layout, con "Volver al inicio" y las cuatro secciones; no marca ninguna como actual, aunque su dirección empiece como una sección.
+- **Si la base falla:** la Home sale como siempre; las demás, la 503 simple (6.3). Visitas y Contacto también si el museo no es el de ahora.
 
 ### 6.2 Estado e hidratación
 
@@ -931,11 +979,18 @@ Todas se arman en el servidor en cada pedido y se hidratan en el navegador.
 - **Un solo bundle público**, que no puede importar zod: el formulario valida con atributos HTML. `rutas-check` busca zod en `dist/client/assets/*.js`. TipTap nunca entra en el bundle público.
 - **Si el JS de la Home pasa de 342 kB** (+10 % sobre los 310.936 bytes de hoy): se separan las páginas con `import()` dinámico y `build.manifest`, con `modulepreload` por página, y **sin `React.lazy`** (en el servidor se hace `await import()` del módulo antes de `renderToString`, y en el cliente, antes de `hydrateRoot`; con `lazy`, el SSR emitiría el fallback y se perdería el contenido).
 
+**Cómo quedó en E4 (19-20/10/2026):**
+- **El estado:** `estado.museo` es `museoComun(museo)`, sin los tres textos de Visitas (van en los datos de `/visitas`); `estado.userway` es el ID o `null`.
+- **Las páginas se separaron antes de llegar al tope** (desvío): con todas en un solo bundle el JS medía 336.924 B y quedaban ~5 kB para Contacto y UserWay. Como dice el punto de arriba: `PAGINAS` y `ARCHIVOS_DE_PAGINAS` en `src/Raiz.jsx` (`cargarPagina`), `render` async en `src/entry-server.jsx`, `cargarPagina` antes de `hydrateRoot` en `src/main.jsx`, el manifiesto del build y `precargasDePaginas` en `server/ssr.js`. La 404 va en el bundle principal (es chica y es la de respaldo). Una página nueva va en la tabla de rutas del servidor, en `PAGINAS` y en `ARCHIVOS_DE_PAGINAS` (`ssr.test.js` falla si falta en alguna).
+- **Al cerrar E4** (medido sobre el build final): la Home baja 327.395 B de JS (el principal, 277.037, más su archivo, 50.358; ~89,7 kB con Brotli), 15 kB debajo del tope, y las internas entre 282 y 287 kB (el principal más su página y lo que comparte: `Seccion`, `estilos`, `Ficha`, `TextoRico`); la Home hace un pedido JS más que en E3. CSS: 56.416 B (10,3 kB con Brotli). Ningún archivo público lleva zod, TipTap, ProseMirror, nodemailer ni nada de `/administracion` (buscado en el build).
+- **El formulario valida con atributos HTML** (`required`, `minLength`, `maxLength`, `type="email"`, con los topes de `compartido/contacto.js`, sin zod); la validación de verdad es la del servidor (8).
+
 ### 6.3 "Los cambios se ven al instante"
 
 - **Sin caché de HTML:** cada pedido lee la base y renderiza. Lo que se guarda en el panel se ve en el pedido siguiente, y lo que cambia solo con el tiempo ("Próxima" → "Actual", el día de hoy) también.
 - **Cabeceras:** HTML con `Cache-Control: no-cache` y ETag (304). **Nunca se cachea en el borde:** Edge Caching de Render en "Common static files", que deja afuera el HTML ([web-service-caching](https://render.com/docs/web-service-caching), 08/10/2026). Las respuestas públicas **nunca ponen cookies**.
-- **Si la base falla:** la Home sale con el último `museo` bueno o con el pie mínimo; las demás rutas, una página 503 simple.
+- **Si la base falla:** la Home sale con el último `museo` bueno o con el pie mínimo; las demás rutas, una página 503 simple. **Cómo quedó (E4):** la 503 simple lleva `no-store` y `Retry-After: 60`; lo publicado espera la base 4 s como mucho y el museo 2 (con la base colgada, medido por la verificación de E4 con un proxy TCP delante de Postgres: la Home en 2 s como mucho y las internas y el sitemap en 503 en 4 s, y todo vuelve solo cuando la base contesta).
+- **Lo que cambia con el tiempo** (una muestra que pasa de "Próxima" a "Actual", "Hoy (lunes)", una actividad "Realizada") se calcula con "hoy" y "ahora" de San Juan una vez por pedido, en el servidor; la verificación lo probó con el proceso en UTC+14 y con el reloj corrido a las 23:30 y a las 00:30 de San Juan.
 - **Si hiciera falta caché** (CPU alta en Metrics o TTFB peor que el criterio de 10.1): una caché corta de la Home, de pocos segundos (ver 14).
 
 ### 6.4 SEO por página
@@ -955,6 +1010,13 @@ Todas se arman en el servidor en cada pedido y se hidratan en el navegador.
 - **`ExhibitionEvent` y `Event` quedan para la fase 2:** Google exige un `Place` con `address` ([datos estructurados de eventos](https://developers.google.com/search/docs/appearance/structured-data/event), actualizada el 08/09/2026) y la dirección todavía no está.
 - Se valida con la Prueba de resultados enriquecidos en E4.6.
 
+**Cómo quedó en E4.6 (19/10/2026; `server/seo.js`, `seoDe` por página):**
+- Título `<Título> · MuPa`; descripción, el resumen cortado en una palabra (`cortarEnPalabra`, hasta 160) y, en las páginas fijas, **una línea neutra por página sin datos del museo** (desvío: el plan solo habla del resumen), por ejemplo "Horario, tarifas y lo que hay que saber para visitar el Museo Paleontológico de San Juan."; **hay que validarlas con el museo**, como la de la Home. Las páginas 2 en adelante de Novedades llevan su canonical (`/novedades?pagina=n`).
+- `og:image` con el `og.jpg` de la portada y sus medidas reales (`medidasOg`), o `/og.jpg`; las novedades suman `article:published_time` y `article:modified_time`.
+- **`Museum`** en todas, con dirección, teléfono, correo, redes (`sameAs`) y el horario por franja **solo si están cargados**: con el museo vacío, el `<head>` de la Home es idéntico byte a byte al de antes.
+- **`NewsArticle`**: `author` y `publisher` van como `Organization` con el nombre, la URL y el logo del museo, no como `@id` al nodo `Museum` (desvío: en schema.org un `Museum` es un lugar, y `author`/`publisher` piden `Person` u `Organization`).
+- **La Prueba de resultados enriquecidos no se pudo correr** (necesita una URL pública): queda para Render o `mupa.ar` (E5.2). Lo comprobado acá: el JSON-LD parsea, con `@id` absolutos y sin campos vacíos, también con `</script>`, `$'`, `$&`, `$$` y U+2028 en los textos.
+
 ### 6.5 Sitemap, robots, 404 y Search Console
 
 - **`/sitemap.xml`:** las rutas fijas y las muestras y novedades publicadas (también las finalizadas), con `lastmod = updated_at`. Nunca `/administracion`. En hosts que no son `mupa.ar` responde igual, pero nadie lo envía.
@@ -970,14 +1032,22 @@ Todas se arman en el servidor en cada pedido y se hidratan en el navegador.
 - **404:** estado 404 real, con Layout y enlaces a las secciones.
 - **Search Console:** `/google19017c966a32aec2.html` se sigue sirviendo desde `public/`, así la propiedad actual (prefijo de URL) sigue verificada después del corte. La **propiedad de dominio** (un TXT en Hostinger, que sobrevive a cualquier hosting) es opcional y queda para después del corte, porque necesita a la persona del museo con acceso a hPanel (11.3).
 
+**Cómo quedó en E4.6 (19/10/2026):**
+- **El sitemap** se lee en cada pedido (`no-cache`, como el HTML: lo publicado entra en el pedido siguiente): las páginas fijas, sacadas de la tabla de rutas (`RUTAS_FIJAS`), y las muestras y novedades publicadas, también las finalizadas o realizadas, con su `lastmod`. **Si la base falla, 503** (`no-store`, `Retry-After: 60`): uno sin los contenidos le diría al buscador que ya no están. Era `public, max-age=3600`.
+- **IndexNow** (opcional, no estaba en el plan; `server/indexnow.js`): para Bing, que conoce `mupa.ar` pero todavía no lo rastrea. Con `INDEXNOW_CLAVE`, el sitio sirve `/<clave>.txt` y, al publicar, despublicar, eliminar o guardar un cambio o la galería de algo publicado, le avisa a `api.indexnow.org` la página y su listado (una sala, solo `/exposiciones`). Nunca por un borrador, ni al reordenar, ni por los cambios del museo (Visitas, pie). Solo en producción y con el host `mupa.ar`; no espera la respuesta, tiene 5 s de tope y escribe una línea de log con la cantidad de direcciones, sin las direcciones. La URL de la API es fija (sin SSRF). Probado solo con un fetch falso: ningún pedido salió. Se prende poniendo la clave en Render.
+
 ### 6.6 GA4 y UserWay
 
 **GA4** (`analitica.js`):
 - `iniciarAnalitica(estado)` mide solo si `estado.medir` (producción y host `mupa.ar`). Mantiene las condiciones de `webdriver`, DNT y GPC.
 - `page_view` en cada carga. **`ver_*` y `abrir_*` solo si `estado.pagina === 'home'`**: hoy `medirSecciones()` busca cualquier `<footer>`, y las páginas internas, que son cortas, dispararían `ver_pie`.
-- Se suman `enviar_contacto` (al cargar `/contacto?enviado=1`) y `clic_entradas`. Nunca en el panel.
+- Se suman `enviar_contacto` (al cargar `/contacto?enviado=1`; quedó con la marca de 6.1, abajo) y `clic_entradas`. Nunca en el panel.
 
 **UserWay:** `https://cdn.userway.org/widget.js` con `data-account`, cargado con la página ya cargada y solo si hay ID. Sus dominios se confirman al integrarlo y van a la CSP. Hay que probar que no tape el indicador de scroll ni el menú y que dé CLS 0 con `vitals.mjs`.
+
+**Cómo quedó en E4.7 (19-20/10/2026):**
+- **GA4:** `enviar_contacto` sale solo con la marca de `?enviado=` firmada por el servidor (6.1) y solo en una navegación nueva (`performance.getEntriesByType('navigation')`: recargar o volver con Atrás no lo repite). `clic_entradas` sale en todas las páginas con el clic en cualquier enlace con `data-entradas` (el del menú, el del menú del celular y el de Visitas), con `origen` (`menu` o `pagina`) y `pagina`; GA4 lo manda con `sendBeacon` sin pedirlo (se sacó un `transport_type` que habría ido como dato del evento). `ver_*` y `abrir_*`, solo en la Home. **`ver_pie`** cuenta cuando se ve la mitad del pie o, si es más alto que la pantalla, media pantalla (`pieVisto`, umbrales de 0,05 a 0,5): con un umbral fijo de 0,5 un pie de más de dos pantallas (el museo con todo cargado, en el celular, ~1400 px) no contaba nunca (HOME-01 de la verificación).
+- **UserWay** (`src/userway.js`): sin `USERWAY_ID` no se carga nada ni entra a la CSP. Con ID, un solo `<script async data-account>` agregado con la página cargada y el navegador en reposo (`requestIdleCallback`, o 1,5 s después de `load` en Safari). La CSP suma `https://*.userway.org` en `script-src`, `connect-src`, `img-src`, `style-src`, `font-src` y `frame-src`, y `https://userway.org` en `frame-src`: lo que pide la guía de UserWay, leída el 19/10/2026. **El museo todavía no pasó el ID: nunca se cargó el script de verdad** (en las pruebas se bloqueó por CDP y se comprobó solo el pedido, sus atributos y la CSP). Con el ID: confirmar sus dominios mirando la consola, que no tape el indicador de scroll ni el menú y CLS 0 con `vitals.mjs` (E5.2).
 
 ### 6.7 Convivencia con la Home
 
@@ -1000,6 +1070,17 @@ Todas se arman en el servidor en cada pedido y se hidratan en el navegador.
 **Reglas de Safari:** alturas solo con `svh`; el alto de la ventana, cacheado. Un solo `<h1>` por página.
 
 **Verificación (H1 y E4.1):** todas las recetas en `ok: true` contra Express, hidratación sin diferencias, JS en ~311 kB y CSS en ~49,6 kB.
+
+**Cómo quedó en E4.1 (19/10/2026; aspecto provisorio hasta el diseño de la diseñadora, E6.3):**
+- **`src/components/Layout.jsx`**: el marco de todas las páginas (Header, `<main id="main" tabIndex={-1}>` y Pie, sueltos en `#root` como en la landing, para no cambiar cómo se juntan los márgenes de la Home) y **la única instancia de Lenis** (`useScrollSuave`, que antes creaba la Home). "Ir al contenido" en todas las páginas. La Home dibuja solo sus secciones: `#identidad`, `#obra`, `#areas`, `#identidad-collage` y `[data-mosaico]` siguen iguales, y `mantenerEnPantalla` y `scrollSuaveEnCurso` también.
+- **El header** (`Header.jsx`, `Logo.jsx`): en la Home, `absolute` sobre el hero y con el logo en el mismo lugar (458 px a 82,5/71 en 1440; 260 en el celular); el menú, arriba a la derecha, centrado en el alto del logo sin moverlo, con una sombra detrás del texto sobre la foto. En las internas, en el flujo, con el mismo logo. `href="/"`.
+- **El menú completo aparece desde xl (1280 px), no desde lg** (desvío, medido): los cuatro enlaces y "Comprar entradas" ocupan 595,5 px (629 con un texto de compra de 40 caracteres, el máximo del panel) y junto al logo de 458 quedan 401 px libres a 1024 y 657 a 1280. Debajo de xl, el botón "Menú".
+- **El menú del celular** (`MenuMovil.jsx`): un `<dialog>` a pantalla completa con `showModal()`, alto en `svh`, el logo y "Cerrar" en el mismo lugar que el logo y "Menú". Mientras está abierto, Lenis parado (`detenerScrollSuave`), `overflow: hidden` en `html`, `overscroll-behavior: contain` y `data-lenis-prevent` en el menú (con Lenis parado se tragaba la rueda adentro). Esc o "Cerrar" lo cierran, el foco vuelve al botón sin mover el scroll y los efectos de la Home quedan donde estaban. También se cierra al pasar a xl y al volver a la página desde el bfcache. Sin animación de apertura. A 375 px entran el logo de 260 y el botón; por debajo de 360 el logo se achica (208 a 320).
+- **`aria-current`:** `"page"` en la página de la sección y `"true"` dentro de ella (una muestra marca Exposiciones; el plan solo hablaba de `"page"`); la 404, ninguno. "Comprar entradas" solo con la compra activa, con el texto cargado o el de `content.js`, y `data-entradas` (6.6).
+- **El pie** (`Pie.jsx`, era `Footer.jsx`; en `content.js`, `footer` pasó a `pie`): arriba, el de la landing (el nombre, los logos de la UNSJ y de Gobierno, ©); debajo, **las secciones del sitio** (andan sin JavaScript y antes de que la página hidrate, cuando el botón "Menú" todavía no abre nada: A11Y-03 de la verificación), y la dirección, el horario resumido (`compartido/horarios.js`: los días con las mismas franjas juntos, los cerrados al final, las notas aparte; si ningún día abre, nada), el teléfono (`tel:` solo si es un número), el correo (`mailto:`) y las redes con su nombre como texto del enlace (`src/components/datosMuseo.js`, que reusan Contacto y Visitas). La línea de privacidad solo si `content.js` la tiene: hoy está vacía, hasta que el museo mande el texto. Lo que no está cargado no se dibuja, ni su rótulo: con el museo vacío el pie mide lo de antes (277 px en el celular); con todo lo que admite el panel, ~1420 px.
+- **`REDES` y `DIAS`** pasaron a módulos puros (`compartido/redes.js` y `compartido/horarios.js`) que los esquemas reexportan, así el pie no importa zod.
+- **Objetivos de 44 px en el celular** en los enlaces sueltos del sitio (`ENLACE_SUELTO` de `src/components/estilos.js`) y en el logo (con padding y margen negativo, sin mover nada), como en el panel (A11Y-01 de la verificación). Con colores forzados en un tema claro, los logos blancos (`data-logo-blanco`) se invierten (A11Y-04).
+- **Verificación al cerrar E4** (sobre el build final, con `SIN_BASE=maximo` y `SIN_BASE=vacio`, y con el museo más largo que admite el panel cargado por la API en un esquema aislado): las 7 recetas en los 6 tamaños, 42 de 42 con cada museo, con los mismos números que E3 (salvo los tiempos de `hitos-check`); `acordeon-dedo` en `flick`, `apoyado` y `lectura --subir`, con y sin `--como-safari`, a 390x664, 375x635, 375x812 y 412x780, 24 de 24 con 0 tirones y 0 bandas salteadas (también con el pie de 1420 px); la rueda (Lenis) por Áreas hasta el final y de vuelta, la misma secuencia de bandas que E3; el menú abierto y cerrado a mitad de cada efecto sin moverlos; hidratación sin diferencias; CLS 0. **Las corridas de `acordeon-dedo` van de a una**: con dos Chrome a la vez apareció un tirón aislado. La herramienta además cuenta como tirón un cierre bien compensado si coincide con un cuadro largo durante un flick (HOME-02, 13.2): no es un defecto de la página.
 
 ---
 
@@ -1072,7 +1153,7 @@ const og = await base.clone().resize(medida(1200)).flatten({ background: '#fffff
 
 **Cuánto ocupa:** el 15/10/2026 (16.1, 17 fotos, antes de decidir), 622 kB de promedio por foto con sus cinco archivos y 256 kB sin la maestra: ~180 MB cada 300 fotos. Con la configuración final (la maestra en WebP 90 y `og.jpg` con mozjpeg), medido en E3.1 con fotos de la Selección de 6000x4000 y una PNG, cada una sin achicar y achicada: 0,7-1,8 MB por foto, ~1 MB de promedio, y la maestra es más de la mitad. Así, 1 GB alcanza para unas 800 fotos hasta el aviso del 80 %. Si aprieta: el escalón siguiente de la base es 5 GB (10.2), y lo que más ahorraría es bajar la calidad de la maestra.
 
-**`Foto.jsx`** (E4): `<img src=".../960.webp" srcset="480w, 960w, 1600w" sizes="…">`, con `width` y `height` reales (CLS 0), `alt` (o `""` si es decorativa), `loading="lazy"` salvo la portada de la ficha, `decoding="async"` y `<figcaption>` con epígrafe y crédito. El ancho real de cada archivo del `srcset` es `min(variante, ancho)`: una foto de 800 px tiene los tres archivos de 800. **Regla de CLAUDE.md:** React precarga las imágenes que no son `lazy`, así que todo lo que no esté en el primer pantallazo lleva `loading="lazy"` o `fetchPriority="low"`. La forma de cada foto que devuelve la API está en `fotoDelPanel` (`server/api/fotos.js`).
+**`Foto.jsx`** (E4): `<img src=".../960.webp" srcset="480w, 960w, 1600w" sizes="…">`, con `width` y `height` reales (CLS 0), `alt` (o `""` si es decorativa), `loading="lazy"` salvo la portada de la ficha, `decoding="async"` y `<figcaption>` con epígrafe y crédito. El ancho real de cada archivo del `srcset` es `min(variante, ancho)`: una foto de 800 px tiene los tres archivos de 800. **Regla de CLAUDE.md:** React precarga las imágenes que no son `lazy`, así que todo lo que no esté en el primer pantallazo lleva `loading="lazy"` o `fetchPriority="low"`. La forma de cada foto que devuelve la API está en `fotoDelPanel` (`server/api/fotos.js`). **Cómo quedó en E4.2 (19/10/2026):** `src/components/Foto.jsx` recibe la foto con sus 8 campos públicos (`fotoPublica` de `server/contenido-publico.js`) y arma el `srcset` con el ancho real de cada archivo (sin repetidos), `src` el de 960, `width`/`height` reales y `alt` (`""` si es decorativa). Con `prioridad` (la portada de una ficha y, desde la corrección de E4, la foto de la primera tarjeta de la primera lista, que era la imagen del LCP de `/novedades` y `/exposiciones` en el celular: PAG-02, LCP con red lenta de 4,4 a 3,0 s) va sin `lazy` y con `fetchPriority="high"`. La portada de una ficha no pasa del 75 % del alto de la pantalla: su ancho se calcula con la proporción (`altoMaximo`) antes de que cargue, y su `sizes` lo tiene en cuenta (`tamanoPortada`: una vertical baja el archivo de 480 en vez del de 1600, PAG-03). La galería va en columnas, cada foto con su proporción y su pie, sin recortar y sin visor; las tarjetas recortan a 3:2 con `object-cover`. Queda: en escritorio, con tres columnas, las otras dos fotos de la primera fila siguen `lazy`. La Selección Fotográfica no tiene fotos verticales: la portada vertical se probó con una armada con sharp.
 
 **Respecto de lo planeado (E3.1 y la corrección de E3, 16/10/2026):**
 - La interfaz del almacén no es `guardar(clave, nombre, buffer)`, `abrir`, `borrar` y `existe` sino `guardar(datos, procesada, { transaction })`, `abrir(clave, variante)`, `liberar(ids, t)` (el `liberarFotos` de 3.2), `borrarHuerfanas()` y `olvidar(claves)`.
@@ -1133,7 +1214,7 @@ export async function enviarContacto({ nombre, email, mensaje }, destino) {
    - **Valida:** CSRF por origen (4.6), límites (4.7) y zod (nombre ≤ 100 y sin saltos de línea, correo válido, mensaje de 10 a 5.000 caracteres con 3 enlaces como máximo).
    - **Guarda** una fila en `mensajes_contacto` con `envio = 'pendiente'`.
    - **Envía** con `enviarContacto()` y `await`, con los topes de tiempo de arriba. La fila pasa a `enviado`, o a `fallido` con el código.
-   - **Si quedó guardado** (aunque el envío haya fallado): 303 a `/contacto?enviado=1#formulario`. El museo lo ve en Mensajes y el Inicio avisa.
+   - **Si quedó guardado** (aunque el envío haya fallado): 303 a `/contacto?enviado=1#formulario` (quedó `?enviado=<marca>`, 6.1). El museo lo ve en Mensajes y el Inicio avisa.
    - **Si fallaron el guardado y el envío:** vuelve a dibujar la página (503) con los valores y "No pudimos enviar tu mensaje. Probá más tarde o escribinos a <correo público>".
    - **Si hay errores de validación:** vuelve a dibujarla (400, `no-store`) con los valores y los mensajes.
 4. **Aviso en el Inicio** (`/administracion/api/estado`, para todos los roles): "Los mensajes del formulario no se están enviando por correo desde <fecha> (N guardados en Mensajes). Si cambió la contraseña de `web@mupa.ar`, hay que actualizarla en Render (`docs/operacion.md`)". Sale con el estado del correo en falla o con mensajes `fallido` posteriores al último `enviado`.
@@ -1145,6 +1226,23 @@ export async function enviarContacto({ nombre, email, mensaje }, destino) {
 - Sin borrar, responder ni reintentar (el reintento está en la fase 2). La tarea diaria borra los de más de 180 días.
 
 **Si Render bloquea SMTP:** Render bloquea los puertos 25, 465 y 587 solo en las instancias gratuitas ([changelog del 16/09/2025](https://render.com/changelog/free-web-services-will-no-longer-allow-outbound-traffic-to-smtp-ports)); en Starter no está confirmado en la práctica. Se prueba en E5.1 con 465 y, si no conecta, con 587. Si ninguno sale, el formulario igual guarda los mensajes y se le plantea al desarrollador una alternativa antes de seguir (por ejemplo, un proveedor con API HTTPS, que sí suma registros DNS).
+
+**Cómo quedó en E4.5 y E4.9 (19-20/10/2026, con la corrección de E4):**
+- **`server/correo.js`:** nodemailer 10.0.16 (2.3). `armarCorreo` arma From la casilla ("Formulario de mupa.ar"), To el destino, Reply-To el visitante (nodemailer codifica el nombre), el asunto con `unaLinea(nombre)` y el texto con la fecha de San Juan. `opcionesSmtp`: SSL en 465 y, en cualquier otro puerto, STARTTLS obligatorio salvo contra la propia máquina (2.5); los topes de arriba; sin acceso a archivos ni URL desde el mail. En `consola` y `memoria` nodemailer arma el mail igual (`streamTransport`), así lo que se ve es lo que saldría. El estado en memoria es `{ ok, codigo, en, desde }` (`desde`: el primer fallo de la racha); la verificación tiene además un tope total de 30 s.
+- **`server/contacto.js`, `POST /contacto` en este orden:** (1) CSRF por origen (403 simple); (2) `application/x-www-form-urlencoded` (si no, 415 simple) y el cuerpo, hasta 64 kB y 20 parámetros (413); (3) la trampa (303 sin guardar ni mandar); (4) sin casilla, la página con lo escrito (503); (5) el esquema (400 con lo escrito; **antes de los límites**: un error no gasta intentos); (6) **el mensaje repetido** (el mismo correo y el mismo texto que otro de hace menos de 2 minutos: el doble clic en Enviar, con o sin JavaScript; 303 sin guardar ni mandar y, si el primero sigue en curso, espera cómo termina; en memoria, hasta 500; CON-02 de la verificación); (7) los límites (4.7); (8) el destino, leído en el momento, y se guarda la fila; (9) se manda y se anota; (10) 303 a `/contacto?enviado=<marca>#formulario` (6.1) si se guardó o salió, o la página con lo escrito y "No pudimos enviar tu mensaje…" (503) si no pasó ninguna de las dos. Todo con `no-store` y sin cookies; en el log, solo códigos.
+- **Nada espera a la base sin tope** (CON-01 de la verificación, severidad media: con la base colgada el pedido no respondía en más de 200 s): leer el destino, guardar y anotar tienen 4 s cada uno, y el INSERT y el UPDATE van en una transacción corta con `SET LOCAL statement_timeout` (si la tabla está bloqueada, Postgres corta y suelta la conexión). No se puso un `statement_timeout` para toda la conexión: cortaría también las migraciones y las fotos grandes. Con el mensaje guardado, el envío tiene un tope total de 15 s: si se pasa, se responde 303 y la fila se anota cuando termina; si la fila se guarda tarde, también se le anota cómo salió.
+- **El esquema** (`compartido/esquemas/contacto.js`): al nombre se le sacan los caracteres invisibles (los de formato de Unicode salvo los que unen letras y emojis, y los rellenos del hangul: uno de dirección mostraba "Ana ‮txt.exe" como "Ana exe.txt" en el asunto y en Mensajes, CON-05) y tiene que quedar una letra o un número. El mensaje pegado se acomoda en vez de rechazarse (CON-06: un error que no dice qué carácter es no se puede corregir): los saltos de línea de Windows, U+2028, U+2029, U+0085, el tabulador vertical y el salto de página pasan a `\n`; las comillas y rayas de Windows leídas como C1 (U+0091 a U+0094, U+0096 y U+0097), a las tipográficas; los demás caracteres de control se sacan. Los errores son códigos (`ERRORES_DE_CAMPO` de `compartido/contacto.js`); los textos, en `src/content.js`.
+- **La página** (`src/paginas/Contacto.jsx`, `FormularioContacto.jsx` y `DatosDeContacto.jsx`, aspecto provisorio): sin formulario (sin casilla o sin destino), solo los datos; con un 400, el resumen (`role="group"`, como el del panel) con el foco y enlaces a cada campo (`scroll-margin`: la etiqueta y el error quedan a la vista), `aria-invalid` y `aria-describedby`; con el 303, el aviso (`role="status"`) con el foco; con el 429, el aviso con el correo público y lo escrito. Con JavaScript, el segundo clic en Enviar se frena durante 8 s y el botón dice "Enviando…" (`aria-disabled`). Si el formulario se apagó mientras la persona escribía (503 `no_disponible`), lo escrito queda en un cuadro de solo lectura para copiarlo (CON-07).
+- **El aviso del Inicio** (4.3, `GET /estado`) y **Mensajes** (5.2), como estaba planeado. La verificación de la casilla es la tarea diaria `casilla_correo` (al arrancar y a las 04:00); que la casilla no responda no la cuenta como tarea fallida: tiene su propio aviso. La tarea `mensajes_viejos` borra los de más de 180 días.
+- **`npm run probar-correo -- --para <dirección>`** (`server/scripts/probar-correo.js`): verifica y manda un mail de prueba; si falla, dice el código y qué revisar (EAUTH: la contraseña; ECONNECTION o ETIMEDOUT: el otro puerto; EDNS: el servidor) y sale con código 1. No usa la base.
+- **Ningún mail salió de verdad** en la implementación ni en las verificaciones: modo memoria o consola, o el SMTP falso de `server/pruebas/smtpFalso.js` (acepta, responde 535 o corta la conexión), escrito con `node:net`. Contra un SMTP real se prueba en E5.1.
+
+**Lo que quedó abierto** (verificación de E4, severidad baja, sin corregir):
+- **El destino que no se pudo leer (CON-08).** Si la base tarda más de 4 s en dar el destino pero guarda el mensaje, la persona ve "Recibimos tu mensaje", el mail no sale y la fila queda `fallido` con `SIN_DESTINO` para siempre; si la base vuelve después de un 503, la fila se guarda tarde con el mismo código (y si la persona lo manda de nuevo, llega dos veces). El Inicio lo muestra como si fallara la casilla. Arreglo: volver a leer el destino cuando la fila se guardó y mandar el mail; si aun así no hay, un código propio que el Inicio no atribuya a la casilla; y marcar la fila guardada después de un 503.
+- **Los caracteres de Windows-1252 (CON-09).** El acomodado del mensaje traduce solo seis de C1: el euro (U+0080), la viñeta (U+0095) y ™ (U+0099) se borran sin aviso, y los puntos suspensivos (U+0085) pasan a un salto de línea. Arreglo: traducir el bloque entero de 0x80 a 0x9F y borrar solo los cinco huecos, o decidir con un solo criterio qué es U+0085.
+- **El `Retry-After` del límite diario (CON-10, 4.7).**
+- **A decisión del desarrollador:** guardar sin mandar los mensajes que pasan de los 50 por día (la segunda parte de CON-03; necesitaría otro tope de guardado, por ejemplo 500 por día, para que nadie llene la base desde muchas IP) y subir nodemailer a la 10.1 (2.3).
+- **El texto de privacidad** del formulario (`contacto.privacidad` en `src/content.js`) y del pie siguen vacíos hasta que los mande el museo: tienen que decir que el mensaje se guarda 180 días, y conviene que nombren a Google Maps y a GA4. Turnstile, reintentar un envío y marcar un mensaje como respondido siguen en la fase 2.
 
 ---
 
@@ -1166,11 +1264,12 @@ export async function enviarContacto({ nombre, email, mensaje }, destino) {
   connect-src 'self' https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://www.google.com https://*.userway.org;
   img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com https://*.userway.org;
   style-src 'self' 'unsafe-inline' https://*.userway.org; font-src 'self' https://*.userway.org;
-  frame-src https://www.google.com https://*.userway.org; frame-ancestors 'self';
+  frame-src 'self' https://www.google.com https://*.userway.org https://userway.org; frame-ancestors 'self';
   base-uri 'self'; form-action 'self'; object-src 'none'
   ```
 
   - Los comodines de GA salen de la [guía de CSP de Google](https://developers.google.com/tag-platform/security/guides/csp) (08/10/2026). `www.google.com` está porque gtag manda a `/g/collect` ahí (CLAUDE.md, 01/10/2026). UserWay se confirma al integrarlo.
+  - **Cómo quedó en E4 (`textoCspPublica`, `server/seguridad.js`):** los dominios de UserWay entran **solo con `USERWAY_ID`** (sin él no aparecen en ninguna directiva). `frame-src` es `'self' https://www.google.com` (el mapa de Contacto; la base solo acepta un `src` que empiece con `https://www.google.com/maps/embed?`), y con UserWay suma `https://*.userway.org` y `https://userway.org`. **El `'self'` no estaba en el plan** y hace falta: hasta E4.5 la directiva no estaba escrita y valía la de `default-src` (`'self'`); sin él, cualquier marco del propio sitio quedaba bloqueado, y `tools/parallax-compuerta.js`, que carga la Home dentro de un `<iframe>`, daba `ok: false` en los seis tamaños. Es lo mismo que ya se permitía en E3. La del panel no cambia con UserWay.
   - `'unsafe-inline'` en estilos hace falta por los `style=` del SSR. No hay scripts inline: el estado y el JSON-LD no se ejecutan.
   - **Se prueba una vez**, antes del corte: en el build local de producción con `analitica-check.mjs --ver-envios`, `vitals.mjs --consola` (sin violaciones) y UserWay cargado; otra vez contra Render; y en el iPhone (el desarrollador). Si UserWay o Google cambian de dominios, se ve en la consola: está en la revisión mensual (10.4).
 - [ ] CSP del **panel**, en toda respuesta de `/administracion` y `/administracion/…` (sin ningún dominio de terceros):
@@ -1203,7 +1302,7 @@ export async function enviarContacto({ nombre, email, mensaje }, destino) {
 **Entrada**
 - [ ] zod en todo, y solo lo validado llega a Sequelize, siempre con `replacements`.
 - [ ] Texto con formato validado nodo por nodo. URLs de redes, mapa, compra e inscripción solo `https:`. Slugs con patrón.
-- [ ] Formulario: nombre sin saltos de línea (no llega al asunto como cabecera), Reply-To armado por nodemailer, nunca From del visitante.
+- [ ] Formulario: nombre sin saltos de línea (no llega al asunto como cabecera), Reply-To armado por nodemailer, nunca From del visitante. Desde E4.5, también sin caracteres invisibles (8), y `unaLinea` como segunda red antes del asunto.
 
 **Salida**
 - [ ] Ningún `dangerouslySetInnerHTML` (prueba con grep).
@@ -1233,7 +1332,7 @@ export async function enviarContacto({ nombre, email, mensaje }, destino) {
 
 **Dependencias y disponibilidad**
 - [ ] Dependabot (alertas y PR de seguridad) en la organización. `npm audit` antes de cada entrega. Node 24 fijo.
-- [ ] Límites de cuerpo, tope diario del formulario, `sharp.concurrency(1)`, apagado ordenado, `/salud` sin la base y el último `museo` bueno en memoria. Desde E3: como mucho 3 subidas en curso y 2 lecturas de fotos a la vez (el pool tiene 5 conexiones), y la LRU de 32 MB.
+- [ ] Límites de cuerpo, tope diario del formulario, `sharp.concurrency(1)`, apagado ordenado, `/salud` sin la base y el último `museo` bueno en memoria. Desde E3: como mucho 3 subidas en curso y 2 lecturas de fotos a la vez (el pool tiene 5 conexiones), y la LRU de 32 MB. Desde E4: topes de tiempo en todo lo que espera a la base desde el sitio (el museo 2 s, lo publicado y el formulario 4 s, con `statement_timeout` en lo que escribe el formulario) y en el envío del correo (15 s).
 
 ---
 
@@ -1270,6 +1369,7 @@ services:
       - { key: CANONICO, sync: false }                        # 0 hasta el corte
       - { key: TRUST_PROXY, sync: false }
       - { key: USERWAY_ID, sync: false }
+      - { key: INDEXNOW_CLAVE, sync: false }                  # opcional (E4.6); vacía: apagado
 databases:
   - name: mupa-db
     region: virginia
@@ -1306,6 +1406,8 @@ databases:
    | LCP | 3,16 s | ≤ 3,5 s |
    | TBT | 0,72 s | — |
    | LCP en escritorio | 0,87 s | — |
+
+**Lo que E4 suma al primer deploy (20/10/2026):** las páginas internas en `rutas-check` y en la hidratación (13.3); `npm run probar-correo` sale con código 1 si falla y dice qué revisar (8); con el ID del museo, UserWay en `USERWAY_ID` y sus dominios confirmados en la consola, sin tapar el indicador de scroll ni el menú y con CLS 0 (6.6); la Prueba de resultados enriquecidos de Google sobre una novedad y la Home (6.4); el mapa de Contacto con el embed real del museo (con la rueda a 1440x900, 6.7); y, si se quiere, `INDEXNOW_CLAVE` (6.5). Como referencia, en esta PC con la red lenta del proxy (13.2), la Home de E4 dio FCP ~1,6 s, LCP ~3,7 s y CLS 0 en el celular (E3: 1,5 y 3,7 s; 10 corridas alternadas).
 
 ### 10.2 Costos mensuales
 
@@ -1549,6 +1651,8 @@ Además: un mail a la casilla del museo y otro desde ella; un envío del formula
 
 **Avance al 16/10/2026:** las tareas de código de E0 a E3 están hechas (E0 a E2 commiteadas; E3 verificada y corregida, sin commitear), adelantadas respecto del calendario de 12.4. Lo que figura en la columna "Verificación" y depende de otra persona o del iPhone (E2.5: alta y primer ingreso con otra persona; E3.1: foto de iPhone sin GPS) queda para el desarrollador (13.5). Lo que sigue es E4; E5 y E6, como están planeadas.
 
+**Avance al 20/10/2026:** E3 commiteada (`d0a7d36`, 19/10). **E4 hecha entre el 19 y el 20/10/2026, sin commitear** (E4.1 a E4.9, más IndexNow, opcional, y la división del JS por página de 6.2), **con el aspecto provisorio** que decidió el desarrollador el 19/10 (el lenguaje de la Home, sin efectos nuevos, en componentes chicos marcados como provisorios): el header, el menú, el pie y las fichas de la diseñadora se aplican en E6.3 cuando lleguen (fecha límite 06/11). Verificada con cinco revisiones independientes (la Home, las páginas y los buscadores, contacto y correo, accesibilidad y celular, y código y seguridad) y dos rondas de corrección (13). Lo de la columna "Verificación" que no se pudo hacer acá: la Prueba de resultados enriquecidos (E4.6, necesita una URL pública) y un envío por un SMTP real (E4.5: queda para E5.1). Lo que sigue es E5 (depende de la cuenta y el medio de pago del museo) y E6.
+
 ### 12.2 Horas por módulo
 
 | Módulo | Tareas | h |
@@ -1604,6 +1708,8 @@ Se planifica a 20 h por semana (4 h por día hábil), desde el 08/10 y sujeto a 
 
 **Avance real al 16/10/2026:** las tareas de código de S1 a S3 (E0.2 a E3.5) están hechas; el hito H3 quedó adelantado dos semanas. El deploy (E5.1) todavía no se hizo: depende de la cuenta y el medio de pago del museo (12.6).
 
+**Avance real al 20/10/2026:** también E4.1 a E4.9 (las tareas de código de S4 y las de E4 de S5), unas tres semanas antes de H4 (06/11) y H5 (13/11), con el aspecto provisorio; lo que H4 y H5 piden de Render (contenido cargado en `mupa-web.onrender.com/administracion`), de la diseñadora (E6.3) y de E5/E6 sigue pendiente. El deploy sigue esperando la cuenta y el medio de pago del museo.
+
 **Ajustes posibles:**
 - 16.1 se adoptó el 15/10/2026: sin E3.6, S4 quedó con 3 h libres (y S3 con una más, por el achique en E3.1).
 - El deploy (E5.1) no depende del DNS ni de hPanel: solo de la cuenta y el medio de pago. Si se traba, pasa a S5 y esas horas se adelantan. La prueba de SMTP espera a la casilla de envío sin frenar lo demás.
@@ -1630,10 +1736,11 @@ Se planifica a 20 h por semana (4 h por día hábil), desde el 08/10 y sujeto a 
 | Datos: dirección, teléfono, correo público, redes, horarios (siesta, feriados), tarifas y gratuidades, normas, cómo llegar | Contenido y JSON-LD | S5 |
 | **Contenido mínimo para el corte:** dirección, un medio de contacto, correo de destino, horarios, tarifas y al menos una muestra o sala | E5.4 | Después de H6 |
 | Textos y fotos de exposiciones y novedades (los carga el museo) | Contenido | S5-S6 |
-| ID de UserWay | E4.7 | S5 |
+| ID de UserWay | E4.7 (hecho sin él: se carga cuando esté) | S5 |
 | Enlace de la plataforma externa de entradas, si existe | Botón de compra | S5 |
 | Texto de privacidad para el pie y el formulario (con los mensajes guardados 180 días) | Pie definitivo | S6 |
-| **Diseño: primero header, menú móvil y pie; después una ficha tipo** | E6.3 | **06/11** (si llega después, se acuerda aparte) |
+| **Diseño: primero header, menú móvil y pie; después una ficha tipo** | E6.3 (E4 se hizo con un aspecto provisorio: 6.7) | **06/11** (si llega después, se acuerda aparte) |
+| Validar las descripciones de las páginas para los buscadores (6.4) | Nada (son neutras) | Antes del corte |
 | OK para la organización de GitHub | Transferencia del repo | H6 |
 
 ---
@@ -1648,21 +1755,24 @@ Se planifica a 20 h por semana (4 h por día hábil), desde el 08/10 y sujeto a 
 - `prepararBase()` hace `DROP SCHEMA public CASCADE; CREATE SCHEMA public;` y corre todas las migraciones. **Se niega** si la base no está en localhost o no termina en `_test`.
 - `crearUsuario(rol)`, `cookiePara(rol)`, `levantar()` (`app.listen(0)`) y `pedir(metodo, ruta, { host, cookie, origen, sitio, cuerpo })`.
 - `correo.js` en modo `memoria`, con una opción para que el transporte falle.
+- **E4:** `levantar(env, { obtener, correo })` le pasa a la app el render de verdad (`ssr.test.js`) y el correo del formulario. `prepararBase()` saltea sin variable o sin conexión (Postgres apagado) y, **si la base no contesta a tiempo** (la PC cargada), reintenta 3 veces de 5 s y la prueba **falla** en vez de saltearse (COD-03 de la verificación de E4: un verde con un archivo salteado no probó nada). Queda, de severidad baja (COD-06): si la base acepta la conexión y no contesta el saludo, el error de pg ("timeout expired", sin código) cae en la rama de "`DATABASE_URL_TEST` mal configurada" después de 2 intentos (el tope del intento es igual al `connectionTimeoutMillis` del pool, 5 s); falla igual, pero con un mensaje que culpa a la configuración. Arreglo: tratar ese error como `TOPE`, o subir el tope del intento a ~8 s.
+- **Al cerrar E4 (20/10/2026):** con base, 364 de 364, 0 salteadas; sin base, 227: 217 pasan y 10 salteadas, una por archivo con base (se suman `ssr` y `contacto`).
 
 | Archivo | Qué comprueba |
 |---|---|
 | `auth.test.js` | Inicio correcto y fallido con el mismo mensaje. 5 fallidos desde una IP dan 429, y **desde otra IP la clave correcta da 200**. Vencimiento por inactividad y por máximo. **Un desactivado pierde la sesión en el pedido siguiente.** **La temporal sale una sola vez** (no aparece en `GET /usuarios` ni en los logs). **Con `debe_cambiar_clave`, todo menos sesión y `cuenta/clave` da 403**; después de cambiarla, todo anda. Temporal vencida → 401 con su mensaje. Dar una temporal cierra las sesiones de esa persona. Cambiar la clave invalida las otras sesiones. Último admin → 409. Flags de la cookie: con https, `__Secure-mupa_sesion`, `Path=/administracion`, HttpOnly, Secure y SameSite=Strict, sin `Domain`. `crearAdmin()` y `restablecerAdmin()` de `admin.js` |
-| `permisos.test.js` | Recorre `api/indice.js` bajo `/administracion/api`: sin cookie → 401; editor en ruta de admin (usuarios, mensajes) → 403; `Sec-Fetch-Site` `cross-site` o **`same-site`** → 403; `Origin` ajeno → 403; cuerpo inválido → 400 antes de tocar la base; editor que cambia el correo de destino → 403. **Por ruta:** `/api/…` fuera de `/administracion` → 404; toda respuesta de `/administracion/…` (HTML, API y errores) trae la CSP del panel y `X-Robots-Tag: noindex`, también con el host `mupa.ar`, y `no-store` salvo en `/administracion/assets`. **E3:** las rutas multipart (`POST /fotos`) entran con un formulario (`multipart()` de `ayudas.js`); al cerrar E3, 22 rutas con cuerpo, 23 con `:id` (con su cuerpo válido y su "No existe esa novedad/muestra/sala") y 5 de admin; qué rutas tienen `limiteJson` |
-| `migraciones.test.js` | Ida, vuelta de a una hasta el principio y otra vez ida, con `SequelizeMeta` al día. Cada modelo contra las columnas de su tabla (nombres y `NOT NULL`). Las restricciones con nombre de 3.2 y que rechacen lo que tienen que rechazar. Datos iniciales de 3.4. Grep de `sync(` desde E1 (sumado en la corrección de E1, 13/10/2026). **E3:** las migraciones 03 a 05 (tablas, modelos, todas las restricciones con nombre y que rechacen, los índices, `STORAGE EXTERNAL` de `fotos_archivos.datos`), con la tabla `TABLAS_DE` por migración |
-| `estado.test.js` (E2.2) | `GET /estado` para un editor y para un admin ("Para completar", un solo admin, el correo, las tareas fallidas) y, sin base, el registro de las tareas diarias que lee. **E3:** `espacio` para los dos roles, `msHastaLaProximaVuelta` (las 04:00 de San Juan) y que una tarea que falla no frene a las demás |
-| `museo.test.js` (E2.3) | El esquema del PUT (URLs, el `<iframe>` del mapa, redes, reglas de dos campos, caracteres invisibles), `GET`/`PUT /museo` y el museo público del estado: sin el correo de destino aunque esté cargado, el aviso solo vigente, la compra solo activa y el último museo bueno |
+| `permisos.test.js` | Recorre `api/indice.js` bajo `/administracion/api`: sin cookie → 401; editor en ruta de admin (usuarios, mensajes) → 403; `Sec-Fetch-Site` `cross-site` o **`same-site`** → 403; `Origin` ajeno → 403; cuerpo inválido → 400 antes de tocar la base; editor que cambia el correo de destino → 403. **Por ruta:** `/api/…` fuera de `/administracion` → 404; toda respuesta de `/administracion/…` (HTML, API y errores) trae la CSP del panel y `X-Robots-Tag: noindex`, también con el host `mupa.ar`, y `no-store` salvo en `/administracion/assets`. **E3:** las rutas multipart (`POST /fotos`) entran con un formulario (`multipart()` de `ayudas.js`); al cerrar E3, 22 rutas con cuerpo, 23 con `:id` (con su cuerpo válido y su "No existe esa novedad/muestra/sala") y 5 de admin; qué rutas tienen `limiteJson`. **E4.9:** `GET /mensajes` entra solo: 6 de admin, y `/mensajes` salió de la lista que esperaba 404 |
+| `migraciones.test.js` | Ida, vuelta de a una hasta el principio y otra vez ida, con `SequelizeMeta` al día. Cada modelo contra las columnas de su tabla (nombres y `NOT NULL`). Las restricciones con nombre de 3.2 y que rechacen lo que tienen que rechazar. Datos iniciales de 3.4. Grep de `sync(` desde E1 (sumado en la corrección de E1, 13/10/2026). **E3:** las migraciones 03 a 05 (tablas, modelos, todas las restricciones con nombre y que rechacen, los índices, `STORAGE EXTERNAL` de `fotos_archivos.datos`), con la tabla `TABLAS_DE` por migración. **E4.9:** la 06, con sus dos restricciones (que rechacen) y su índice |
+| `estado.test.js` (E2.2) | `GET /estado` para un editor y para un admin ("Para completar", un solo admin, el correo, las tareas fallidas) y, sin base, el registro de las tareas diarias que lee. **E3:** `espacio` para los dos roles, `msHastaLaProximaVuelta` (las 04:00 de San Juan) y que una tarea que falla no frene a las demás. **E4.9:** las tareas nuevas en el registro y el `correo` de `/estado` (el aviso, para los dos roles) |
+| `museo.test.js` (E2.3) | El esquema del PUT (URLs, el `<iframe>` del mapa, redes, reglas de dos campos, caracteres invisibles), `GET`/`PUT /museo` y el museo público del estado: sin el correo de destino aunque esté cargado, el aviso solo vigente, la compra solo activa y el último museo bueno. **E4.3:** los tres textos van solo en los datos de `/visitas`, no en el museo común de ninguna página |
 | `visitas.test.js` (E2.4) | Horario (franjas, días cerrados, mensajes) y tarifas: alta, cambio completo, borrado, orden (409 si la lista no coincide), el tope de 50 con dos altas a la vez y la renumeración del orden (con 32767) |
 | `textoRico.test.js` (E3.2) | Sin base: el esquema (documento válido y su forma canónica, vacío → null, nodo o marca prohibidos → 400, `javascript:` y demás enlaces → 400, 301 bloques y 20.001 caracteres → 400, claves de más descartadas, control y surrogates), los enlaces (`completarEnlace`, `completarEnlaces`) y `TextoRico.jsx` con `renderToStaticMarkup` (cargado con el Vite del proyecto): sin HTML crudo, sin enlaces que no sean https, http, mailto o tel; y que ningún archivo de `src/`, `panel/src` ni `compartido/` use HTML crudo. La API de los textos y la Home con los textos cargados están en `museo.test.js`. **Corrección de E3:** `BYTES_MAX` y, desde la ronda 2, 8 pruebas de `editorTexto/enlace.js` con un editor de TipTap sin montar (`new Editor({ element: null })`, sin DOM): el cursor justo después y justo antes de un enlace, en el medio, dos enlaces pegados, uno con una parte en negrita, lejos de un enlace y con texto elegido |
 | `panel-api.test.js` (E2) | Sin base ni navegador, con un fetch falso: `panel/src/api.js` (Content-Type y `'{}'`, 401 con reingreso, 403 con `debeCambiarClave`, sin red, sesión terminada), `navegacion.js` (`volverSeguro`) y `reingreso.js`. **E3:** `api.subir` con un `XMLHttpRequest` falso; la barra con Novedades y Exposiciones, `contenidos.js` (`leerFiltros`, `consultaDe`, `traerTodas`) y `pantallas/contenido/valores.js` (`cuerpoDe`, `comparable`, `fusionarGuardado`) |
-| `contenido.test.js` | Borrador → 404 en el sitio. Publicar → visible **en el pedido siguiente**. Slug único (409) y fijo después de publicar. Eliminar libera solo las fotos sin uso. Nodo prohibido o `javascript:` → 400. Grep: ni `sync(` ni `dangerouslySetInnerHTML`. **E3.3 a E3.5 (16/10/2026), sin páginas públicas todavía:** borrador, publicar y despublicar (`publicado_en` una sola vez), dirección única en el alta (también con altas a la vez) y en un cambio (409), fija después de publicar, validación al publicar y al guardar algo publicado (portada decorativa incluida), listado (filtros, `%` y `_` literales, páginas), galería (fotos que no existen → 409), eliminar y reemplazar liberan solo lo que nadie usa, la sala de una muestra, el orden, el log sin títulos, la semilla de ejemplo y que esas direcciones públicas den hoy la 404 (E4 cambia esa prueba por la del borrador y lo publicado). El grep recorre `server/`, `panel/src`, `src/` y `compartido/`. **Corrección de E3 (16/10/2026):** borrar una foto que otra transacción está empezando a usar (pedido y tarea diaria), la galería y la portada de una pestaña vieja, `faltan` y el tope de 300 kB |
+| `contenido.test.js` | Borrador → 404 en el sitio. Publicar → visible **en el pedido siguiente**. Slug único (409) y fijo después de publicar. Eliminar libera solo las fotos sin uso. Nodo prohibido o `javascript:` → 400. Grep: ni `sync(` ni `dangerouslySetInnerHTML`. **E3.3 a E3.5 (16/10/2026), sin páginas públicas todavía:** borrador, publicar y despublicar (`publicado_en` una sola vez), dirección única en el alta (también con altas a la vez) y en un cambio (409), fija después de publicar, validación al publicar y al guardar algo publicado (portada decorativa incluida), listado (filtros, `%` y `_` literales, páginas), galería (fotos que no existen → 409), eliminar y reemplazar liberan solo lo que nadie usa, la sala de una muestra, el orden, el log sin títulos, la semilla de ejemplo y que esas direcciones públicas den hoy la 404 (E4 cambia esa prueba por la del borrador y lo publicado). **E4 (19/10/2026):** cambiada: borrador → 404, publicado → visible en el pedido siguiente, despublicado → 404 otra vez; con `PAGINAS_PUBLICAS_DE_CONTENIDO` en `true`. El grep recorre `server/`, `panel/src`, `src/` y `compartido/`. **Corrección de E3 (16/10/2026):** borrar una foto que otra transacción está empezando a usar (pedido y tarea diaria), la galería y la portada de una pestaña vieja, `faltan` y el tope de 300 kB |
 | `fotos.test.js` | JPEG, PNG y WebP entran. SVG, HEIC falso y texto `.jpg` → 415. 60 MP → rechazo. **El JPEG con GPS sale sin EXIF.** Las variantes existen. Sin sesión, multer no corre. **Cómo quedó (E3.1 y la corrección de E3, 16/10/2026):** las imágenes se arman con sharp en la prueba (con GPS, con Orientation 6, PNG con transparencia, un JPEG con el encabezado cambiado a 60 MP). Sin base: el procesado (EXIF y GPS fuera, orientación, sin agrandar, `og.jpg` sobre blanco, alto hasta 16383), 415 para SVG, HEIC, texto, GIF, AVIF y TIFF, 413 por megapíxeles y por imagen progresiva, la foto dañada, el tope de tiempo, la cola (de a una y los 3 lugares), la LRU, el semáforo de lecturas, `usos.js`, `/fotos` sin base, el 304 y la lógica del achique del panel. Con base: punta a punta con cabeceras (maestra 404, HEAD, 304, 404 con `no-store`, cualquier host y `noindex`); 415 y 413 por la API; que multer no corra sin sesión, con la temporal, sin CSRF ni pasado el límite (29 MB → 401, 403 o 429, no 413); una falla a mitad de la transacción (con un trigger) no deja nada; PATCH; `liberar` (rollback, commit y caché); una sola lectura si piden lo mismo juntos; como mucho 2 lecturas por HTTP; huérfanas; y `USOS_DE_FOTOS` contra las claves foráneas de la base. Con disco no hay nada que probar (16.1) |
-| `contacto.test.js` | Envío correcto: fila `enviado`, From = la casilla, Reply-To = el visitante, texto plano. Transporte que falla: fila `fallido`, 303 igual y aviso en `/estado`. Base y transporte caídos → 503 con el correo público. Trampa con algo → 303 sin guardar ni enviar. Salto de línea en el nombre → 400. Sin destino → no hay formulario. 6.º envío de una IP en la hora → 429. Los mensajes de más de 180 días se borran en la tarea |
-| `ssr.test.js` | Cada ruta da 200 con `title`, canonical `https://mupa.ar/…` y JSON-LD que parsea. Host no público → `noindex` en meta y cabecera; host público → sin `noindex`. Con `CANONICO=1`, otro host → 301 a `https://mupa.ar/` con la misma ruta, también `/administracion/…`. **Ninguna respuesta pública trae `Set-Cookie`**, aunque el pedido traiga la cookie de sesión. Ninguna página pública trae la CSP del panel ni ninguna de `/administracion` la pública. El estado no contiene `email_destino_contacto`. `</script><script>alert(1)</script>` en cada campo de texto: no aparece y el JSON-LD parsea. `$'`, `$&` y `$$` en el título: el HTML queda intacto. Paginación (301 y 404). `//evil.com/`. `/google19017c966a32aec2.html` → 200. Con la base caída, la Home da 200 y las demás 503 |
+| `contacto.test.js` | Envío correcto: fila `enviado`, From = la casilla, Reply-To = el visitante, texto plano. Transporte que falla: fila `fallido`, 303 igual y aviso en `/estado`. Base y transporte caídos → 503 con el correo público. Trampa con algo → 303 sin guardar ni enviar. Salto de línea en el nombre → 400. Sin destino → no hay formulario. 6.º envío de una IP en la hora → 429. Los mensajes de más de 180 días se borran en la tarea. **Cómo quedó (E4.5, E4.9 y la corrección de E4; 28 pruebas):** además, el esquema (también invisibles, inversión bidi y lo pegado que se acomoda), `armarCorreo` (un CRLF y un Bcc en el nombre no llegan a ninguna cabecera), la configuración sin mostrar valores (y `SMTP_PUERTO` en producción, `requireTLS`), el modo memoria con su estado y su racha, el SMTP falso de `smtpFalso.js` (acepta, 535 → EAUTH, corta → ECONNECTION) de punta a punta, `estadoDelCorreo`, la base caída (GET 503 y POST 503 con lo escrito), el formulario y el mapa en el HTML sin el destino, CSRF, 415 y 413, un 400 que no gasta intentos, 5 por hora y 50 por día con una línea de log por ventana, **cinco y cincuenta POST cortados a los 60 ms siguen contando** (quedan 50 filas y 50 mails), la base bloqueada (`LOCK TABLE`: 303 en menos de 3 s y ninguna fila suelta), un correo lento (la fila pasa de `pendiente` a `enviado`), el repetido, la marca de `?enviado=`, la tarea de la casilla, `GET /mensajes` solo admin y el log sin direcciones, nombres ni textos |
+| `ssr.test.js` | Cada ruta da 200 con `title`, canonical `https://mupa.ar/…` y JSON-LD que parsea. Host no público → `noindex` en meta y cabecera; host público → sin `noindex`. Con `CANONICO=1`, otro host → 301 a `https://mupa.ar/` con la misma ruta, también `/administracion/…`. **Ninguna respuesta pública trae `Set-Cookie`**, aunque el pedido traiga la cookie de sesión. Ninguna página pública trae la CSP del panel ni ninguna de `/administracion` la pública. El estado no contiene `email_destino_contacto`. `</script><script>alert(1)</script>` en cada campo de texto: no aparece y el JSON-LD parsea. `$'`, `$&` y `$$` en el título: el HTML queda intacto. Paginación (301 y 404). `//evil.com/`. `/google19017c966a32aec2.html` → 200. Con la base caída, la Home da 200 y las demás 503. **Cómo quedó (E4.2 a E4.8; 18 pruebas, 14 con base):** las rutas y sus códigos, ETag y 304; la paginación (301 de `?pagina=1`; 404 con 3 si hay 2, 0, 02, abc, vacía, repetida, 1.5 y -2); borrador → 404, publicado en el pedido siguiente, despublicado → 404; el estado sin el correo de destino, tarifas ocultas, borradores ni campos internos de las fotos (solo sus 8 campos públicos); el escape en el estado, el JSON-LD y el `<title>`; `Museum` completo y `NewsArticle`; `og:image` con medidas; `noindex` por host y la CSP pública; el sitemap; **ninguna respuesta pública pone `Set-Cookie`** (la prueba pasó de `auth.test.js`, y ahora recorre también las páginas nuevas, la paginación y `//evil.com/`); con la base caída, la Home 200 y las demás 503; `precargasDePaginas`, `ARCHIVOS_DE_PAGINAS` contra la tabla de rutas, `cortarEnPalabra`, `medidasOg` y el horario del JSON-LD; IndexNow con un fetch falso (avisa al publicar, al cambiar algo publicado, al despublicar y al eliminar; nunca por un borrador; sin clave o fuera de `mupa.ar`, nada, y el `.txt` da 404) |
+| `layout.test.js` (E4.1, sin base) | `resumirHorario` (días seguidos, franjas, cerrados al final, notas, todo cerrado → nada, datos ilegibles), `textoDias` y `textoFranjas`; el museo máximo y el vacío dibujados con `Raiz`, `Header` y `Pie` (con el Vite del proyecto, `ssrLoadModule`); `aria-current`; la 404; la compra con y sin texto; la privacidad solo si existe; `datosMuseo.js`; y, desde la corrección de E4, lo que arreglaron las dos rondas: las secciones en el pie y los enlaces de 44 px, `data-logo-blanco`, la foto con prioridad de la primera tarjeta, el `sizes` de la portada, las notas en varios renglones, lo largo que se parte y la tabla del horario (solo la celda de las horas parte palabras, el modo apilado y los `role`) |
 
 ### 13.2 Recetas de `tools/`
 
@@ -1675,6 +1785,10 @@ Se corren con `--url` contra Express después de E0.4, E4.1 y E6.3, en cada camb
 | `acordeon-dedo.mjs` | `flick`, `apoyado` y `lectura --subir`, con y sin `--como-safari`, a 390x664, 375x635, 375x812 y 412x780, con pie máximo y vacío. 0 tirones y 0 bandas salteadas |
 | `analitica-check.mjs` | Build local de producción con `URL_PUBLICA` local (2.5). Que `ver_pie` **no** salga en `/visitas` |
 | `vitals.mjs` | En local, `tools/servir.mjs --latencia 150 --kbps 1638` como **proxy delante de `npm start`**, comparado con H1. Y contra Render. Con `--consola`, sin violaciones de CSP |
+
+**Cómo se corrieron en E4 (19-20/10/2026):** contra builds propios (`DIR_BUILD`, nunca `dist/` mientras alguien lo sirve), con `SIN_BASE=maximo` y `SIN_BASE=vacio` y, además, con el museo más largo que admite el panel cargado por la API en un esquema aislado; las páginas internas, con contenido cargado por la API (fotos reales achicadas como el panel, muestras y actividades en todas sus situaciones). La matriz de la Home (las 7 recetas en los 6 tamaños y las 24 combinaciones de `acordeon-dedo`) **de a una**: con dos Chrome a la vez apareció un tirón aislado. `analitica-check` dio `ok` a 1440x900 y 390x664 con las mismas secciones que E3, y `ver_pie` no sale en `/visitas`. Los scripts quedaron en `tools/salida/e4-*` (no versionados; pasar una receta de E4 a `tools/` queda pendiente). Notas de los arneses, no de la página:
+- **`acordeon-dedo` cuenta como tirón un cierre bien compensado** cuando el cuadro del cierre dura dos (33 ms) o el flick va rápido (HOME-02 de la verificación): su criterio (`|salto + dy| > 60` y `|salto| > 60`) no descuenta lo que se plegó arriba. Con la CPU limitada x4 a 412x780 lo dispara más seguido en E4 (la página es más pesada) que en E3. Un tirón con `salto + dy` igual a menos el plegado de un evento `cierra` no es un defecto. Arreglo en la herramienta: comparar el salto con lo que se plegó arriba en ese cuadro, o con el de los cuadros vecinos escalado por la duración del cuadro; y comprobar que `--tarde` siga dando tirones.
+- `collage-check` falla si corre después de `parallax-ejes` en la misma carga (también en E3), e `Input.synthesizeScrollGesture` no mueve la página en este Chrome (se usaron eventos de toque).
 
 ### 13.3 Hidratación (sobre el build, no sobre `npm run dev`)
 
@@ -1691,6 +1805,7 @@ node tools/vitals.mjs --url http://127.0.0.1:5183/<ruta> --veces 1 --consola
 - Prueba de control: alterar el HTML a mano tiene que hacer aparecer la diferencia.
 - En el HTML servido, `"./assets"` y `href="./"` tienen que dar 0 apariciones.
 - Se hace en E0.5, E4 y E6.3.
+- **E4 (19-20/10/2026):** sin diferencias en el celular y en escritorio, con `consola` y `csp` vacías y la prueba de control detectando el cambio: la Home, `/?diag` y `/no-existe` con el museo máximo y el vacío; las páginas internas con contenido (14 rutas en la implementación y en la corrección, 37 en la verificación de las páginas); y `/contacto` en sus estados (el 400, el 429, el 503 y el 303, con lo escrito raro).
 
 ### 13.4 `tools/rutas-check.mjs`
 
@@ -1704,6 +1819,19 @@ Revisa las redirecciones y cabeceras de 11.2 (páginas públicas y `/administrac
 - **iPhone** (el desarrollador, con `?diag`): menú móvil y bloqueo del scroll, formulario, subir una foto desde la cámara (HEIC → JPEG), el panel a 375 px y la consola sin violaciones de CSP. **Desde E3:** elegir fotos de la galería y desde la cámara, el achique con `createImageBitmap` y la orientación en Safari; el editor de texto (escribir, la barra en varias filas, el diálogo del enlace, pegar, tocar a la derecha de un renglón que termina en un enlace y apretar Enlace); `datetime-local` y `date` con el selector del sistema; el foco al subir y al cancelar.
 - **Pegar en el editor desde el portapapeles real** de Word (Windows y Mac), Google Docs y LibreOffice: en las pruebas automáticas se usó HTML de Word armado a mano con la estructura de `mso-list`.
 - **La barra de progreso de una subida** con una conexión real: contra 127.0.0.1 la subida es instantánea y solo se ve en 0 %.
+- **Desde E4 (iPhone, el desarrollador):** el menú del celular (que la página de atrás no se mueva con `overflow: hidden` y `overscroll-behavior: contain`, el `<dialog>` en `svh` con la barra de Safari, el foco y Esc con un teclado externo, volver atrás desde una sección); las fichas y la galería; `/visitas` con el aA de Safari al 150 y al 200 % (la tabla tiene que apilarse) y VoiceOver leyendo la tabla apilada como tabla; el ancla `#sala-<slug>` desde "Ver en el sitio"; el formulario con la validación nativa, el teclado, el foco al aviso, "Enviando…" y el cuadro de solo lectura del 503; el mapa con el dedo; los enlaces del pie de 44 px; y la consola sin violaciones de CSP.
+- **Lo que no se pudo probar acá:** el mapa real de Google (siempre bloqueado en las pruebas; con el embed del museo), UserWay con el ID real, un SMTP real (E5.1), el alto contraste real de Windows (se emuló con `forced-colors`), NVDA (E6.1) y la Prueba de resultados enriquecidos (E5.2).
+
+### 13.6 Cómo se verificó E4 (19-20/10/2026)
+
+Cinco revisiones independientes, cada una con su copia del build, su producción local y su esquema aislado de `mupa_dev` (borrado al terminar), cuentas propias de `crear-admin`, Chrome solo headless y Google, UserWay y `example.com` bloqueados (ningún pedido salió de 127.0.0.1 y ningún mail salió a la red), y dos rondas de corrección re-verificadas por la misma revisión:
+- **La Home** (355 comprobaciones): E4 contra E3 número a número, con las recetas, `acordeon-dedo`, la rueda por Áreas, las anclas, la recarga a mitad de página, reduced-motion, `vitals` y el menú abierto a mitad de cada efecto. Sin regresiones.
+- **Las páginas y los buscadores** (unas 4.200): todas las rutas de 6.1 con códigos, `<head>`, JSON-LD, sitemap y escapes; publicar, cambiar y despublicar; el proceso en UTC+14 y el reloj a las 23:30 y a las 00:30 de San Juan; el host `mupa.ar`; la base caída y colgada; hidratación; axe en cinco tamaños; "Ver en el sitio".
+- **Contacto y correo** (349): el formulario con y sin JavaScript, la validación, el mail (cabeceras, sin contrabando de SMTP), un SMTP que falla de cinco maneras, los límites, la base cortada, Mensajes, el Inicio, las tareas, la configuración, `probar-correo`, los logs, GA4 y UserWay.
+- **Accesibilidad y celular** (1.550): axe sin violaciones en 12 páginas a 9 tamaños (salvo el contraste de las bandas de Áreas, de antes), el menú del celular con teclado, dedo y rueda, el formulario, el zoom al 200 %, el espaciado de WCAG 1.4.12, la letra del navegador agrandada y reduced-motion.
+- **Código y seguridad** (216): el código contra el plan, la migración 06 de ida y vuelta, la CSP, las cookies, los datos privados, el CSRF y los límites del formulario, la configuración, IndexNow, el bundle y `npm test`.
+
+La verificación encontró 24 hallazgos, ninguno crítico: uno alto (los límites del formulario se esquivaban cortando la conexión, 4.7), tres medios (la base colgada en el formulario, 8; una dirección web o un correo que ensanchaba la página en el celular; enlaces de menos de 44 px en el celular, 6.7) y el resto bajos. La ronda 1 corrigió 22 (A11Y-03 a medias; PAG-05 quedó a decisión del desarrollador) y la re-verificación encontró ocho más, uno medio causado por la corrección (los nombres de los días partidos en la tabla del horario), que corrigió la ronda 2. Quedaron abiertos, de severidad baja: CON-08, CON-09 y CON-10 (8 y 4.7), COD-06 (13.1), HOME-02 (de la herramienta, 13.2), PAG-05 (el menú se corre al llegar la fuente, 15), A11Y-03 a medias (el toque en "Menú" antes de que la página hidrate se pierde; el camino sin JavaScript son las secciones del pie), A11Y-07 (la 404 y el pie tienen dos navegaciones llamadas "Secciones del sitio", y "Visitas" del pie mide 43 px de ancho) y A11Y-08 (con colores forzados y tema claro, el logo invertido del header de la Home queda negro sobre el cielo del hero: 3 a 3,7:1 en el celular y la tablet; arreglo: no invertir el del header cuando va sobre el hero).
 
 ---
 
@@ -1729,7 +1857,7 @@ Revisa las redirecciones y cabeceras de 11.2 (páginas públicas y `/administrac
 | Render bloquea SMTP también en Starter | Baja-media | Alto (Contacto) | Prueba en E5.1 con 465 y 587; los mensajes quedan guardados igual; alternativa a decidir antes de seguir (8) |
 | Cambia la clave de la casilla de envío y el formulario deja de mandar | Media | Medio | Verificación al arrancar y diaria, aviso en el Inicio, mensajes guardados, paso en `docs/operacion.md` con `probar-correo` |
 | Los mails del formulario caen en spam en el destino | Baja | Medio | From de `mupa.ar` por su propio servidor (SPF, DKIM y DMARC en PASS, comprobado en E5.1); Reply-To al visitante |
-| Se pasa el límite diario de la casilla | Baja | Bajo | Tope de 50 por día, trampa y límites por IP |
+| Se pasa el límite diario de la casilla | Baja | Bajo | Tope de 50 por día, trampa y límites por IP. Desde la corrección de E4, los límites cuentan también los pedidos cortados y el doble clic no manda dos (4.7 y 8) |
 | Contraseña temporal interceptada | Baja | Medio | 80 bits, vence a las 72 h, cambio obligatorio, entrega en persona o por teléfono, nunca en logs |
 | Nadie puede entrar al panel (se va el único admin o se olvidan todos) | Baja | Alto | Dos admins, "Dar contraseña temporal", `restablecer-admin` en el Shell de Render |
 | Dos personas editan la misma ficha | Baja | Bajo | Gana el último guardado; lo avisa el manual; control de versión en la fase 2. Desde la corrección de E3, la galería y la portada de una pestaña vieja ya no borran lo que agregó la otra persona (`antes` y `portadaAntes`, 4.3) |
@@ -1743,9 +1871,11 @@ Revisa las redirecciones y cabeceras de 11.2 (páginas públicas y `/administrac
 | Nadie aplica parches después de la garantía | Alta | Medio | Dependabot, revisión mensual en `docs/operacion.md`, quién lo hace escrito en el acta |
 | El medio de pago en USD no está disponible | Media | Alto | Preguntar ya; plan B por escrito |
 | Render cambia precios o límites | Media | Bajo | `render.yaml` y revisión mensual |
-| Menú móvil en iOS / UserWay tapa o corre elementos | Media | Bajo | `lenis.stop()`, prueba en el iPhone, CLS 0 |
+| Menú móvil en iOS / UserWay tapa o corre elementos | Media | Bajo | `lenis.stop()`, prueba en el iPhone, CLS 0. Desde E4: el menú del celular no anda antes de que la página hidrate (en la Home, de 1,3 a 3,4 s a la vista sin funcionar, medido con la CPU x4 y la red lenta): las secciones también están en el pie, que anda sin JavaScript |
 | El personal no completa los alt o no usa el panel | Media | Medio | Alt obligatorio con ejemplos, manual, capacitación, "Para completar" |
-| El museo carga contenido antes de que estén las páginas de E4 y lo busca en el sitio | Media | Bajo | Hasta E4 el panel no dice "ya está en el sitio" ni muestra "Ver en el sitio" (`PAGINAS_PUBLICAS_DE_CONTENIDO`, 5.4); quedan dos ayudas por corregir (5.4) |
+| El museo carga contenido antes de que estén las páginas de E4 y lo busca en el sitio | — | — | **Resuelto en E4** (19/10/2026): las páginas existen y el panel muestra "Ver en el sitio" (5.4) |
+| El diseño de la diseñadora no llega a tiempo y el sitio sale con el aspecto provisorio de E4 | Media | Bajo | El aspecto provisorio usa el lenguaje de la Home y está en componentes chicos marcados como provisorios: E6.3 cambia clases y orden sin tocar datos ni lógica; recetas e hidratación otra vez después (13.2 y 13.3) |
+| El formulario y la medición salen sin el texto de privacidad (Ley 25.326) | Media | Medio | El texto es del museo (12.6): el sitio lo dibuja en cuanto está en `content.js` (`pie.privacidad` y `contacto.privacidad`); pedirlo antes del corte |
 
 ---
 
@@ -1757,7 +1887,11 @@ Revisa las redirecciones y cabeceras de 11.2 (páginas públicas y `/administrac
 2. **D2. ¿PostgreSQL 17 en esta PC?** Resuelta: instalado para E1 (`mupa_dev` y `mupa_test`).
 3. **D3. ¿Se le pide al museo el acceso delegado a Hostinger (solo DNS y correo, revocable)?** Es opcional: sin él, la casilla y el corte los hace una persona del museo (11). Con él, E5.4 baja unas 2 h.
 4. **D4. ¿Algo de Novedades en la Home?** No está en el alcance (fase 2).
-5. **D5. Mensajes del formulario: ¿solo admins (propuesto) o también editores?**
+5. **D5. Mensajes del formulario: ¿solo admins (propuesto) o también editores?** E4.9 implementó lo propuesto (solo admins); pasar a editores es el rol de la ruta en `server/api/indice.js` y en `panel/src/navegacion.js`, y el enlace del aviso del Inicio.
+6. **D6. ¿nodemailer 10.0.16 o la 10.1?** (2.3).
+7. **D7. ¿Guardar sin mandar los mensajes que pasan de los 50 por día?** Haría falta otro tope de guardado (8).
+8. **D8. ¿Precargar la fuente en las páginas internas?** En la primera visita en escritorio, el menú del header se corre al llegar Google Sans Flex (CLS de 0,0003 a 0,0005, PAG-05 de la verificación de E4; con la fuente en caché, 0). Se evita precargando el woff2 o reservando el ancho del menú, pero cambia las prioridades de carga: también puede esperar a E6.3.
+9. **D9. ¿Partir el JS del panel por ruta?** (5.1, COD-07 de E3: 577 kB) y **¿subir el tope de 160 MB de las imágenes progresivas?** (7).
 
 ### Para el museo (mail de E0.1)
 
@@ -1771,10 +1905,11 @@ Revisa las redirecciones y cabeceras de 11.2 (páginas públicas y `/administrac
 8. **¿Plataforma externa de entradas?** El enlace.
 9. **¿Cada sala necesita página propia?** ¿Archivo de muestras pasadas? (Ambas cosas son fase 2.)
 10. **ID de UserWay.**
-11. **Texto de privacidad** para el pie y el formulario (tiene que mencionar que los mensajes se guardan 180 días).
+11. **Texto de privacidad** para el pie y el formulario (tiene que mencionar que los mensajes se guardan 180 días; conviene que nombre a Google Maps y a GA4).
 12. **Diseño:** primero header, menú móvil y pie; después una ficha tipo; **fecha límite 06/11**.
 13. **Titular del dominio** en NIC Argentina.
 14. **Ventana para el corte de DNS:** un día hábil temprano, con la persona de hPanel disponible.
+15. **Las descripciones de las páginas para los buscadores** (6.4): hoy son líneas neutras escritas sin datos del museo; validarlas, como la de la Home.
 
 ---
 

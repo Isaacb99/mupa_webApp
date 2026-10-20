@@ -4,15 +4,18 @@
 // programa la siguiente con setTimeout, contando hasta las próximas 04:00: un reinicio no corre el horario. Un fallo
 // se avisa en el log y no tumba el servicio; la próxima vuelta reintenta. Cada una en su propio try/catch: si una
 // falla, las demás corren igual.
-// Hoy: borrar las sesiones vencidas (12 h de máximo o 2 h sin uso) y, desde E3.1, las fotos huérfanas (subidas hace
-// más de 24 h y que no usa nadie: server/fotos/usos.js). Desde E4.9, borrar los mensajes del formulario de más de 180
-// días; desde E4.5, verificar la casilla de envío.
+// Hoy: borrar las sesiones vencidas (12 h de máximo o 2 h sin uso), desde E3.1 las fotos huérfanas (subidas hace más
+// de 24 h y que no usa nadie: server/fotos/usos.js), desde E4.9 los mensajes del formulario de contacto de más de 180
+// días (plan 8 y 9) y, desde E4.5, verificar la casilla de envío del formulario (server/correo.js: conecta y se
+// autentica sin mandar nada). Una casilla que no responde NO es una tarea fallida: queda en el estado del correo, que
+// el Inicio muestra con su propio aviso (plan 8, punto 4); la tarea solo falla si algo inesperado tira.
 //
 // Cómo salió la última vuelta de cada tarea queda en un registro en memoria (crearRegistroDeTareas), que lee el
 // Inicio del panel (GET /administracion/api/estado, server/api/estado.js) para avisar de las que vienen fallando. Lo
 // crean servidor.js y dev.js y se lo pasan a esta función y a la app; un reinicio lo vacía (la vuelta del arranque lo
 // vuelve a llenar). Una tarea nueva: su nombre en NOMBRES (el texto lo pone el panel, panel/src/pantallas/Inicio.jsx)
 // y su función en TAREAS, dentro de programarTareas (devuelve lo que va al log, sin datos de nadie: { borradas }).
+import { QueryTypes } from 'sequelize'
 import { hoyEnSanJuan, instanteDeLocal } from '../compartido/fechas.js'
 import { borrarSesionesVencidas } from './auth/sesiones.js'
 import { crearAlmacen } from './fotos/almacen.js'
@@ -33,7 +36,18 @@ export function msHastaLaProximaVuelta(ahora = new Date()) {
 }
 
 /** Las tareas que existen, en el orden en que corren (y en que el Inicio las lista). */
-export const NOMBRES = Object.freeze(['sesiones_vencidas', 'fotos_huerfanas'])
+export const NOMBRES = Object.freeze(['sesiones_vencidas', 'fotos_huerfanas', 'mensajes_viejos', 'casilla_correo'])
+
+/** Los días que se guardan los mensajes del formulario de contacto (plan 8). */
+export const DIAS_MENSAJES = 180
+
+// Borra los mensajes viejos y cuenta cuántos (sin traerlos).
+const BORRAR_MENSAJES = `
+WITH borrados AS (
+  DELETE FROM mensajes_contacto WHERE created_at < now() - make_interval(days => :dias) RETURNING 1
+)
+SELECT count(*)::int AS borrados FROM borrados
+`
 
 /**
  * Registro de la última vuelta de cada tarea.
@@ -66,16 +80,32 @@ export function crearRegistroDeTareas() {
 
 /**
  * @param {{ sequelize: import('sequelize').Sequelize | null, registro?: ReturnType<typeof crearRegistroDeTareas>,
- *   almacen?: ReturnType<typeof crearAlmacen> | null }} deps
- *   almacen: el de las fotos de la app (así lo que se borra sale también de la caché de /fotos); sin él, uno propio
+ *   almacen?: ReturnType<typeof crearAlmacen> | null,
+ *   correo?: ReturnType<typeof import('./correo.js').crearCorreo> | null }} deps
+ *   almacen: el de las fotos de la app (así lo que se borra sale también de la caché de /fotos); sin él, uno propio.
+ *   correo: el del formulario de contacto (el de la app: su estado es el que lee el Inicio); sin él no se verifica
+ *   nada
  * @returns {{ listas: Promise<void>, detener: () => void }}  listas: la primera vuelta terminada (las pruebas)
  */
-export function programarTareas({ sequelize, registro = crearRegistroDeTareas(), almacen = null }) {
+export function programarTareas({ sequelize, registro = crearRegistroDeTareas(), almacen = null, correo = null }) {
   if (!sequelize) return { listas: Promise.resolve(), detener: () => {} }
   const fotos = almacen ?? crearAlmacen(sequelize)
   const TAREAS = {
     sesiones_vencidas: async () => ({ borradas: await borrarSesionesVencidas(sequelize) }),
     fotos_huerfanas: async () => ({ borradas: await fotos.borrarHuerfanas() }),
+    mensajes_viejos: async () => {
+      const [fila] = await sequelize.query(BORRAR_MENSAJES, {
+        replacements: { dias: DIAS_MENSAJES },
+        type: QueryTypes.SELECT,
+      })
+      return { borrados: fila?.borrados ?? 0 }
+    },
+    // verificar() nunca tira: el resultado (y el correo_fallido del log) queda en el estado del correo.
+    casilla_correo: async () => {
+      if (!correo?.configurado) return { estado: 'sin_configurar' }
+      const { ok, codigo } = await correo.verificar()
+      return ok ? { estado: 'ok' } : { estado: 'falla', codigo }
+    },
   }
   async function vuelta() {
     for (const tarea of NOMBRES) {

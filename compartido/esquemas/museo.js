@@ -27,18 +27,11 @@ import {
 } from './campos.js'
 import { textoRico } from './textoRico.js'
 import { z } from './zod.js'
+import { REDES, REDES_MAX } from '../redes.js'
 
-/** Las redes que el sitio sabe mostrar (valor -> nombre visible). */
-export const REDES = Object.freeze({
-  instagram: 'Instagram',
-  facebook: 'Facebook',
-  youtube: 'YouTube',
-  tiktok: 'TikTok',
-  x: 'X (Twitter)',
-  threads: 'Threads',
-  linkedin: 'LinkedIn',
-})
-export const REDES_MAX = 8
+// Las redes que el sitio sabe mostrar (valor -> nombre visible) y cuántas se pueden cargar están en compartido/redes.js
+// (sin zod: también las usa el pie del sitio, E4.1).
+export { REDES, REDES_MAX }
 
 /** El "Insertar mapa" de Google Maps tiene que empezar así (también lo exige la tabla, museo_mapa_embed_google). */
 export const PREFIJO_MAPA_EMBED = 'https://www.google.com/maps/embed?'

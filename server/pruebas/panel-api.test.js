@@ -400,7 +400,7 @@ describe('navegacion.js', () => {
     assert.equal(rutaSinBase('http://localhost:5300/administracionx', '/administracion'), '/administracionx')
   })
 
-  test('la barra: Usuarios solo para admin, en el mismo lugar para todos', () => {
+  test('la barra: Mensajes y Usuarios solo para admin, en el mismo lugar para todos', () => {
     assert.deepEqual(seccionesPara('editor').map((s) => s.texto), [
       'Inicio',
       'Novedades',
@@ -414,6 +414,7 @@ describe('navegacion.js', () => {
       'Exposiciones',
       'Visitas',
       'Datos del museo',
+      'Mensajes',
       'Usuarios',
     ])
     // Las fichas de muestras y salas son de Exposiciones.
@@ -580,14 +581,15 @@ describe('contenidos.js y la ficha (E3.3 y E3.4)', () => {
     assert.equal(fusionarGuardado('novedades', sinTocar, sinTocar, ficha), sinTocar)
   })
 
-  test('textosDelSitio: hasta que estén las páginas (E4) no dice que ya está en el sitio (FLU-04)', () => {
+  test('textosDelSitio: sin las páginas no dice que ya está en el sitio (FLU-04); desde E4, sí', () => {
     const sin = textosDelSitio(CONTENIDOS.novedades, false)
     for (const texto of Object.values(sin)) assert.doesNotMatch(texto, /ya está en el sitio|salen al sitio|ya no está en el sitio/)
     assert.equal(sin.publicada, `Publicada. ${SIN_PAGINAS_TODAVIA}`)
     assert.equal(sin.guardadaPublicada, 'Guardado.')
     const con = textosDelSitio(CONTENIDOS.muestras, true)
     assert.equal(con.publicada, 'Publicada: la muestra ya está en el sitio.')
-    // Por defecto, la constante de compartido/contenidos.js (hoy apagada).
-    assert.deepEqual(textosDelSitio(CONTENIDOS.salas), textosDelSitio(CONTENIDOS.salas, false))
+    // Por defecto, la constante de compartido/contenidos.js: prendida desde E4.2 y E4.4 (las páginas ya están).
+    assert.deepEqual(textosDelSitio(CONTENIDOS.salas), textosDelSitio(CONTENIDOS.salas, true))
+    assert.equal(textosDelSitio(CONTENIDOS.novedades).publicada, 'Publicada: la novedad ya está en el sitio.')
   })
 })

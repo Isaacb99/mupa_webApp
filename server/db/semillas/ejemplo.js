@@ -4,10 +4,10 @@
 // como el museo de SIN_BASE (server/museo.js). Crece con cada migración: hoy, la fila del museo, el horario semanal,
 // las tarifas y, desde E3.3 y E3.4, salas, muestras y novedades (plan 3.4: 2 salas, 3 muestras —actual, próxima y
 // finalizada, con las fechas corridas desde hoy— y 4 novedades —dos noticias, una actividad pasada y otra futura—,
-// todas publicadas, con portadas de un color liso hechas con sharp y alguna galería); con E4.9, mensajes del
-// formulario. Sin usuarios: el admin se crea con npm run crear-admin.
+// todas publicadas, con portadas de un color liso hechas con sharp y alguna galería) y, desde E4.9, 3 mensajes del
+// formulario de contacto (uno que no se pudo mandar). Sin usuarios: el admin se crea con npm run crear-admin.
 // Se puede correr varias veces: pisa la fila del museo y los 7 días, y reemplaza solo las tarifas y los contenidos
-// "EJEMPLO ·" (con sus fotos, que libera liberarFotos si nadie más las usa).
+// "EJEMPLO ·" (con sus fotos, que libera liberarFotos si nadie más las usa) y los mensajes "EJEMPLO ·".
 import { Op } from 'sequelize'
 import sharp from 'sharp'
 import { hoyEnSanJuan } from '../../../compartido/fechas.js'
@@ -97,6 +97,51 @@ const TARIFAS = [
   { nombre: `${EJEMPLO}Menores de 6 años`, gratuita: true, precio: null, condicion: null, orden: 3, visible: true },
   { nombre: `${EJEMPLO}Tarifa oculta`, gratuita: false, precio: 500, condicion: null, orden: 4, visible: false },
 ]
+
+// --- Mensajes del formulario de contacto (E4.9) ---
+
+/** Tres mensajes, uno que no se pudo mandar por correo (plan 3.4); hace cuántas horas llegó cada uno. */
+const MENSAJES = [
+  {
+    nombre: `${EJEMPLO}Persona de prueba uno`,
+    email: 'visitante-uno@example.com',
+    mensaje: `${EJEMPLO}Mensaje de prueba: no lo escribió nadie.\nTiene dos renglones.`,
+    envio: 'enviado',
+    error: null,
+    horas: 50,
+  },
+  {
+    nombre: `${EJEMPLO}Persona de prueba dos`,
+    email: 'visitante-dos@example.com',
+    mensaje: `${EJEMPLO}Otro mensaje de prueba, que salió por correo.`,
+    envio: 'enviado',
+    error: null,
+    horas: 26,
+  },
+  {
+    nombre: `${EJEMPLO}Persona de prueba tres`,
+    email: 'visitante-tres@example.com',
+    mensaje: `${EJEMPLO}Un mensaje de prueba que no se pudo mandar por correo (quedó guardado).`,
+    envio: 'fallido',
+    error: 'EAUTH',
+    horas: 2,
+  },
+]
+
+/** Reemplaza los mensajes "EJEMPLO ·". Devuelve cuántos había. */
+async function cargarMensajes(sequelize, transaction) {
+  const [, borrados] = await sequelize.query(`DELETE FROM mensajes_contacto WHERE nombre LIKE 'EJEMPLO · %'`, {
+    transaction,
+  })
+  for (const { horas, ...m } of MENSAJES) {
+    await sequelize.query(
+      `INSERT INTO mensajes_contacto (nombre, email, mensaje, envio, error, created_at)
+       VALUES (:nombre, :email, :mensaje, :envio, :error, now() - make_interval(hours => :horas))`,
+      { replacements: { ...m, horas }, transaction },
+    )
+  }
+  return borrados?.rowCount ?? 0
+}
 
 // --- Contenidos (E3.3 y E3.4) ---
 
@@ -268,7 +313,10 @@ export async function cargarEjemplo(sequelize) {
     const tarifas = await Tarifa.bulkCreate(TARIFAS, { transaction })
     const contenidosReemplazados = await borrarContenidosDeEjemplo(sequelize, almacen, transaction)
     const contenidos = await cargarContenidos(sequelize, almacen, transaction)
+    const mensajesReemplazados = await cargarMensajes(sequelize, transaction)
     return {
+      mensajes: MENSAJES.length,
+      mensajesReemplazados,
       museo: museo.id,
       dias: HORARIO.length,
       tarifas: tarifas.length,
@@ -304,6 +352,8 @@ if (esPrincipal(import.meta)) {
         (r.tarifasReemplazadas ? ` (reemplazó ${r.tarifasReemplazadas} de ejemplo)` : '') +
         `, ${r.salas} salas, ${r.muestras} muestras y ${r.novedades} novedades con ${r.fotos} fotos` +
         (r.contenidosReemplazados ? ` (reemplazó ${r.contenidosReemplazados} contenidos de ejemplo)` : '') +
+        `, y ${r.mensajes} mensajes del formulario` +
+        (r.mensajesReemplazados ? ` (reemplazó ${r.mensajesReemplazados})` : '') +
         '.',
     )
   } catch (err) {

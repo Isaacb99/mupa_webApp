@@ -17,6 +17,15 @@ export function scrollSuaveEnCurso() {
   return lenisActual?.isScrolling === 'smooth'
 }
 
+// Detiene (true) o vuelve a dejar andar (false) el scroll suave: el menú del celular lo para mientras está abierto
+// (plan 6.7; con Lenis parado, la rueda no mueve la página de atrás). Corta también una inercia en curso. Sin Lenis
+// (pantallas sin puntero fino) no hace nada.
+export function detenerScrollSuave(detener) {
+  if (!lenisActual) return
+  if (detener) lenisActual.stop()
+  else lenisActual.start()
+}
+
 // Después de cambiar el alto de algo que está por encima de `referencia`, deja a `referencia` donde estaba (topAntes,
 // medido con el scroll en yAntes): si el navegador ya lo compensó con su anclaje de scroll no mueve nada, y si no,
 // mueve el scroll lo que falta. En los dos casos corre el destino y la posición de Lenis lo mismo que se movió el

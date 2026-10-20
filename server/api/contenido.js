@@ -36,8 +36,11 @@
 // diaria ni otro pedido las borran en el medio.
 // creado_por y actualizado_por salen de la sesión (req.usuario.id), nunca del pedido. El log lleva el id y quién, nunca
 // el título ni los textos.
+// Desde E4.6, después de publicar, despublicar, eliminar algo publicado o guardar un cambio (o la galería) de algo
+// publicado, se avisa a IndexNow qué páginas del sitio cambiaron (server/indexnow.js: apagado sin INDEXNOW_CLAVE, solo
+// en producción con mupa.ar y sin esperar la respuesta). Nunca por un borrador.
 import { Op, QueryTypes } from 'sequelize'
-import { SLUG_MAX, slugDeTitulo, slugNumerado } from '../../compartido/contenidos.js'
+import { SLUG_MAX, slugDeTitulo, slugNumerado, urlPublica } from '../../compartido/contenidos.js'
 import {
   ESQUEMAS_CONTENIDO,
   esquemaGaleria,
@@ -168,6 +171,10 @@ export function rutasDeContenido(tipo) {
   const consulta = esquemaListado(tipos)
   const evento = (accion) => `${def.singular}_${accion}`
   const idDelLog = `${def.singular}_id`
+  // Las páginas del sitio que cambian con un contenido publicado (IndexNow): la suya y el listado; una sala no tiene
+  // página propia (es una sección de /exposiciones).
+  const paginasDelSitio = (slug) =>
+    tipo === 'salas' ? ['/exposiciones'] : [urlPublica(tipo, slug), tipo === 'novedades' ? '/novedades' : '/exposiciones']
 
   const modelos = (sequelize) => {
     const m = sequelize.models
@@ -427,7 +434,8 @@ export function rutasDeContenido(tipo) {
     return { portadaId: pedida === datos.portadaAntes ? enLaBase : pedida, liberarLaDeAntes: false }
   }
 
-  async function modificar(req, res, { sequelize, almacen }) {
+  async function modificar(req, res, { sequelize, almacen, indexNow }) {
+    let publicada = null
     await sequelize.transaction(async (transaction) => {
       const fila = await bloquear(sequelize, req.idRuta, transaction)
       const { portadaId, liberarLaDeAntes } = portadaParaGuardar(fila, req.datos)
@@ -448,12 +456,14 @@ export function rutasDeContenido(tipo) {
         { fields: [...def.campos, 'actualizadoPor'], transaction },
       )
       if (liberarLaDeAntes) await almacen.liberar([portadaDeAntes], transaction)
+      if (fila.estado === 'publicado') publicada = slug
     })
     log('info', evento('modificada'), { [idDelLog]: req.idRuta, por: req.usuario.id })
+    if (publicada) indexNow?.avisar(paginasDelSitio(publicada))
     res.json({ data: await leerFicha(sequelize, req.idRuta) })
   }
 
-  async function publicar(req, res, { sequelize }) {
+  async function publicar(req, res, { sequelize, indexNow }) {
     let cambio = false
     await sequelize.transaction(async (transaction) => {
       const fila = await bloquear(sequelize, req.idRuta, transaction)
@@ -465,13 +475,16 @@ export function rutasDeContenido(tipo) {
         { estado: 'publicado', publicadoEn: fila.publicadoEn ?? new Date(), actualizadoPor: req.usuario.id },
         { fields: ['estado', 'publicadoEn', 'actualizadoPor'], transaction },
       )
-      cambio = true
+      cambio = fila.slug
     })
-    if (cambio) log('info', evento('publicada'), { [idDelLog]: req.idRuta, por: req.usuario.id })
+    if (cambio) {
+      log('info', evento('publicada'), { [idDelLog]: req.idRuta, por: req.usuario.id })
+      indexNow?.avisar(paginasDelSitio(cambio))
+    }
     res.json({ data: await leerFicha(sequelize, req.idRuta) })
   }
 
-  async function despublicar(req, res, { sequelize }) {
+  async function despublicar(req, res, { sequelize, indexNow }) {
     let cambio = false
     await sequelize.transaction(async (transaction) => {
       const fila = await bloquear(sequelize, req.idRuta, transaction)
@@ -480,16 +493,21 @@ export function rutasDeContenido(tipo) {
         { estado: 'borrador', actualizadoPor: req.usuario.id },
         { fields: ['estado', 'actualizadoPor'], transaction },
       )
-      cambio = true
+      cambio = fila.slug
     })
-    if (cambio) log('info', evento('despublicada'), { [idDelLog]: req.idRuta, por: req.usuario.id })
+    if (cambio) {
+      log('info', evento('despublicada'), { [idDelLog]: req.idRuta, por: req.usuario.id })
+      indexNow?.avisar(paginasDelSitio(cambio))
+    }
     res.json({ data: await leerFicha(sequelize, req.idRuta) })
   }
 
-  async function eliminar(req, res, { sequelize, almacen }) {
+  async function eliminar(req, res, { sequelize, almacen, indexNow }) {
     const { Galeria } = modelos(sequelize)
+    let publicada = null
     const borradas = await sequelize.transaction(async (transaction) => {
       const fila = await bloquear(sequelize, req.idRuta, transaction)
+      if (fila.estado === 'publicado') publicada = fila.slug
       const fotos = [fila.portadaId]
       if (Galeria) {
         const lugares = await Galeria.findAll({
@@ -503,15 +521,18 @@ export function rutasDeContenido(tipo) {
       return almacen.liberar(fotos, transaction)
     })
     log('info', evento('eliminada'), { [idDelLog]: req.idRuta, fotos_borradas: borradas.length, por: req.usuario.id })
+    if (publicada) indexNow?.avisar(paginasDelSitio(publicada))
     res.json({ data: { id: req.idRuta } })
   }
 
-  async function guardarGaleria(req, res, { sequelize, almacen }) {
+  async function guardarGaleria(req, res, { sequelize, almacen, indexNow }) {
     const { Modelo, Galeria } = modelos(sequelize)
     const clave = Galeria.claveDelContenido
     const { fotos, antes: cargadas } = req.datos
+    let publicada = null
     await sequelize.transaction(async (transaction) => {
       const fila = await bloquear(sequelize, req.idRuta, transaction)
+      if (fila.estado === 'publicado') publicada = fila.slug
       const lugares = await Galeria.findAll({ where: { [clave]: fila.id }, attributes: ['fotoId'], transaction })
       const actuales = lugares.map((l) => l.fotoId)
       if (cargadas) {
@@ -535,6 +556,7 @@ export function rutasDeContenido(tipo) {
       await almacen.liberar(quitadas, transaction)
     })
     log('info', evento('galeria'), { [idDelLog]: req.idRuta, fotos: fotos.length, por: req.usuario.id })
+    if (publicada) indexNow?.avisar(paginasDelSitio(publicada))
     res.json({ data: await leerFicha(sequelize, req.idRuta) })
   }
 

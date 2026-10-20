@@ -1,6 +1,8 @@
 // Inicio (plan 5.2 y 8): avisos, "Para completar" y accesos directos, con lo que devuelve GET /administracion/api/estado
 // (server/api/estado.js: códigos, no textos; los textos y los enlaces están acá). Desde E3.1, el aviso de espacio: las
-// fotos van en la base y, desde el 80 % del espacio contratado (ESPACIO_BASE_MB), el Inicio lo dice.
+// fotos van en la base y, desde el 80 % del espacio contratado (ESPACIO_BASE_MB), el Inicio lo dice. Desde E4.9, el
+// aviso del correo (plan 8, punto 4: los mensajes del formulario que no salen por correo, desde cuándo y cuántos, para
+// los dos roles; el enlace a Mensajes, solo para un admin) y, en "Formulario de contacto", si está en el sitio.
 import { useEffect, useState } from 'react'
 import { Link, useLoaderData } from 'react-router'
 import { api } from '../api.js'
@@ -28,7 +30,12 @@ const PARA_COMPLETAR = {
 const TAREAS = {
   sesiones_vencidas: 'Borrar las sesiones vencidas',
   fotos_huerfanas: 'Borrar las fotos subidas que no se usan',
+  mensajes_viejos: 'Borrar los mensajes del formulario de más de 180 días',
+  casilla_correo: 'Probar la casilla de envío del formulario',
 }
+
+/** "Un mensaje" / "3 mensajes". */
+const cuantosMensajes = (n) => (n === 1 ? 'Un mensaje' : `${n} mensajes`)
 
 /** Desde qué parte del espacio de la base avisa el Inicio (las fotos van en la base). */
 const AVISO_ESPACIO = 0.8
@@ -51,6 +58,7 @@ const ACCESOS = [
   { a: '/exposiciones', titulo: 'Exposiciones', texto: 'Las muestras y las salas del museo, y su orden.' },
   { a: '/visitas', titulo: 'Visitas', texto: 'Horarios, tarifas, avisos de cierre y compra de entradas.' },
   { a: '/museo', titulo: 'Datos del museo', texto: 'Dirección, teléfono, correos, mapa y redes.' },
+  { a: '/mensajes', titulo: 'Mensajes', texto: 'Los mensajes del formulario de contacto del sitio.', rol: 'admin' },
   { a: '/usuarios', titulo: 'Usuarios', texto: 'Cuentas del panel, roles y contraseñas temporales.', rol: 'admin' },
   { a: '/cuenta', titulo: 'Mi cuenta', texto: 'Tu nombre y tu contraseña.' },
 ]
@@ -63,6 +71,7 @@ export default function Inicio() {
   useEffect(() => borrarAviso(), [])
   const faltan = estado.paraCompletar.filter((codigo) => PARA_COMPLETAR[codigo])
   const lleno = espacioPorLlenarse(estado.espacio)
+  const correo = estado.correo ?? { estado: 'sin_configurar' }
 
   return (
     <>
@@ -80,6 +89,29 @@ export default function Inicio() {
               Ocupa {estado.espacio.usadoMb} MB de {estado.espacio.totalMb} MB ({lleno} %). Las fotos son lo que más
               ocupa. Si se llena, no se van a poder subir fotos ni guardar cambios: avisale a quien mantiene el sitio
               para que amplíe el espacio.
+            </p>
+          </Aviso>
+        ) : null}
+        {correo.estado === 'falla' ? (
+          <Aviso tipo="atencion" titulo="Los mensajes del formulario de contacto no se están enviando por correo">
+            <p>
+              {correo.desde ? `Desde el ${fecha.format(new Date(correo.desde))}` : 'Hace un rato'}
+              {correo.codigo ? ` (código ${correo.codigo})` : ''}.{' '}
+              {correo.sinEnviar > 0 ? (
+                <>
+                  {cuantosMensajes(correo.sinEnviar)}{' '}
+                  {correo.sinEnviar === 1 ? 'no salió' : 'no salieron'} por correo y{' '}
+                  {correo.sinEnviar === 1 ? 'está guardado' : 'están guardados'} en{' '}
+                  {esAdmin ? <Link to="/mensajes">Mensajes</Link> : 'Mensajes (los ve un administrador)'}.
+                </>
+              ) : (
+                <>
+                  Los mensajes que lleguen se guardan igual en{' '}
+                  {esAdmin ? <Link to="/mensajes">Mensajes</Link> : 'Mensajes (los ve un administrador)'}.
+                </>
+              )}{' '}
+              Si cambió la contraseña de la casilla de envío del sitio, hay que actualizarla donde está publicado el
+              sitio (Render): avisale a quien mantiene el sitio.
             </p>
           </Aviso>
         ) : null}
@@ -142,12 +174,36 @@ export default function Inicio() {
         <h2 id="formulario-contacto" className="text-2xl font-bold">
           Formulario de contacto
         </h2>
-        {estado.correo.estado === 'sin_configurar' ? (
+        {correo.estado === 'sin_configurar' ? (
           <p className="mt-2">
             El envío por correo de los mensajes del formulario de contacto todavía no está configurado. Lo configura
-            quien mantiene el sitio: vos no tenés que hacer nada.
+            quien mantiene el sitio: vos no tenés que hacer nada. Mientras tanto, el formulario no aparece en el sitio.
           </p>
-        ) : null}
+        ) : !correo.formulario ? (
+          <p className="mt-2">
+            El formulario no aparece en el sitio porque falta el correo al que llegan los mensajes.{' '}
+            {esAdmin ? (
+              <Link to="/museo">Cargalo en Datos del museo</Link>
+            ) : (
+              'Lo carga un administrador en Datos del museo'
+            )}
+            .
+          </p>
+        ) : correo.estado === 'falla' ? (
+          <p className="mt-2">
+            El formulario está en el sitio, pero los mensajes no están saliendo por correo (mirá el aviso de arriba).
+          </p>
+        ) : (
+          <p className="mt-2">
+            El formulario está en el sitio y los mensajes llegan por correo.
+            {esAdmin ? (
+              <>
+                {' '}
+                También quedan en <Link to="/mensajes">Mensajes</Link>.
+              </>
+            ) : null}
+          </p>
+        )}
       </section>
 
       <section aria-labelledby="accesos" className="mt-10">

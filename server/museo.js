@@ -3,7 +3,7 @@
 //
 // leerMuseo() (E2.3) lee la fila museo, los 7 días del horario y las tarifas visibles en su orden, en UNA consulta y
 // con la lista de columnas escrita a mano: NUNCA email_destino_contacto (plan 9, "Salida"), ni quién editó, ni las
-// tarifas ocultas. La Home todavía no dibuja nada de esto (el pie llega con E4.1), pero el estado ya lo lleva.
+// tarifas ocultas. Desde E4.1 lo dibuja el pie de todas las páginas (src/components/Pie.jsx).
 // La forma (la de MUSEO_VACIO) es la que leen las páginas, en objetos planos:
 //   { direccion, localidad, provincia, codigoPostal, telefono, emailPublico,   texto o null
 //     redes: [{ red, url }],
@@ -16,13 +16,16 @@
 // Lo que viene de la base se vuelve a mirar al armarlo (lo que el panel no deja guardar tampoco sale, aunque alguien
 // lo haya escrito a mano en la base): solo redes conocidas con https, el mapa de Google, la compra con https y los
 // textos con formato que pasan el esquema (compartido/esquemas/textoRico.js; si no, null). Los textos los dibuja
-// src/components/TextoRico.jsx (la página de Visitas, E4.3); van en el estado de todas las páginas, como el resto del
-// museo, aunque hoy ninguna los muestre (en E4.3 conviene pasarlos a los datos de /visitas: el plan 6.1 los pone ahí,
-// y con los tres cerca de su tope la Home pasaba de 73 a 357 kB). Validarlos cuesta unos 7 ms con textos grandes:
-// leerMuseo los vuelve a validar solo si cambiaron (la base da un md5 de los tres; si es el de la vez anterior, se usa
-// lo validado entonces), así cada página no paga ese tiempo.
+// src/components/TextoRico.jsx en la página de Visitas (E4.3) y, desde E4.3 (COD-04 de E3), van SOLO en los datos de
+// /visitas: el estado común de las páginas lleva museoComun(museo), sin ellos (con los tres cerca de su tope la Home
+// pasaba de 73 a 357 kB). Validarlos cuesta unos 7 ms con textos grandes: leerMuseo los vuelve a validar solo si
+// cambiaron (la base da un md5 de los tres; si es el de la vez anterior, se usa lo validado entonces), así cada página
+// no paga ese tiempo.
 //
-// Si la base falla o tarda más de TOPE_MUSEO_MS, la página sale igual, con el último museo bueno (plan 6.3).
+// Si la base falla o tarda más de TOPE_MUSEO_MS, la página sale igual, con el último museo bueno (plan 6.3). Las
+// páginas que se arman con el museo (Visitas) necesitan saber si es el de ahora: museoPublico.conEstado() devuelve
+// { museo, alDia } (alDia: false si es el último bueno o el vacío porque la base no respondió) y, sin el de ahora,
+// Visitas responde la 503 simple (server/ssr.js).
 // Con SIN_BASE (solo para probar en local, plan 6.7) no se consulta nada y el museo es uno de ejemplo: "maximo" (todos
 // los campos llenos, 6 redes, dirección larga: así lo que el museo cargue después queda dentro de lo probado) o
 // "vacio". Las direcciones son de example.com (reservado para ejemplos).
@@ -32,6 +35,7 @@ import { esMapaEmbed, REDES } from '../compartido/esquemas/museo.js'
 import { textoRicoPublicable } from '../compartido/esquemas/textoRico.js'
 import { hoyEnSanJuan } from '../compartido/fechas.js'
 import { codigoDeError, log } from './log.js'
+import { conTope } from './tope.js'
 
 const EJEMPLO = 'EJEMPLO · '
 
@@ -185,6 +189,17 @@ SELECT
 const texto = (v) => (typeof v === 'string' && v.trim() !== '' ? v : null)
 const esHora = (v) => typeof v === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(v)
 
+/** Los tres textos con formato del museo, que van solo en los datos de /visitas (COD-04 de E3). */
+export const TEXTOS_DEL_MUSEO = Object.freeze(['comoLlegar', 'normas', 'accesibilidad'])
+
+/** El museo del estado común de las páginas (estado.museo): todo menos los tres textos con formato. */
+export function museoComun(museo) {
+  if (!museo || typeof museo !== 'object') return museo
+  const comun = { ...museo }
+  for (const campo of TEXTOS_DEL_MUSEO) delete comun[campo]
+  return comun
+}
+
 /** Los tres textos con formato, validados (textoRicoPublicable). */
 export const textosPublicos = (m) => ({
   comoLlegar: textoRicoPublicable(m?.comoLlegar),
@@ -269,43 +284,37 @@ export const TOPE_MUSEO_MS = 2_000
 
 /**
  * museoPublico() para server/ssr.js: el museo de la base, el último bueno si la base falla o no contesta en
- * TOPE_MUSEO_MS (o el vacío si nunca respondió), el de ejemplo con SIN_BASE, o el vacío sin base.
+ * TOPE_MUSEO_MS (o el vacío si nunca respondió), el de ejemplo con SIN_BASE, o el vacío sin base. Con
+ * museoPublico.conEstado(), { museo, alDia }: alDia es false solo cuando la base falló (sin base o con SIN_BASE, true).
  * @param {{ sinBase: false | 'maximo' | 'vacio' }} config
  * @param {{ sequelize?: import('sequelize').Sequelize | null, leer?: () => Promise<object>, tope?: number }} [opciones]
  *   leer: otra forma de leerlo (las pruebas); tope: los ms de espera
  */
 export function crearMuseoPublico(config, { sequelize = null, leer, tope = TOPE_MUSEO_MS } = {}) {
-  if (config.sinBase) {
-    const fijo = config.sinBase === 'vacio' ? MUSEO_VACIO : MUSEO_MAXIMO
-    return async () => fijo
+  const fijo = (museo) => {
+    const conEstado = async () => ({ museo, alDia: true })
+    return Object.assign(async () => museo, { conEstado })
   }
+  if (config.sinBase) return fijo(config.sinBase === 'vacio' ? MUSEO_VACIO : MUSEO_MAXIMO)
   const leerDeVerdad = leer ?? (sequelize ? () => leerMuseo(sequelize) : null)
-  if (!leerDeVerdad) return async () => MUSEO_VACIO
+  if (!leerDeVerdad) return fijo(MUSEO_VACIO)
   let ultimoMuseo = null
-  return async function museoPublico() {
-    let reloj
+  async function conEstado() {
     const lectura = leerDeVerdad()
-    // Si gana el tope, la consulta sigue y termina (o falla) sola más tarde: que no quede un rechazo sin atender. Si
-    // termina bien, igual sirve como último bueno para el pedido siguiente.
+    // Si gana el tope, la consulta sigue y termina (o falla) sola más tarde (conTope atiende su rechazo). Si termina
+    // bien, igual sirve como último bueno para el pedido siguiente.
     lectura.then(
       (museo) => {
         ultimoMuseo = museo
       },
       () => {},
     )
-    const vencida = new Promise((_, rechazar) => {
-      reloj = setTimeout(
-        () => rechazar(Object.assign(new Error('La base no contestó a tiempo'), { code: 'TOPE' })),
-        tope,
-      )
-    })
     try {
-      return await Promise.race([lectura, vencida])
+      return { museo: await conTope(lectura, tope, 'La base no contestó a tiempo'), alDia: true }
     } catch (err) {
       log('aviso', 'museo_sin_base', { mensaje: err.message, codigo: codigoDeError(err) })
-      return ultimoMuseo ?? MUSEO_VACIO
-    } finally {
-      clearTimeout(reloj)
+      return { museo: ultimoMuseo ?? MUSEO_VACIO, alDia: false }
     }
   }
+  return Object.assign(async () => (await conEstado()).museo, { conEstado })
 }

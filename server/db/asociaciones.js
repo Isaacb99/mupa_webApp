@@ -4,10 +4,11 @@
 // desde acá. fotos_archivos no tiene modelo, a propósito (server/db/modelos/Foto.js).
 // Desde E3.3 y E3.4, los contenidos (salas, muestras y novedades) y sus galerías (modelos/Galeria.js): cada uno con su
 // portada (as: 'portada'), su galería (as: 'galeria', con la foto de cada lugar) y quién lo creó y lo cambió por
-// última vez (as: 'autor' y 'editor').
+// última vez (as: 'autor' y 'editor'). Desde E4.9, los mensajes del formulario de contacto (sin asociaciones).
 import { definirFoto } from './modelos/Foto.js'
 import { definirGaleria } from './modelos/Galeria.js'
 import { definirHorarioSemanal } from './modelos/HorarioSemanal.js'
+import { definirMensajeContacto } from './modelos/MensajeContacto.js'
 import { definirMuestra } from './modelos/Muestra.js'
 import { definirMuseo } from './modelos/Museo.js'
 import { definirNovedad } from './modelos/Novedad.js'
@@ -31,6 +32,7 @@ export function definirModelos(sequelize) {
   const Novedad = definirNovedad(sequelize)
   const GaleriaMuestra = definirGaleria(sequelize, 'GaleriaMuestra', Muestra)
   const GaleriaNovedad = definirGaleria(sequelize, 'GaleriaNovedad', Novedad)
+  const MensajeContacto = definirMensajeContacto(sequelize)
 
   Usuario.hasMany(Sesion, { foreignKey: 'usuarioId', as: 'sesiones' })
   Sesion.belongsTo(Usuario, { foreignKey: 'usuarioId', as: 'usuario' })
@@ -64,5 +66,6 @@ export function definirModelos(sequelize) {
     Novedad,
     GaleriaMuestra,
     GaleriaNovedad,
+    MensajeContacto,
   }
 }
