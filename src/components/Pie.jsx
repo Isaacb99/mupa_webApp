@@ -16,12 +16,13 @@ import { marcaActual } from './Menu.jsx'
 // Es el único <footer> de la página: lo buscan la analítica (ver_pie, solo en la Home) y el acordeón de Áreas en el
 // iPhone (deslizarAparicion.js), y su alto es el final de la página del acordeón (plan 6.7: cada cambio del pie,
 // acordeon-dedo y areas-check otra vez). Sin fondo propio: deslizarAparicion le pone el del sitio mientras baja.
-// Los enlaces miden 44 px de alto (el mínimo para el dedo, como en el panel: A11Y-01) y lo largo (una dirección, una
-// nota) se parte en vez de ensanchar la página (PAG-01). Los logos blancos llevan data-logo-blanco: con colores
+// Los enlaces miden 44 px de alto (el mínimo para el dedo, como en el panel: A11Y-01) y de ancho ("Visitas" medía 43:
+// A11Y-07), y lo largo (una dirección, una nota) se parte en vez de ensanchar la página (PAG-01). La navegación de las
+// secciones se llama distinto que la del header y la de la 404 (pie.secciones de content.js). Los logos blancos llevan data-logo-blanco: con colores
 // forzados en un tema claro, index.css los invierte (A11Y-04).
 
 const ENLACE_BASE =
-  'inline-flex min-h-11 max-w-full items-center rounded-sm underline underline-offset-4 transition-colors ' +
+  'inline-flex min-h-11 min-w-11 max-w-full items-center rounded-sm underline underline-offset-4 transition-colors ' +
   'hover:decoration-paper focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-paper'
 const ENLACE = `${ENLACE_BASE} decoration-paper/40`
 // La sección de la página, subrayada en naranja como en el menú.
@@ -86,7 +87,11 @@ export default function Pie({ museo, ruta = null }) {
         </div>
 
         <nav aria-label={pie.secciones} className="mt-8">
-          <ul className="flex flex-wrap gap-x-6 text-[0.9375rem] font-light">
+          {/* gap-x de 23 px y no 24 (LIM-04 de la verificación de la limpieza, 27/10/2026): con el min-w-11 de los
+              enlaces, "Visitas" pasó de 43 a 44 px y a 390 de ancho (el iPhone 12 a 16) "Contacto" bajaba a un segundo
+              renglón y el pie crecía 44 px. Con 23, las cuatro entran en un renglón desde 388 px, como antes desde
+              390, y el pie mide lo mismo que antes en los anchos de las recetas. */}
+          <ul className="flex flex-wrap gap-x-[1.4375rem] text-[0.9375rem] font-light">
             {navegacion.secciones.map((s) => {
               const actual = marcaActual(ruta, s.ruta)
               return (

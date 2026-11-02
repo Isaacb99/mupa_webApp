@@ -4,10 +4,11 @@
 //   si no, tira y la prueba FALLA; nunca toca otra base). Si la variable no está (o está vacía) o no se llega a la
 //   base (Postgres apagado: ECONNREFUSED, ENOTFOUND, ETIMEDOUT, EHOSTUNREACH), devuelve { motivo } y las pruebas
 //   con base se saltean con ese aviso; las que no la necesitan siguen corriendo. Si la base no contesta a tiempo
-//   (TOPE: la PC cargada), reintenta hasta 3 veces de a 5 s y después la prueba FALLA (antes se salteaba: COD-03 de la
-//   verificación de E4). Cualquier otro error es una DATABASE_URL_TEST mal escrita (contraseña equivocada 28P01, base
-//   que no existe 3D000…) y la prueba FALLA con un mensaje que lo dice: si se salteara, npm test daría verde sin haber
-//   probado nada. Si responde: toma un candado de la base (pg_advisory_lock, en una conexión propia, hasta
+//   (TOPE: la PC cargada, o una base que acepta la conexión y no contesta el saludo, que pg corta a los 5 s con
+//   "timeout expired": COD-06 de la verificación de E4, antes caía en "mal configurada"), reintenta hasta 3 veces de
+//   a 5 s y después la prueba FALLA diciendo eso (antes se salteaba: COD-03). Cualquier otro error es una
+//   DATABASE_URL_TEST mal escrita (contraseña equivocada 28P01, base que no existe 3D000…) y la prueba FALLA con un
+//   mensaje que lo dice: si se salteara, npm test daría verde sin haber probado nada. Si responde: toma un candado de la base (pg_advisory_lock, en una conexión propia, hasta
 //   cerrarBase) y recién ahí DROP SCHEMA public CASCADE, CREATE SCHEMA public y todas las migraciones. Con el candado,
 //   dos archivos nunca usan mupa_test a la vez aunque se corran en paralelo (node --test sin --test-concurrency=1, un
 //   IDE): el segundo espera.
@@ -58,6 +59,19 @@ const SIN_CONEXION = new Set(['ECONNREFUSED', 'ENOTFOUND', 'ETIMEDOUT', 'EHOSTUN
 // DATABASE_URL_TEST puesta se reintenta y, si sigue sin contestar, la prueba FALLA.
 const INTENTOS_BASE = 3
 const TOPE_INTENTO_MS = 5_000
+// Se llega pero no contesta: los topes de la conexión de pg (connectionTimeoutMillis de server/db/conexion.js, que
+// destruye el socket con "timeout expired" y Sequelize lo envuelve sin código) y del pool de Sequelize. Cuentan como TOPE.
+const SIN_RESPUESTA = /timeout expired|connection timeout|Connection timed out|Connection terminated unexpectedly/i
+const NOMBRES_SIN_RESPUESTA = new Set(['SequelizeConnectionTimedOutError', 'SequelizeConnectionAcquireTimeoutError'])
+
+/** El código del error de la primera consulta: el de Postgres o la red, o TOPE si la base no contestó a tiempo. */
+export function codigoDeLaPrueba(err) {
+  const codigo = codigoDeError(err)
+  if (codigo) return codigo
+  const mensajes = [err?.message, err?.parent?.message, err?.original?.message].filter(Boolean).join(' ')
+  return NOMBRES_SIN_RESPUESTA.has(err?.name) || SIN_RESPUESTA.test(mensajes) ? 'TOPE' : undefined
+}
+
 // Se llega pero la URL está mal: la prueba falla con esto.
 const MAL_CONFIGURADA = {
   '28P01': 'el usuario o la contraseña no son correctos',
@@ -67,28 +81,29 @@ const MAL_CONFIGURADA = {
 
 /**
  * Deja la base de prueba vacía y migrada. Devuelve { sequelize } o { motivo } (sin base: se saltean).
+ * @param {{ url?: string, intentos?: number, topeIntentoMs?: number }} [opciones]  otra URL u otros topes (la prueba de
+ *   una base que no contesta, en guardas.test.js: si falla, no toca la conexión de este archivo)
  * @returns {Promise<{ sequelize: import('sequelize').Sequelize, motivo?: undefined } | { motivo: string, sequelize?: undefined }>}
  */
-export async function prepararBase() {
-  if (!URL_PRUEBA) return saltear('no está DATABASE_URL_TEST (en .env, ver .env.example)')
+export async function prepararBase({ url = URL_PRUEBA, intentos = INTENTOS_BASE, topeIntentoMs = TOPE_INTENTO_MS } = {}) {
+  if (!url) return saltear('no está DATABASE_URL_TEST (en .env, ver .env.example)')
   // Antes de abrir la conexión: si no es local o no termina en _test, tira y la prueba falla.
-  exigirBaseDePrueba(URL_PRUEBA)
-  sequelize = crearConexion(leerConfig({}), { url: URL_PRUEBA })
+  exigirBaseDePrueba(url)
+  const conexion = crearConexion(leerConfig({}), { url })
   for (let intento = 1; ; intento++) {
     try {
-      await probarBase(sequelize, TOPE_INTENTO_MS)
+      await probarBase(conexion, topeIntentoMs)
       break
     } catch (err) {
-      const codigo = codigoDeError(err)
-      if (codigo === 'TOPE' && intento < INTENTOS_BASE) continue
-      await sequelize.close().catch(() => {})
-      sequelize = null
+      const codigo = codigoDeLaPrueba(err)
+      if (codigo === 'TOPE' && intento < intentos) continue
+      await conexion.close().catch(() => {})
       if (SIN_CONEXION.has(codigo)) return saltear(`la base de prueba no responde (${codigo})`)
       if (codigo === 'TOPE') {
         throw new Error(
-          `La base de prueba no contestó en ${INTENTOS_BASE} intentos de ${TOPE_INTENTO_MS / 1000} s (TOPE): ` +
-            'está trabada o la PC está muy cargada. Volvé a correr las pruebas (o dejá DATABASE_URL_TEST vacía para ' +
-            'saltear las que usan la base).',
+          `La base de prueba no contestó en ${intentos} ${intentos === 1 ? 'intento' : 'intentos'} de ` +
+            `${topeIntentoMs / 1000} s (TOPE): acepta la conexión pero no responde (está trabada) o la PC está muy ` +
+            'cargada. Volvé a correr las pruebas (o dejá DATABASE_URL_TEST vacía para saltear las que usan la base).',
         )
       }
       // El mensaje de Postgres o del driver nunca trae la URL ni la contraseña.
@@ -98,9 +113,10 @@ export async function prepararBase() {
       )
     }
   }
+  sequelize = conexion
   // Espera a que ningún otro archivo de pruebas esté usando la base. Si este proceso termina de golpe, la conexión se
   // cierra y Postgres suelta el candado solo.
-  candado = new pg.Client({ connectionString: URL_PRUEBA })
+  candado = new pg.Client({ connectionString: url })
   await candado.connect()
   await candado.query('SELECT pg_advisory_lock($1::bigint)', [CANDADO_PRUEBAS])
   await sequelize.query('DROP SCHEMA public CASCADE; CREATE SCHEMA public;')

@@ -1,9 +1,9 @@
 // Mensajes (E4.9; plan 5.2 y 8), solo para admins: los mensajes del formulario de contacto del sitio, en una lista de
 // solo lectura (GET /administracion/api/mensajes?pagina=, 50 por página), del más nuevo al más viejo. Cada uno con la fecha,
 // el nombre, el correo (un enlace mailto: para responder desde el programa de correo), el mensaje y si salió por correo
-// ("Enviado por correo", "No se pudo enviar por correo" con su código o, si se cortó en el medio, "Envío sin
-// confirmar"). Sin borrar, responder ni reintentar (el reintento está en la fase 2): la tarea diaria del sitio los
-// borra a los 180 días.
+// ("Enviado por correo", "No se pudo enviar por correo" con su código —o qué pasó, si no fue la casilla: CON-08— o, si
+// se cortó en el medio, "Envío sin confirmar"). Sin borrar, responder ni reintentar (el reintento está en la fase 2):
+// la tarea diaria del sitio los borra a los 180 días.
 // - La página va en la dirección del panel (/mensajes?pagina=2): Atrás vuelve a la misma. Una página que no es un
 //   número se toma como la primera; una que pasa del total lo dice y ofrece ir a la primera.
 // - Al cambiar de página, la cuenta se anuncia (role="status") y el foco va a ella (como en Novedades).
@@ -30,6 +30,21 @@ const ENVIO = {
   enviado: { texto: 'Enviado por correo', clases: 'border-ok bg-ok-fondo text-ok' },
   fallido: { texto: 'No se pudo enviar por correo', clases: 'border-error bg-error-fondo text-error' },
   pendiente: { texto: 'Envío sin confirmar', clases: 'border-atencion bg-atencion-fondo text-atencion' },
+}
+
+// Lo que no salió por algo que no es la casilla (SIN_CORREO_POR_OTRA_CAUSA de server/contacto.js, CON-08 de la
+// verificación de E4): en vez del código, qué pasó. Los de la casilla (EAUTH, ETIMEDOUT…) van con su código.
+const POR_OTRA_CAUSA = {
+  SIN_DESTINO: 'No se pudo enviar por correo: no había correo de destino cargado',
+  DESTINO_NO_LEIDO: 'No se pudo enviar por correo: el sitio tardó en leer el correo de destino',
+  GUARDADO_TARDE: 'No se pudo enviar por correo y a la persona se le dijo que no llegó: puede haberlo mandado de nuevo',
+}
+
+/** El texto del estado del envío de un mensaje. */
+function textoDelEnvio(m) {
+  if (m.envio !== 'fallido') return (ENVIO[m.envio] ?? ENVIO.pendiente).texto
+  if (m.error && POR_OTRA_CAUSA[m.error]) return POR_OTRA_CAUSA[m.error]
+  return `${ENVIO.fallido.texto}${m.error ? ` (código ${m.error})` : ''}`
 }
 
 const aPagina = (n) => (n > 1 ? `/mensajes?pagina=${n}` : '/mensajes')
@@ -102,8 +117,7 @@ export default function Mensajes() {
                     </a>
                     <span className="text-tenue">{fechaHora(m.fecha)}</span>
                     <span className={`rounded-md border-l-4 px-2 py-0.5 text-sm font-semibold ${envio.clases}`}>
-                      {envio.texto}
-                      {m.envio === 'fallido' && m.error ? ` (código ${m.error})` : ''}
+                      {textoDelEnvio(m)}
                     </span>
                   </p>
                   <p className="max-w-3xl whitespace-pre-wrap wrap-anywhere">{m.mensaje}</p>

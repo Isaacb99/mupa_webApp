@@ -8,8 +8,12 @@
 // - Etapas, a la vista en cada foto: "Preparando foto…", "Subiendo… 45 %" (con una barra de progreso) y "Procesando
 //   foto…"; y anunciadas en una región role="status" al cambiar de etapa (no con cada porcentaje).
 // - La subida va con api.subir (XMLHttpRequest, con las reglas de api.js: 401 -> reingreso y se repite; 403 con
-//   debeCambiarClave; sin red "Sin conexión, reintentá."). Una que falla queda en la lista con su error y la cola
-//   sigue con la siguiente (salvo una sesión terminada o el límite de fotos por hora: ahí se frena).
+//   debeCambiarClave; sin red "Sin conexión, reintentá."; un 503 con Retry-After, porque no hay lugar en el servidor,
+//   se reintenta una vez después de la espera, que se ve en la foto como "Esperando un lugar…": API-07 de la
+//   verificación de E3). Las subidas de la página van de a una (api.subir): si la portada y la galería de una ficha
+//   suben a la vez, la segunda se ve como "En espera…" hasta que termina la primera (LIM-02 de la verificación de la
+//   limpieza, 27/10/2026). Una que falla queda en la lista con su error y la cola sigue con la siguiente (salvo una
+//   sesión terminada o el límite de fotos por hora: ahí se frena).
 // - "Cancelar la subida" corta la que está subiendo; las que faltaban quedan en la lista.
 // - El foco (corrección de E3, 16/10/2026): mientras sube, los datos de las fotos quedan deshabilitados, así que al
 //   empezar (también con Enter en un campo) el foco pasa al botón "Subir…" (ocupado, no deshabilitado). Al terminar:
@@ -60,6 +64,9 @@ const nuevaClave = () => `f${++contador}`
 
 const ETAPAS = {
   preparando: () => 'Preparando foto…',
+  enEspera: () => 'En espera: se sube cuando termine la otra foto…',
+  // El 503 del servidor: no hay lugar (muchas fotos subiéndose, o una de la misma cuenta en otra pestaña o equipo).
+  esperando: (item) => `Esperando un lugar para subirla: se vuelve a probar en ${item.espera} segundos…`,
   subiendo: (item) => `Subiendo… ${Math.round(item.progreso * 100)} %`,
   procesando: () => 'Procesando foto…',
 }
@@ -251,13 +258,33 @@ export function SubirFoto({
         formulario.append('foto', preparada.archivo, preparada.archivo.name)
         actualizar(item.clave, { estado: 'subiendo' })
         setAnuncio(`Subiendo la foto${numero}…`)
+        // Si esperó (a que terminara otra subida de la página, o un lugar en el servidor): al empezar a mandarla, se
+        // vuelve a anunciar "Subiendo…".
+        let enFila = false
         try {
           const foto = await api.subir('/fotos', formulario, {
             signal: controlador.signal,
-            alProgreso: (fraccion) => actualizar(item.clave, { progreso: fraccion }),
+            // El estado también: después de una espera, la foto vuelve a "Subiendo…".
+            alProgreso: (fraccion) => {
+              actualizar(item.clave, { estado: 'subiendo', progreso: fraccion })
+              if (enFila) {
+                enFila = false
+                setAnuncio(`Subiendo la foto${numero}…`)
+              }
+            },
             alProcesar: () => {
               actualizar(item.clave, { estado: 'procesando' })
               setAnuncio(`Procesando la foto${numero}…`)
+            },
+            alEsperar: (segundos) => {
+              enFila = true
+              actualizar(item.clave, { estado: 'esperando', espera: segundos, progreso: 0 })
+              setAnuncio(`Esperando un lugar para subir la foto${numero}: se vuelve a probar en ${segundos} segundos.`)
+            },
+            alEnEspera: () => {
+              enFila = true
+              actualizar(item.clave, { estado: 'enEspera', progreso: 0 })
+              setAnuncio(`La foto${numero} se sube cuando termine la otra.`)
             },
           })
           subidas += 1
@@ -442,7 +469,7 @@ export function SubirFoto({
                     <Campo
                       id={`${prefijo}${item.clave}-credito`}
                       etiqueta={<>Crédito{numero}</>}
-                      ayuda="Opcional: quién sacó la foto, por ejemplo «Foto: Archivo MuPa»."
+                      ayuda="Opcional: quién sacó la foto, por ejemplo «Archivo MuPa» (el sitio le agrega «Foto:» adelante)."
                       maxLength={CREDITO_MAX}
                       autoComplete="off"
                       value={item.credito}

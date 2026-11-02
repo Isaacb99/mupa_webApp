@@ -1,0 +1,40 @@
+# Dependabot (plan 10.5 y E5.5): una vez por mes, un PR con las actualizaciones de las dependencias de producción y otro
+# con las de desarrollo. Nunca sube una versión mayor (Express 6, React 20, Sequelize 7…): esas son trabajos aparte,
+# con sus pruebas (plan 10.5). Dependabot solo abre los PR: nada se une ni se despliega solo. Aplicar uno es revisarlo,
+# correr npm test y npm run build, unirlo a master, desplegar a mano en Render y correr tools/rutas-check.mjs
+# (docs/operacion.md, "Actualizaciones").
+#
+# Los avisos de seguridad van aparte: se prenden en GitHub, Settings → Code security → "Dependabot alerts" y
+# "Dependabot security updates", y abren su propio PR en cuanto sale el aviso, sin esperar al mes. Los PR van contra la
+# rama por defecto del repositorio, que tiene que ser master (la que despliega Render).
+#
+# nodemailer está fijo a propósito (sin ^, CLAUDE.md): queda fuera del grupo de producción (exclude-patterns), así su
+# actualización llega en un PR propio y no se cuela en el del grupo, que se aplica entero (E5-09 de la verificación de
+# E5, 27/10/2026). Ese PR lo decide quien mantiene el sitio después de leer los cambios de la versión.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: monthly
+      time: "06:00"
+      timezone: America/Argentina/San_Juan
+    # Una versión recién publicada espera dos semanas antes de proponerse: si trae un error, suele corregirse en ese
+    # tiempo (solo para estas actualizaciones del mes, no para las de seguridad).
+    cooldown:
+      default-days: 14
+    open-pull-requests-limit: 5
+    groups:
+      produccion:
+        dependency-type: production
+        update-types: [minor, patch]
+        exclude-patterns: [nodemailer]
+      desarrollo:
+        dependency-type: development
+        update-types: [minor, patch]
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    commit-message:
+      prefix: "dependencias"
+      prefix-development: "dependencias de desarrollo"

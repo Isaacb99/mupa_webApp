@@ -1,13 +1,18 @@
 // Inicio (plan 5.2 y 8): avisos, "Para completar" y accesos directos, con lo que devuelve GET /administracion/api/estado
 // (server/api/estado.js: códigos, no textos; los textos y los enlaces están acá). Desde E3.1, el aviso de espacio: las
-// fotos van en la base y, desde el 80 % del espacio contratado (ESPACIO_BASE_MB), el Inicio lo dice. Desde E4.9, el
-// aviso del correo (plan 8, punto 4: los mensajes del formulario que no salen por correo, desde cuándo y cuántos, para
-// los dos roles; el enlace a Mensajes, solo para un admin) y, en "Formulario de contacto", si está en el sitio.
+// fotos van en la base y, desde el 80 % del espacio contratado (ESPACIO_BASE_MB), el Inicio lo dice, con lo que pasa si
+// se llena: Render suspende la base y se caen el sitio (salvo la Home) y el panel (docs/operacion.md 6), así que el
+// aviso de "llena" puede no llegar a verse y el del 80 % tiene que decirlo (E5-12 de la re-verificación de E5). Desde
+// E4.9, el aviso del correo (plan 8, punto 4: los mensajes del formulario que no salen por correo, desde cuándo y
+// cuántos, para los dos roles; el enlace a Mensajes, solo para un admin) y, en "Formulario de contacto", si está en el
+// sitio. Los que no salieron por algo que no es la casilla (la base tardó en dar el destino, se guardaron tarde: CON-08
+// de la verificación de E4) van en un aviso aparte, que no habla de la casilla.
 import { useEffect, useState } from 'react'
 import { Link, useLoaderData } from 'react-router'
 import { api } from '../api.js'
 import { Aviso, AvisoDeLlegada } from '../componentes/Aviso.jsx'
 import { Encabezado } from '../componentes/Encabezado.jsx'
+import { fechaHora } from '../formato.js'
 import { borrarAviso, leerAviso, useSesion } from '../sesion.jsx'
 
 /** El loader (rutas.jsx lo envuelve con la sesión). */
@@ -47,12 +52,6 @@ function espacioPorLlenarse(espacio) {
   return parte >= AVISO_ESPACIO ? Math.round(parte * 100) : null
 }
 
-const fecha = new Intl.DateTimeFormat('es-AR', {
-  dateStyle: 'long',
-  timeStyle: 'short',
-  timeZone: 'America/Argentina/San_Juan',
-})
-
 const ACCESOS = [
   { a: '/novedades', titulo: 'Novedades', texto: 'Noticias y actividades: talleres, charlas, visitas especiales.' },
   { a: '/exposiciones', titulo: 'Exposiciones', texto: 'Las muestras y las salas del museo, y su orden.' },
@@ -87,15 +86,25 @@ export default function Inicio() {
           >
             <p>
               Ocupa {estado.espacio.usadoMb} MB de {estado.espacio.totalMb} MB ({lleno} %). Las fotos son lo que más
-              ocupa. Si se llena, no se van a poder subir fotos ni guardar cambios: avisale a quien mantiene el sitio
-              para que amplíe el espacio.
+              ocupa.{' '}
+              {lleno >= 100 ? (
+                <>
+                  En cualquier momento el sitio puede dejar de verse (salvo la página principal) y el panel, dejar de
+                  andar, hasta que se amplíe el espacio: avisale ya a quien mantiene el sitio.
+                </>
+              ) : (
+                <>
+                  Si se llena, el sitio deja de verse (salvo la página principal) y el panel deja de andar hasta que
+                  se amplíe el espacio: avisale ya a quien mantiene el sitio.
+                </>
+              )}
             </p>
           </Aviso>
         ) : null}
         {correo.estado === 'falla' ? (
           <Aviso tipo="atencion" titulo="Los mensajes del formulario de contacto no se están enviando por correo">
             <p>
-              {correo.desde ? `Desde el ${fecha.format(new Date(correo.desde))}` : 'Hace un rato'}
+              {correo.desde ? `Desde el ${fechaHora(correo.desde)}` : 'Hace un rato'}
               {correo.codigo ? ` (código ${correo.codigo})` : ''}.{' '}
               {correo.sinEnviar > 0 ? (
                 <>
@@ -115,10 +124,27 @@ export default function Inicio() {
             </p>
           </Aviso>
         ) : null}
+        {correo.otraCausa > 0 ? (
+          <Aviso
+            tipo="atencion"
+            titulo={
+              correo.otraCausa === 1
+                ? 'Un mensaje del formulario de contacto no salió por correo'
+                : `${correo.otraCausa} mensajes del formulario de contacto no salieron por correo`
+            }
+          >
+            <p>
+              Fue por un problema momentáneo del sitio, no de la casilla de envío.{' '}
+              {correo.otraCausa === 1 ? 'Está guardado' : 'Están guardados'} en{' '}
+              {esAdmin ? <Link to="/mensajes">Mensajes</Link> : 'Mensajes (los ve un administrador)'}, con lo que pasó.
+              Si vuelve a pasar seguido, avisale a quien mantiene el sitio.
+            </p>
+          </Aviso>
+        ) : null}
         {estado.tareasFallidas.map((t) => (
           <Aviso key={t.tarea} tipo="atencion" titulo="Una tarea automática del sitio está fallando">
             <p>
-              La tarea diaria «{TAREAS[t.tarea] ?? t.tarea}» viene fallando desde el {fecha.format(new Date(t.desde))}
+              La tarea diaria «{TAREAS[t.tarea] ?? t.tarea}» viene fallando desde el {fechaHora(t.desde)}
               {t.codigo ? ` (código ${t.codigo})` : ''}. El sitio sigue andando; si el aviso sigue mañana, avisale a
               quien mantiene el sitio.
             </p>

@@ -7,7 +7,8 @@
 // ProseMirror que arman las extensiones del editor (sin DOM), que lo escrito después de un enlace no queda adentro y
 // cómo se ve después de guardar (comoLoMuestraElEditor). Desde la ronda 2 (16/10/2026), con un editor de TipTap sin
 // montar (tampoco necesita DOM): el diálogo del enlace con el cursor justo antes o justo después de un enlace
-// (editorTexto/enlace.js).
+// (editorTexto/enlace.js). Desde la limpieza del 27/10/2026: después de mostrar lo guardado, Deshacer queda vacío y no
+// habilitado sin hacer nada (editorTexto/reemplazo.js, FLU-07).
 import assert from 'node:assert/strict'
 import { readdirSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -28,6 +29,7 @@ import {
   quitarEnlace,
 } from '../../panel/src/componentes/editorTexto/enlace.js'
 import { comoLoMuestraElEditor, EXTENSIONES } from '../../panel/src/componentes/editorTexto/extensiones.js'
+import { mostrarGuardado } from '../../panel/src/componentes/editorTexto/reemplazo.js'
 import {
   BLOQUES_MAX,
   BYTES_MAX,
@@ -334,6 +336,118 @@ describe('el editor, con su esquema de ProseMirror (sin base ni DOM)', () => {
     // Vacío: un párrafo.
     assert.deepEqual(comoLoMuestraElEditor(null), { type: 'doc', content: [{ type: 'paragraph' }] })
     assert.deepEqual(comoLoMuestraElEditor(doc(p(t('x')))).content.length, 1)
+  })
+})
+
+describe('mostrar lo guardado sin dejar Deshacer en el aire (FLU-07; un editor sin montar)', () => {
+  /**
+   * Un editor sin montar con los plugins de las extensiones (sin montar, TipTap 3 no los pone: sin ellos no hay
+   * historia), en el que la persona escribió: una línea en blanco y una palabra al final.
+   */
+  function conCambios() {
+    const editor = new Editor({ element: null, extensions: EXTENSIONES, content: doc(p(t('Uno')), p(t('Dos'))) })
+    editor.view.updateState(editor.state.reconfigure({ plugins: editor.extensionManager.plugins }))
+    editor.commands.setTextSelection(editor.state.doc.content.size - 1)
+    editor.commands.splitBlock()
+    editor.commands.splitBlock()
+    editor.commands.command(({ tr }) => Boolean(tr.insertText('Tres')))
+    assert.equal(editor.can().undo(), true)
+    return editor
+  }
+  const deshacerCambiaAlgo = (editor) => {
+    const antes = JSON.stringify(editor.getJSON())
+    editor.commands.undo()
+    return JSON.stringify(editor.getJSON()) !== antes
+  }
+
+  test('lo que pasaba: el reemplazo fuera de la historia dejaba Deshacer habilitado y sin efecto', () => {
+    const editor = conCambios()
+    try {
+      const guardado = validar(editor.getJSON()).datos
+      editor
+        .chain()
+        .command(({ tr }) => {
+          tr.setMeta('addToHistory', false)
+          return true
+        })
+        .setContent(comoLoMuestraElEditor(guardado), { emitUpdate: false })
+        .run()
+      assert.equal(editor.can().undo(), true)
+      assert.equal(deshacerCambiaAlgo(editor), false)
+    } finally {
+      editor.destroy()
+    }
+  })
+
+  test('mostrarGuardado: lo guardado (sin la línea en blanco), sin avisar el cambio y con Deshacer vacío', () => {
+    const editor = conCambios()
+    let avisos = 0
+    editor.on('update', () => avisos++)
+    try {
+      const guardado = validar(editor.getJSON()).datos
+      assert.equal(mostrarGuardado(editor, guardado), true)
+      assert.deepEqual(editor.getJSON(), comoLoMuestraElEditor(guardado))
+      assert.equal(avisos, 0, 'no es un cambio de la persona')
+      assert.equal(editor.can().undo(), false)
+      assert.equal(deshacerCambiaAlgo(editor), false)
+      // Lo que se escribe después sí se puede deshacer.
+      editor.commands.command(({ tr }) => Boolean(tr.insertText(' más', 4)))
+      assert.equal(editor.can().undo(), true)
+      assert.equal(deshacerCambiaAlgo(editor), true)
+      assert.deepEqual(editor.getJSON(), comoLoMuestraElEditor(guardado))
+      // Si ya se ve como lo guardado, no toca nada (ni la historia).
+      editor.commands.command(({ tr }) => Boolean(tr.insertText('!', 4)))
+      const ahora = validar(editor.getJSON()).datos
+      assert.equal(mostrarGuardado(editor, ahora), false)
+      assert.equal(editor.can().undo(), true)
+    } finally {
+      editor.destroy()
+    }
+  })
+
+  test('mostrarGuardado no enlaza una dirección que quedó como texto (LIM-05: el autolink en el reemplazo)', () => {
+    const enlaces = (json) => JSON.stringify(json).match(/"type":"link"/g)?.length ?? 0
+    /** El primer párrafo termina en una dirección escrita como texto (la persona le quitó el enlace a propósito). */
+    function conDireccion() {
+      const contenido = doc(p(t('Más datos en www.museo.gob.ar')), p(t('Dos')))
+      const editor = new Editor({ element: null, extensions: EXTENSIONES, content: contenido })
+      editor.view.updateState(editor.state.reconfigure({ plugins: editor.extensionManager.plugins }))
+      editor.commands.setTextSelection(editor.state.doc.content.size - 1)
+      editor.commands.splitBlock()
+      editor.commands.splitBlock()
+      editor.commands.command(({ tr }) => Boolean(tr.insertText('Tres')))
+      return editor
+    }
+    // Lo que pasaba (el control): el mismo reemplazo sin la meta, y el autolink agrega un enlace que no está guardado.
+    const control = conDireccion()
+    try {
+      const guardado = validar(control.getJSON()).datos
+      assert.equal(enlaces(guardado), 0)
+      const historia = control.state.plugins.find((pl) => /^history\$\d*$/.test(pl.key))
+      control
+        .chain()
+        .command(({ tr, state }) => {
+          tr.setMeta('addToHistory', false)
+          tr.setMeta(historia, { redo: false, historyState: historia.spec.state.init({}, state) })
+          return true
+        })
+        .setContent(comoLoMuestraElEditor(guardado), { emitUpdate: false })
+        .run()
+      assert.equal(enlaces(control.getJSON()), 1, 'sin la meta, el autolink enlaza la dirección')
+    } finally {
+      control.destroy()
+    }
+    const editor = conDireccion()
+    try {
+      const guardado = validar(editor.getJSON()).datos
+      assert.equal(mostrarGuardado(editor, guardado), true)
+      assert.equal(enlaces(editor.getJSON()), 0, 'el editor muestra lo guardado: sin enlace')
+      assert.deepEqual(editor.getJSON(), comoLoMuestraElEditor(guardado))
+      assert.equal(editor.can().undo(), false)
+      assert.equal(editor.can().redo(), false)
+    } finally {
+      editor.destroy()
+    }
   })
 })
 

@@ -6,10 +6,10 @@
 //   2. Content-Type: application/json en POST, PUT, PATCH y DELETE con cuerpo (en POST /fotos, multipart/form-data:
 //      MULTIPART de server/seguridad.js): 415;
 //   3. express.json con tope de 100 kB, o el de la ruta (limiteJson: 300 kB en lo que guarda textos con formato, plan
-//      2.4: PUT /museo y PUT /novedades, /muestras y /salas/:id; ojo, el parser de /salas/:id y /muestras/:id lee
-//      también /salas/orden y /muestras/orden, que quedan con 300 kB: hallazgo COD-08 de la verificación de E3,
-//      pendiente) (413; un JSON roto, 400). El multipart lo lee multer,
-//      en la ruta (después de la sesión, el rol, el límite y un lugar en la cola: server/api/fotos.js);
+//      2.4: PUT /museo y PUT /novedades, /muestras y /salas/:id; el de una ruta con :id lee solo si el :id es un id,
+//      así /salas/orden y /muestras/orden quedan con los 100 kB comunes: COD-08 de la verificación de E3) (413; un
+//      JSON roto, 400). El multipart lo lee multer, en la ruta (después de la sesión, el rol, el límite y un lugar en
+//      la cola: server/api/fotos.js);
 // y por ruta:
 //   4. con rol: requiereSesion (401), la contraseña temporal ya cambiada salvo las rutas que la permiten (403 con
 //      debeCambiarClave), 300 pedidos por minuto por usuario (429) y el rol (403);
@@ -132,8 +132,13 @@ export function crearApi({ config, sequelize, registroTareas = null, almacen = n
   api.use(crearControlDeOrigen(config))
   api.use(exigirJson)
   // Las rutas con un tope propio leen su cuerpo antes que el común: express.json no vuelve a leer un cuerpo ya leído.
+  // En una ruta con :id, solo si el :id es un id: "/salas/orden" también calza con "/salas/:id" y se quedaba con los
+  // 300 kB (COD-08 de la verificación de E3).
   for (const def of DEFINICIONES) {
-    if (def.limiteJson) api[def.metodo.toLowerCase()](def.ruta, express.json({ limit: def.limiteJson }))
+    if (!def.limiteJson) continue
+    const leer = express.json({ limit: def.limiteJson })
+    const leerSiEsId = (req, res, next) => (parseId(req.params.id) == null ? next() : leer(req, res, next))
+    api[def.metodo.toLowerCase()](def.ruta, def.ruta.includes(':id') ? leerSiEsId : leer)
   }
   api.use(express.json({ limit: '100kb' }))
 

@@ -5,7 +5,8 @@
 //   servidor): si no, un párrafo vacío al final o las claves en otro orden (como las devuelve el jsonb) parecían
 //   cambios sin guardar.
 // - Antes de mandar, los enlaces pegados sin el esquema ("www.…") se completan (completarEnlaces) y se valida con el
-//   mismo esquema del servidor; un error va a su campo (el resumen lleva al texto) y a la región del resumen.
+//   mismo esquema del servidor; un error va a su campo (el resumen lleva al texto) y a la región del resumen. Lo que
+//   se manda es la forma canónica que devuelve el esquema (cuerpoTextos.js: COD-09).
 // - Avisa a la pantalla qué texto tiene cambios sin guardar, cada uno con su clave (tx-comoLlegar…), así la pregunta
 //   al irse dice cuál ("Falta guardar: Cómo llegar.").
 // - "Guardado." se ve hasta el primer cambio después de guardar (como en los otros formularios de Visitas).
@@ -13,19 +14,14 @@
 //   Editor.jsx: sin las líneas en blanco, que no se guardan; corrección de E3, 16/10/2026).
 // - La cantidad de caracteres que quedan va en la ayuda de cada texto (hasta CARACTERES_MAX).
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { esquemaCambioMuseo } from '../../../../compartido/esquemas/museo.js'
-import {
-  CARACTERES_MAX,
-  completarEnlaces,
-  medirDocumento,
-  textoRico,
-} from '../../../../compartido/esquemas/textoRico.js'
+import { CARACTERES_MAX, medirDocumento } from '../../../../compartido/esquemas/textoRico.js'
 import { api } from '../../api.js'
 import { Aviso } from '../../componentes/Aviso.jsx'
 import { Boton } from '../../componentes/Boton.jsx'
 import { EditorTexto } from '../../componentes/EditorTexto.jsx'
 import { ResumenErrores, useEnvio } from '../../componentes/formulario.jsx'
-import { iguales, validarCon } from '../../formato.js'
+import { iguales } from '../../formato.js'
+import { canonico, cuerpoDeTextos } from './cuerpoTextos.js'
 
 export const PREFIJO_TEXTOS = 'tx-'
 
@@ -50,12 +46,6 @@ export const TEXTOS = [
 const CAMPOS = TEXTOS.map((t) => t.campo)
 const ETIQUETAS = Object.fromEntries(TEXTOS.map((t) => [t.campo, t.etiqueta]))
 const formatoNumero = new Intl.NumberFormat('es-AR')
-
-/** La forma canónica de un texto (la que se guarda), o el mismo valor si todavía no es válido. */
-function canonico(valor) {
-  const r = textoRico.safeParse(completarEnlaces(valor ?? null))
-  return r.success ? r.data : valor
-}
 
 /**
  * @param {{ museo: Record<string, any>, alCambiarSucio: (clave: string, sucio: boolean) => void }} props
@@ -94,10 +84,7 @@ export function Textos({ museo, alCambiarSucio }) {
     setOk(null)
     // Solo los que cambiaron (el pedido no crece de más); si no cambió ninguno, los tres (confirma lo guardado).
     const cambiados = CAMPOS.filter((c) => sucios[c])
-    const cuerpo = Object.fromEntries(
-      (cambiados.length ? cambiados : CAMPOS).map((c) => [c, completarEnlaces(valores[c] ?? null)]),
-    )
-    const v = validarCon(esquemaCambioMuseo, cuerpo)
+    const v = cuerpoDeTextos(valores, cambiados.length ? cambiados : CAMPOS)
     if (!v.ok) {
       envio.mostrar(v.errores, v.general)
       return

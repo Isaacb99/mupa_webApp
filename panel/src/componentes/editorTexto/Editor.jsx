@@ -21,14 +21,16 @@
 // - reemplazo ({ doc, si }, un objeto nuevo cada vez): después de guardar, quien lo usa pasa lo guardado (doc, la
 //   forma canónica) y lo que mandó (si, el JSON del editor en ese momento). Si el editor sigue teniendo exactamente eso
 //   (no se escribió nada mientras se guardaba) y se ve distinto de lo guardado (las líneas en blanco, que la forma
-//   canónica saca), pasa a mostrar lo guardado, sin avisar el cambio y sin sumarlo a Deshacer (corrección de E3,
-//   16/10/2026: hasta recargar se veían líneas en blanco que ya no estaban guardadas). Si se escribió algo, no toca nada.
+//   canónica saca), pasa a mostrar lo guardado, sin avisar el cambio y con Deshacer vacío (reemplazo.js; corrección de
+//   E3, 16/10/2026: hasta recargar se veían líneas en blanco que ya no estaban guardadas; FLU-07: Deshacer quedaba
+//   habilitado sin hacer nada). Si se escribió algo, no toca nada.
 import { EditorContent, useEditor, useEditorState } from '@tiptap/react'
 import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { DialogoEnlace } from './DialogoEnlace.jsx'
 import { hayEnlace } from './enlace.js'
-import { comoLoMuestraElEditor, EXTENSIONES } from './extensiones.js'
+import { EXTENSIONES } from './extensiones.js'
 import { limpiarHtmlPegado } from './pegar.js'
+import { mostrarGuardado } from './reemplazo.js'
 
 const ES_MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform ?? '')
 const MOD = ES_MAC ? 'Cmd' : 'Ctrl'
@@ -141,16 +143,7 @@ function Editor({ id, etiqueta, ayuda, error, valor, alCambiar, reemplazo = null
     if (!editor || !reemplazo) return
     // Se escribió algo después de mandar: queda lo escrito (sigue como cambio sin guardar).
     if (JSON.stringify(editor.getJSON()) !== JSON.stringify(reemplazo.si)) return
-    const objetivo = comoLoMuestraElEditor(reemplazo.doc)
-    if (editor.schema.nodeFromJSON(objetivo).eq(editor.state.doc)) return
-    editor
-      .chain()
-      .command(({ tr }) => {
-        tr.setMeta('addToHistory', false)
-        return true
-      })
-      .setContent(objetivo, { emitUpdate: false })
-      .run()
+    mostrarGuardado(editor, reemplazo.doc)
   }, [editor, reemplazo])
 
   // La barra: una sola parada de Tab (la del último botón que tuvo el foco).

@@ -27,8 +27,10 @@
 //   7. los límites (5 por hora por IP y 50 por día entre todos, server/limites.js): la página con el aviso y lo
 //      escrito (429). Cuentan todo pedido válido que llega acá, también si la persona (o un robot) corta la conexión
 //      antes de la respuesta (COD-01): nunca se descuenta;
-//   8. el destino (sin destino: la página con el aviso y lo escrito, 503) y se GUARDA el mensaje (envio = 'pendiente');
-//   9. se MANDA por correo y la fila pasa a 'enviado' o a 'fallido' con el código. Con el mensaje guardado, el envío
+//   8. el destino (sin destino: la página con el aviso y lo escrito, 503; si la base no lo da a tiempo, se sigue y se
+//      lo vuelve a esperar cuando el mensaje se guardó: CON-08) y se GUARDA el mensaje (envio = 'pendiente');
+//   9. se MANDA por correo y la fila pasa a 'enviado' o a 'fallido' con el código (el de nodemailer, o uno de
+//      SIN_CORREO_POR_OTRA_CAUSA, que no es la casilla). Con el mensaje guardado, el envío
 //      tiene además un tope total (TOPE_ENVIO_MS: nodemailer solo tiene topes por fase y un servidor lento podía
 //      demorar la respuesta 20 s o más): si se pasa, se responde igual y la fila se anota cuando termine;
 //  10. si quedó guardado o salió por correo: 303 a /contacto?enviado=<marca>#formulario (el museo lo ve en Mensajes y
@@ -51,6 +53,19 @@ import { crearLimitesDeContacto } from './limites.js'
 import { codigoDeError, log } from './log.js'
 import { crearVerificadorDeOrigen } from './seguridad.js'
 import { baseNoDisponible, conTope, TOPE } from './tope.js'
+
+/**
+ * Los códigos de un mensaje que no salió por correo por algo que NO es la casilla de envío (mensajes_contacto.error;
+ * los de la casilla son los de nodemailer: EAUTH, ETIMEDOUT…). El Inicio del panel no los cuenta como una falla de la
+ * casilla y Mensajes dice qué pasó (CON-08 de la verificación de E4):
+ * - SIN_DESTINO: no había dirección de destino (la sacaron de Datos del museo mientras la persona escribía);
+ * - DESTINO_NO_LEIDO: la base guardó el mensaje pero no dio la dirección de destino a tiempo, tampoco la segunda vez;
+ * - GUARDADO_TARDE: la base lo guardó después de que la página le dijo a la persona que no se pudo enviar (puede
+ *   haberlo mandado de nuevo: puede estar dos veces).
+ * Acá y no en compartido/contacto.js, que entra en el bundle público: el sitio no los usa (los textos de Mensajes
+ * están en el panel, panel/src/pantallas/Mensajes.jsx).
+ */
+export const SIN_CORREO_POR_OTRA_CAUSA = Object.freeze(['SIN_DESTINO', 'DESTINO_NO_LEIDO', 'GUARDADO_TARDE'])
 
 /** La dirección de destino del museo de ejemplo de SIN_BASE=maximo (example.com: reservado para ejemplos). */
 export const DESTINO_DE_EJEMPLO = 'destino@example.com'
@@ -114,19 +129,27 @@ export function crearContacto({ config, sequelize = null, correo = crearCorreo(c
   const topeSentencia = Math.max(100, Math.round(t.base * 0.75))
 
   /**
+   * La dirección de destino, o null si no hay, SIN tope: quien la usa le pone el suyo y, si se pasa, puede seguir
+   * esperándola (el formulario, CON-08). Rechaza si la base falla.
+   * @returns {Promise<string | null>}
+   */
+  async function leerDestino() {
+    if (config.sinBase) return config.sinBase === 'maximo' ? DESTINO_DE_EJEMPLO : null
+    if (!sequelize) return null
+    const [fila] = await sequelize.query('SELECT email_destino_contacto AS destino FROM museo WHERE id = 1', {
+      type: QueryTypes.SELECT,
+    })
+    const valor = fila?.destino
+    return typeof valor === 'string' && valor.trim() !== '' ? valor.trim() : null
+  }
+
+  /**
    * La dirección de destino, o null si no hay. Tira BASE_NO_DISPONIBLE si la base falla o no contesta a tiempo.
    * @returns {Promise<string | null>}
    */
   async function destino() {
-    if (config.sinBase) return config.sinBase === 'maximo' ? DESTINO_DE_EJEMPLO : null
-    if (!sequelize) return null
     try {
-      const consulta = sequelize.query('SELECT email_destino_contacto AS destino FROM museo WHERE id = 1', {
-        type: QueryTypes.SELECT,
-      })
-      const [fila] = await conTope(consulta, t.base)
-      const valor = fila?.destino
-      return typeof valor === 'string' && valor.trim() !== '' ? valor.trim() : null
+      return await conTope(leerDestino(), t.base)
     } catch (err) {
       throw baseNoDisponible(err)
     }
@@ -169,7 +192,7 @@ export function crearContacto({ config, sequelize = null, correo = crearCorreo(c
     )
   }
 
-  return { correo, destino, formularioActivo, guardar, marcar, topes: t }
+  return { correo, leerDestino, destino, formularioActivo, guardar, marcar, topes: t }
 }
 
 /** Lo que escribió la persona, para volver a dibujarlo (solo textos, y con un tope). */
@@ -310,11 +333,11 @@ export function crearRecepcion({ config, contacto, ssr }) {
   /**
    * Manda el mensaje. Devuelve { envio, codigo, final }: envio 'enviado', 'fallido' o, si se pasó el tope con el
    * mensaje guardado, 'pendiente' (sigue saliendo); final: la promesa de cómo terminó ({ envio, codigo }), que nunca
-   * se rechaza.
+   * se rechaza. Sin destino, 'fallido' con SIN_DESTINO (null: no hay) o DESTINO_NO_LEIDO (undefined: la base no lo dio).
    */
   async function enviar(datos, destino, guardado) {
     if (!destino) {
-      const r = { envio: 'fallido', codigo: 'SIN_DESTINO' }
+      const r = { envio: 'fallido', codigo: destino === null ? 'SIN_DESTINO' : 'DESTINO_NO_LEIDO' }
       return { ...r, final: Promise.resolve(r) }
     }
     const salida = correo.enviarContacto(datos, destino)
@@ -339,15 +362,19 @@ export function crearRecepcion({ config, contacto, ssr }) {
       return false
     }
 
-    // El destino: sin él (lo borraron mientras la persona escribía) no hay formulario. Si la base no responde, se
-    // intenta guardar igual (y sin destino no se puede mandar).
-    let destino
-    try {
-      destino = await contacto.destino()
-    } catch (err) {
-      log('aviso', 'contacto_sin_base', { codigo: err.causa ?? codigoDeError(err) })
-      destino = undefined
+    // El destino: sin él (lo borraron mientras la persona escribía) no hay formulario. Si la base no lo da a tiempo
+    // (undefined), se intenta guardar igual: la lectura sigue y, si el mensaje se guarda, se la vuelve a esperar más
+    // abajo (CON-08 de la verificación de E4: antes el mail no salía nunca y el Inicio culpaba a la casilla).
+    const leyendo = contacto.leerDestino()
+    const esperarDestino = async (lectura) => {
+      try {
+        return await conTope(lectura, topes.base)
+      } catch (err) {
+        log('aviso', 'contacto_sin_base', { codigo: codigoDeError(err) ?? null })
+        return undefined
+      }
     }
+    let destino = await esperarDestino(leyendo)
     if (destino === null) {
       await dibujar(req, res, 503, { formulario: false, valores, error: 'no_disponible' })
       return false
@@ -362,13 +389,24 @@ export function crearRecepcion({ config, contacto, ssr }) {
     } catch (err) {
       log('aviso', 'contacto_no_guardado', { codigo: codigoDeError(err) ?? null })
     }
+    // Guardado y sin destino: la base acaba de contestar, así que la lectura del destino seguramente ya llegó (y si
+    // falló, se lee otra vez). Si aun así no está, el mensaje queda en Mensajes con DESTINO_NO_LEIDO (o SIN_DESTINO si
+    // ya no hay), que el Inicio no atribuye a la casilla.
+    if (id !== null && destino === undefined) {
+      destino = await esperarDestino(leyendo.catch(() => contacto.leerDestino()))
+    }
     const envio = await enviar(datos, destino, id !== null)
     if (id !== null) {
       if (envio.envio === 'pendiente') envio.final.then((r) => anotar(id, r.envio, r.codigo))
       else await anotar(id, envio.envio, envio.codigo)
     } else {
+      // Si la fila se guarda tarde: con el 303 (salió por correo), enviado; con el 503, la persona leyó "No pudimos
+      // enviar tu mensaje" y puede haberlo mandado de nuevo: GUARDADO_TARDE (CON-08).
       guardando.then(
-        (tarde) => envio.final.then((r) => anotar(tarde, r.envio, r.codigo)),
+        (tarde) =>
+          envio.final.then((r) =>
+            r.envio === 'enviado' ? anotar(tarde, 'enviado', null) : anotar(tarde, 'fallido', 'GUARDADO_TARDE'),
+          ),
         () => {},
       )
     }

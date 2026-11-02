@@ -3,12 +3,21 @@
 // - guardar(datos, procesada, { transaction? }): la foto y sus cinco archivos en UNA transacción (la propia o, si se
 //   pasa, la de quien llama: la semilla de ejemplo guarda todo junto): si algo falla en el medio, no queda nada. La clave son 64 bits al azar (randomBytes(8)): nunca se sobrescribe una foto.
 // - abrir(clave, variante): los bytes de un archivo, o null si no existe. Primero en una caché en memoria (LRU de
-//   ~32 MB, por bytes) y si no, en la base, con como mucho 2 lecturas a la vez (el pool tiene 5 conexiones: las páginas
-//   y el panel nunca se quedan sin una por las fotos). Si muchos piden la misma foto a la vez, se lee una sola vez. Las
+//   ~32 MB, por bytes) y si no, en la base, con como mucho 2 lecturas a la vez, más 1 para las claves que no se conocen
+//   (el pool tiene 5 conexiones: las páginas y el panel nunca se quedan sin una por las fotos). Si muchos piden la misma
+//   foto a la vez, se lee una sola vez. Las
 //   demás esperan su turno, hasta 1000 en fila y hasta 10 s cada una (corrección de E3, 16/10/2026: con 100 en fila y
 //   sin espera, 300 fotos distintas pedidas juntas con la caché vacía daban 198 respuestas 503, fotos rotas en la
 //   página); pasado eso, un error con code FOTOS_OCUPADO (la ruta responde 503). Lo que no existe se recuerda 10 minutos
 //   (NO_EXISTE_MS, hasta 10.000): pedir otra vez una foto borrada no vuelve a ir a la base.
+//   Las claves que existen, en memoria (API-05 de la verificación de E3): se leen de la base con el primer pedido
+//   (16 caracteres por foto) y se actualizan al guardar y al borrar. Una clave conocida va por la fila de siempre; una
+//   que no se conoce (claves al azar de quien quiere trabar el sitio, o una foto que guardó otro proceso, como la semilla
+//   de ejemplo con npm run dev abierto) va por una fila aparte y chica (DUDOSAS: de a una, hasta 100 esperando 2 s):
+//   miles de pedidos con claves inventadas llenan esa fila y reciben 503, pero las fotos de verdad no esperan detrás de
+//   ellos (antes, 3000 pedidos así dejaban las fotos del sitio con 503). Si la que no se conocía existe, pasa a conocida.
+//   La lista es una guía para elegir la fila, no la verdad: si quedó vieja (una foto que borró otro proceso), la base
+//   dice que no existe y se recuerda como siempre.
 // - liberar(ids, transaction?): borra, de esas fotos, las que ya no usa nadie (server/fotos/usos.js); sus archivos
 //   caen en cascada. Para quitar una foto o eliminar un contenido (plan 3.2), adentro de la transacción del cambio: la
 //   caché se limpia después del commit. Devuelve las claves borradas.
@@ -140,32 +149,75 @@ export function crearSemaforo(max, maxEsperando, esperaMaxMs = 10_000) {
 /** Cuánto se recuerda que un archivo no existe, y cuántos como mucho. */
 export const NO_EXISTE_MS = 10 * 60_000
 const NO_EXISTE_MAX = 10_000
+/** La fila de las claves que no se conocen (API-05): de a una, hasta 100 esperando, 2 s cada una. */
+export const DUDOSAS = Object.freeze({ lecturas: 1, maxEsperando: 100, esperaMaxMs: 2_000 })
 
 /**
  * @param {import('sequelize').Sequelize} sequelize
  * @param {{ bytesCache?: number, lecturas?: number, maxEsperando?: number, esperaMaxMs?: number,
+ *   dudosas?: { lecturas: number, maxEsperando: number, esperaMaxMs: number },
  *   usos?: ReadonlyArray<{ tabla: string, columna: string }> }} [opciones]
- *   usos: quién usa una foto (por defecto USOS_DE_FOTOS; las pruebas pasan uno propio)
+ *   dudosas: la fila de las claves que no se conocen (por defecto DUDOSAS); usos: quién usa una foto (por defecto
+ *   USOS_DE_FOTOS; las pruebas pasan uno propio)
  */
 export function crearAlmacen(
   sequelize,
-  { bytesCache = 32 * MB, lecturas = 2, maxEsperando = 1000, esperaMaxMs = 10_000, usos = USOS_DE_FOTOS } = {},
+  {
+    bytesCache = 32 * MB,
+    lecturas = 2,
+    maxEsperando = 1000,
+    esperaMaxMs = 10_000,
+    dudosas = DUDOSAS,
+    usos = USOS_DE_FOTOS,
+  } = {},
 ) {
   const enUso = condicionEnUso('f', usos)
   const cache = crearLru(bytesCache)
   const semaforo = crearSemaforo(lecturas, maxEsperando, esperaMaxMs)
+  const semaforoDudosas = crearSemaforo(dudosas.lecturas, dudosas.maxEsperando, dudosas.esperaMaxMs)
   /** @type {Map<string, Promise<Buffer | null>>} */
   const enCurso = new Map()
   /** Lo que no existe ("clave/variante" -> hasta cuándo se recuerda), en el orden en que se anotó. */
   const noExiste = new Map()
   // Cambia con cada borrado: una lectura que empezó antes de un borrado no guarda lo que leyó en la caché.
   let generacion = 0
+  /** Las claves de las fotos que existen (null hasta la primera lectura de la lista). @type {Set<string> | null} */
+  let conocidas = null
+  /** @type {Promise<void> | null} */
+  let cargandoConocidas = null
+
+  /** La lista de las claves que existen: una sola lectura a la vez; si falla, el pedido siguiente la vuelve a intentar. */
+  function asegurarConocidas() {
+    if (conocidas) return Promise.resolve()
+    cargandoConocidas ??= sequelize
+      .query('SELECT clave FROM fotos', { type: QueryTypes.SELECT })
+      .then((filas) => {
+        // Una foto guardada mientras se leía la lista puede no estar: su primer pedido va por la fila de las dudosas,
+        // la encuentra y la suma.
+        conocidas = new Set(filas.map((f) => f.clave))
+      })
+      .finally(() => {
+        cargandoConocidas = null
+      })
+    return cargandoConocidas
+  }
+
+  /** ¿Va por la fila de siempre? (la clave está en la lista; sin la lista, porque la base falló, no). */
+  async function esConocida(clave) {
+    try {
+      await asegurarConocidas()
+    } catch {
+      return false
+    }
+    return conocidas.has(clave)
+  }
 
   function olvidar(claves) {
     if (!claves?.length) return
     generacion += 1
     for (const clave of claves) {
       cache.sacarPrefijo(`${clave}/`)
+      conocidas?.delete(clave)
       for (const k of [...enCurso.keys()]) if (k.startsWith(`${clave}/`)) enCurso.delete(k)
     }
   }
@@ -245,7 +297,15 @@ export function crearAlmacen(
         for (const k of [...noExiste.keys()]) if (k.startsWith(`${foto.clave}/`)) noExiste.delete(k)
         return foto
       }
-      return deAfuera ? hacer(deAfuera) : sequelize.transaction(hacer)
+      // A la lista de las que existen, recién con el commit (si la transacción se deshace, la foto no existe).
+      if (deAfuera) {
+        const foto = await hacer(deAfuera)
+        deAfuera.afterCommit(() => conocidas?.add(foto.clave))
+        return foto
+      }
+      const foto = await sequelize.transaction(hacer)
+      conocidas?.add(foto.clave)
+      return foto
     },
 
     /**
@@ -261,11 +321,15 @@ export function crearAlmacen(
       const yaLeyendo = enCurso.get(k)
       if (yaLeyendo) return yaLeyendo
       const desde = generacion
-      const lectura = semaforo
-        .con(() => leer(clave, variante))
+      const lectura = esConocida(clave)
+        .then((conocida) => (conocida ? semaforo : semaforoDudosas).con(() => leer(clave, variante)))
         .then((datos) => {
           if (!datos) anotarQueNoExiste(k)
-          else if (generacion === desde) cache.set(k, datos)
+          else if (generacion === desde) {
+            // Si no estaba en la lista (la guardó otro proceso), pasa a conocida.
+            conocidas?.add(clave)
+            cache.set(k, datos)
+          }
           return datos
         })
         .finally(() => {
@@ -314,13 +378,18 @@ export function crearAlmacen(
 
     olvidar,
 
-    /** Para las pruebas: lo que hay en la caché y cuántas lecturas a la base hubo a la vez como mucho. */
+    /**
+     * Para las pruebas: lo que hay en la caché, cuántas lecturas a la base hubo a la vez como mucho (en la fila de
+     * siempre y en la de las claves que no se conocen) y cuántas claves se conocen (null: la lista no se leyó).
+     */
     estadisticas() {
       return {
         enCache: cache.cantidad,
         bytesEnCache: cache.bytes,
         lecturasMaximas: semaforo.maximoVisto,
+        lecturasDudosasMaximas: semaforoDudosas.maximoVisto,
         noExisten: noExiste.size,
+        conocidas: conocidas?.size ?? null,
       }
     },
   }

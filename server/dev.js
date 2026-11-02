@@ -60,10 +60,19 @@ const vitePanel = await crearVite({
   server: { middlewareMode: true, hmr: { server: servidor } },
 })
 
+// El CSS del sitio como hoja de estilos en el HTML (solo en desarrollo). En desarrollo Vite no lo pone en el HTML: lo
+// inyecta src/main.jsx al importar index.css, y hasta que llega el JS (decenas de módulos) la página se pintaba sin
+// estilos (el parpadeo de npm run dev). Con el <link>, Vite sirve /src/index.css como CSS directo y la primera pintura
+// ya sale con estilos; cuando el JS inyecta los suyos, src/main.jsx saca el <link> (data-estilos-dev), así la recarga
+// en caliente de index.css sigue andando (cambia el <style> de Vite). Los estilos de Lenis no hacen falta acá: solo
+// valen con la clase que Lenis pone al arrancar, que es JS. En producción no existe: el build pone su CSS con hash.
+const ESTILOS_DEV = '<link rel="stylesheet" href="/src/index.css" data-estilos-dev="" />\n    '
+
 async function obtener(req) {
   try {
     const crudo = await readFile(resolve(raiz, 'index.html'), 'utf8')
-    const plantilla = await vite.transformIndexHtml(req.originalUrl, crudo)
+    const transformada = await vite.transformIndexHtml(req.originalUrl, crudo)
+    const plantilla = transformada.replace('<!--head-->', `${ESTILOS_DEV}<!--head-->`)
     const { render } = await vite.ssrLoadModule('/src/entry-server.jsx')
     return { partes: partir(plantilla), render }
   } catch (err) {

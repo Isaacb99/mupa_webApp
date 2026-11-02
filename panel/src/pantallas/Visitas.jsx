@@ -136,8 +136,8 @@ export default function Visitas() {
 
         <Seccion id="visitas-aviso" titulo="Aviso general">
           <p className="text-tenue">
-            Para feriados, cierres o cambios de horario: se muestra arriba en el sitio. Con «Mostrar hasta», deja de
-            verse después de ese día; sin fecha, queda hasta que lo quites.
+            Para feriados, cierres o cambios de horario: se muestra arriba de la página de visitas del sitio (no en
+            la portada). Con «Mostrar hasta», deja de verse después de ese día; sin fecha, queda hasta que lo quites.
           </p>
           <FormularioMuseo
             prefijo="av-"

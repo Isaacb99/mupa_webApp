@@ -10,9 +10,14 @@ import { site } from '../content.js'
 // Debajo de lg el logo mide 28 px de alto (22 a 320 px de ancho, 35 en md): 12 px de padding arriba y abajo, que el
 // margen negativo devuelve, lo llevan a 44 px o más, el mínimo para el dedo, sin mover nada (A11Y-01 de la
 // verificación de E4). Las dos piezas son SVG blancos: data-logo-blanco, para que index.css las invierta con colores
-// forzados en un tema claro (A11Y-04).
-export default function Logo({ className = '' }) {
+// forzados en un tema claro (A11Y-04), salvo sobreFoto (el header de la Home, sobre la foto del hero): ahí lo de atrás
+// no pasa a blanco (los colores forzados no tocan la foto), y negro sobre el cielo quedaba de 3 a 3,7:1 (A11Y-08).
+/**
+ * @param {{ className?: string, sobreFoto?: boolean }} props
+ */
+export default function Logo({ className = '', sobreFoto = false }) {
   const { logo } = site
+  const blanco = sobreFoto ? {} : { 'data-logo-blanco': '' }
   return (
     <a
       href="/"
@@ -23,7 +28,7 @@ export default function Logo({ className = '' }) {
         alt={site.nombre}
         width={132}
         height={44}
-        data-logo-blanco=""
+        {...blanco}
         className="col-start-1 row-start-1 w-[32.95%]"
       />
       <img
@@ -31,7 +36,7 @@ export default function Logo({ className = '' }) {
         alt={logo.textoAlt}
         width={254}
         height={39}
-        data-logo-blanco=""
+        {...blanco}
         className="col-start-1 row-start-1 mt-[1.08%] ml-[36.57%] w-[63.43%]"
       />
     </a>

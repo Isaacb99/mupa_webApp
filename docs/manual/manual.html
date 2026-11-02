@@ -1,0 +1,1540 @@
+<!doctype html>
+<!--
+  Manual del panel de administración del MuPa (E6.2; plan 5.2 y 12.1). Es la fuente del PDF que abre "Ayuda" en la
+  barra del panel: node --env-file-if-exists=.env tools/manual.mjs regenera las capturas (img/) y el PDF
+  (panel/public/manual.pdf); con --solo-pdf, solo el PDF. Se puede abrir tal cual en el navegador.
+  - Las capturas van con su nombre en img/ (las arma tools/manual.mjs: si se suma una, se suma también ahí). En el PDF
+    van todas a la misma escala, salvo las que llevan data-escala (más chicas, para no dejar una página casi vacía):
+    si se cambia el texto de una sección, conviene mirar otra vez cómo quedan sus páginas.
+  - El índice se arma a mano (los enlaces con data-indice) y tools/manual.mjs le pone el número de página a cada título.
+  - Para personas del museo sin conocimientos técnicos: castellano claro, de vos, por tareas. Sin contraseñas reales,
+    sin datos del museo inventados (las capturas usan contenido "EJEMPLO") y sin información comercial.
+-->
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Manual del panel de administración · MuPa</title>
+    <meta name="author" content="Museo Paleontológico de San Juan" />
+    <meta name="description" content="Cómo cargar y cambiar el contenido del sitio del Museo Paleontológico de San Juan desde el panel de administración." />
+    <style>
+      @font-face {
+        font-family: 'Google Sans Flex';
+        src: url('../../src/assets/fonts/google-sans-flex-latin.woff2') format('woff2');
+        font-weight: 100 1000;
+        font-stretch: 100% 130%;
+        font-style: normal;
+      }
+      :root {
+        --tinta: #111827;
+        --tenue: #4b5563;
+        --linea: #d1d5db;
+        --fondo: #f3f4f6;
+        --oscuro: #0e100d;
+        --crema: #eae2df;
+        --naranja: #eb622d;
+        --naranja-texto: #b3410e;
+        --azul: #1d4ed8;
+        --azul-fondo: #eff6ff;
+        --atencion: #92400e;
+        --atencion-fondo: #fffbeb;
+      }
+      @page {
+        size: A4;
+        margin: 17mm 17mm 18mm;
+        @bottom-left {
+          content: 'Manual del panel · Museo Paleontológico de San Juan';
+          font-family: 'Google Sans Flex', system-ui, sans-serif;
+          font-size: 8.5pt;
+          color: #6b7280;
+        }
+        @bottom-right {
+          content: 'Página ' counter(page) ' de ' counter(pages);
+          font-family: 'Google Sans Flex', system-ui, sans-serif;
+          font-size: 8.5pt;
+          color: #6b7280;
+        }
+      }
+      @page :first {
+        margin: 0;
+        @bottom-left {
+          content: none;
+        }
+        @bottom-right {
+          content: none;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html {
+        background: #fff;
+      }
+      body {
+        margin: 0;
+        color: var(--tinta);
+        background: #fff;
+        font-family: 'Google Sans Flex', system-ui, 'Segoe UI', sans-serif;
+        font-size: 10.5pt;
+        line-height: 1.55;
+        font-variation-settings: 'opsz' 20;
+      }
+      @media screen {
+        body {
+          max-width: 52rem;
+          margin: 0 auto;
+          padding: 0 1rem 4rem;
+        }
+      }
+      a {
+        color: var(--azul);
+      }
+      p,
+      ul,
+      ol {
+        margin: 0 0 0.7em;
+      }
+      li {
+        margin-bottom: 0.3em;
+      }
+      strong {
+        font-weight: 650;
+      }
+      h2,
+      h3,
+      h4 {
+        line-height: 1.2;
+        break-after: avoid;
+        font-weight: 700;
+      }
+      h2 {
+        font-size: 21pt;
+        margin: 0 0 0.6em;
+        break-before: page;
+        padding-bottom: 0.3em;
+        border-bottom: 3px solid var(--naranja);
+      }
+      h3 {
+        font-size: 13.5pt;
+        margin: 1.5em 0 0.5em;
+      }
+      h4 {
+        font-size: 11pt;
+        margin: 1.2em 0 0.4em;
+      }
+      .ui {
+        font-weight: 650;
+        white-space: nowrap;
+      }
+      /* Cada captura con su epígrafe: un div con role="group" y no un <figure>, porque en el PDF etiquetado Chrome hace
+         del <figure> una "Figure" sin texto alternativo que envuelve a la de la imagen (los verificadores de
+         accesibilidad la marcan y algunos lectores anuncian una figura vacía). */
+      .figura {
+        margin: 0.9em 0 1.2em;
+        break-inside: avoid;
+      }
+      .figura img {
+        display: block;
+        max-width: 100%;
+        height: auto;
+        border: 1px solid var(--linea);
+        border-radius: 6px;
+      }
+      .figura .pie {
+        margin: 0.4em 0 0;
+        font-size: 9pt;
+        color: var(--tenue);
+      }
+      .celulares {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.8em 1.2em;
+        align-items: flex-start;
+      }
+      .celulares .figura {
+        margin: 0.4em 0;
+      }
+      .celulares .pie {
+        max-width: 19em;
+      }
+      .caja {
+        break-inside: avoid;
+        margin: 1em 0;
+        padding: 0.8em 1em;
+        border-left: 5px solid var(--azul);
+        background: var(--azul-fondo);
+        border-radius: 4px;
+      }
+      .caja.atencion {
+        border-left-color: var(--atencion);
+        background: var(--atencion-fondo);
+      }
+      .caja > :last-child {
+        margin-bottom: 0;
+      }
+      .caja .titulo {
+        display: block;
+        font-weight: 700;
+        margin-bottom: 0.2em;
+      }
+      ol.pasos {
+        padding-left: 1.4em;
+      }
+      ol.pasos > li {
+        margin-bottom: 0.5em;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 0.6em 0 1.2em;
+        font-size: 9.8pt;
+      }
+      th,
+      td {
+        text-align: left;
+        vertical-align: top;
+        padding: 0.45em 0.6em;
+        border-bottom: 1px solid var(--linea);
+      }
+      th {
+        background: var(--fondo);
+      }
+      tr {
+        break-inside: avoid;
+      }
+      .ejemplos td:first-child {
+        width: 34%;
+      }
+      code {
+        font-family: 'Cascadia Mono', Consolas, monospace;
+        font-size: 0.92em;
+      }
+      .nunca-cortar {
+        break-inside: avoid;
+      }
+
+      /* Portada */
+      .portada {
+        width: 210mm;
+        height: 297mm;
+        background: var(--oscuro);
+        color: var(--crema);
+        padding: 30mm 22mm 24mm;
+        display: flex;
+        flex-direction: column;
+        break-after: page;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      @media screen {
+        .portada {
+          width: auto;
+          height: auto;
+          min-height: 40rem;
+          margin: 0 -1rem 2rem;
+        }
+      }
+      .portada .logo {
+        display: flex;
+        align-items: center;
+        gap: 4mm;
+      }
+      .portada .logo img {
+        height: 12mm;
+        width: auto;
+      }
+      .portada h1 {
+        margin: auto 0 0.3em;
+        font-size: 34pt;
+        line-height: 1.08;
+        font-weight: 300;
+      }
+      .portada h1 strong {
+        font-weight: 700;
+      }
+      .portada .bajada {
+        font-size: 14pt;
+        line-height: 1.4;
+        max-width: 30em;
+        margin-bottom: 2.2em;
+        font-weight: 300;
+      }
+      .portada .datos {
+        border-top: 2px solid var(--naranja);
+        padding-top: 1em;
+        font-size: 10.5pt;
+        color: #c9c1bd;
+      }
+      .portada .datos p {
+        margin: 0 0 0.3em;
+      }
+      .portada a {
+        color: var(--crema);
+      }
+
+      /* Índice */
+      .indice h2 {
+        break-before: avoid;
+      }
+      .indice ol {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+      }
+      .indice > ol > li {
+        margin: 0.55em 0 0.15em;
+        font-weight: 650;
+      }
+      .indice li li {
+        font-weight: 400;
+        margin: 0.1em 0 0.1em 1.6em;
+      }
+      .indice .renglon {
+        display: flex;
+        align-items: baseline;
+        gap: 0.4em;
+      }
+      .indice .renglon a {
+        color: var(--tinta);
+        text-decoration: none;
+      }
+      .indice .relleno {
+        flex: 1;
+        border-bottom: 1px dotted #9ca3af;
+        transform: translateY(-0.3em);
+      }
+      .indice .pagina {
+        min-width: 1.6em;
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+      @media screen {
+        .indice .pagina,
+        .indice .relleno {
+          display: none;
+        }
+      }
+      .anotar {
+        break-inside: avoid;
+        border: 1px solid var(--linea);
+        border-radius: 6px;
+        padding: 0.8em 1em 0.4em;
+        margin: 1em 0;
+      }
+      .anotar p {
+        margin-bottom: 1.6em;
+        border-bottom: 1px solid #9ca3af;
+        padding-bottom: 0.2em;
+        color: var(--tenue);
+      }
+    </style>
+  </head>
+  <body>
+    <!-- ================================================================== Portada -->
+    <section class="portada" aria-label="Portada">
+      <div class="logo">
+        <img src="../../src/assets/logo-mupa-marca.svg" alt="" />
+        <img src="../../src/assets/logo-mupa-texto.svg" alt="Museo Paleontológico de San Juan" />
+      </div>
+      <!-- El &nbsp; antes del <br> no se ve, pero sin él el marcador del PDF decía «panelde» (un espacio común no alcanza). -->
+      <h1><strong>Manual del panel</strong>&nbsp;<br />de administración</h1>
+      <p class="bajada">
+        Cómo cargar y cambiar, desde el panel, lo que se ve en el sitio del Museo Paleontológico de San Juan:
+        novedades, exposiciones, horarios, tarifas y datos de contacto.
+      </p>
+      <div class="datos">
+        <p>Para editoras, editores y administradores del panel.</p>
+        <p>El panel está en <strong>mupa.ar/administracion</strong></p>
+        <p>Versión de octubre de 2026</p>
+      </div>
+    </section>
+
+    <!-- ================================================================== Índice -->
+    <nav class="indice" aria-labelledby="indice">
+      <h2 id="indice">Índice</h2>
+      <ol>
+        <li>
+          <span class="renglon"><a data-indice href="#antes">1. Antes de empezar</a><span class="relleno"></span><span class="pagina">00</span></span>
+        </li>
+        <li>
+          <span class="renglon"><a data-indice href="#todas">2. Lo que vale en todas las pantallas</a><span class="relleno"></span><span class="pagina">00</span></span>
+        </li>
+        <li>
+          <span class="renglon"><a data-indice href="#entrar">3. Entrar al panel</a><span class="relleno"></span><span class="pagina">00</span></span>
+          <ol>
+            <li><span class="renglon"><a data-indice href="#primera-vez">3.1 La primera vez</a><span class="relleno"></span><span class="pagina">00</span></span></li>
+            <li><span class="renglon"><a data-indice href="#olvide">3.2 Si te olvidaste la contraseña</a><span class="relleno"></span><span class="pagina">00</span></span></li>
+            <li><span class="renglon"><a data-indice href="#sesion">3.3 Cuánto dura la sesión y cómo salir</a><span class="relleno"></span><span class="pagina">00</span></span></li>
+          </ol>
+        </li>
+        <li>
+          <span class="renglon"><a data-indice href="#inicio">4. El Inicio y sus avisos</a><span class="relleno"></span><span class="pagina">00</span></span>
+        </li>
+        <li>
+          <span class="renglon"><a data-indice href="#museo">5. Datos del museo</a><span class="relleno"></span><span class="pagina">00</span></span>
+        </li>
+        <li>
+          <span class="renglon"><a data-indice href="#visitas">6. Visitas</a><span class="relleno"></span><span class="pagina">00</span></span>
+          <ol>
+            <li><span class="renglon"><a data-indice href="#horario">6.1 El horario</a><span class="relleno"></span><span class="pagina">00</span></span></li>
+            <li><span class="renglon"><a data-indice href="#tarifas">6.2 Las tarifas</a><span class="relleno"></span><span class="pagina">00</span></span></li>
+            <li><span class="renglon"><a data-indice href="#textos-visitas">6.3 Los textos: cómo llegar, normas y accesibilidad</a><span class="relleno"></span><span class="pagina">00</span></span></li>
+            <li><span class="renglon"><a data-indice href="#aviso">6.4 El aviso general</a><span class="relleno"></span><span class="pagina">00</span></span></li>
+            <li><span class="renglon"><a data-indice href="#compra">6.5 La compra de entradas</a><span class="relleno"></span><span class="pagina">00</span></span></li>
+          </ol>
+        </li>
+        <li>
+          <span class="renglon"><a data-indice href="#novedades">7. Novedades</a><span class="relleno"></span><span class="pagina">00</span></span>
+          <ol>
+            <li><span class="renglon"><a data-indice href="#nueva">7.1 Crear una novedad</a><span class="relleno"></span><span class="pagina">00</span></span></li>
+            <li><span class="renglon"><a data-indice href="#portada">7.2 La portada y su descripción</a><span class="relleno"></span><span class="pagina">00</span></span></li>
+            <li><span class="renglon"><a data-indice href="#editor">7.3 El texto: el editor</a><span class="relleno"></span><span class="pagina">00</span></span></li>
+            <li><span class="renglon"><a data-indice href="#galeria">7.4 La galería de fotos</a><span class="relleno"></span><span class="pagina">00</span></span></li>
+            <li><span class="renglon"><a data-indice href="#publicar">7.5 Guardar y publicar</a><span class="relleno"></span><span class="pagina">00</span></span></li>
+            <li><span class="renglon"><a data-indice href="#actividad">7.6 Una actividad</a><span class="relleno"></span><span class="pagina">00</span></span></li>
+            <li><span class="renglon"><a data-indice href="#despublicar">7.7 Despublicar y eliminar</a><span class="relleno"></span><span class="pagina">00</span></span></li>
+          </ol>
+        </li>
+        <li>
+          <span class="renglon"><a data-indice href="#exposiciones">8. Exposiciones: muestras y salas</a><span class="relleno"></span><span class="pagina">00</span></span>
+        </li>
+        <li>
+          <span class="renglon"><a data-indice href="#mensajes">9. Mensajes del formulario de contacto</a><span class="relleno"></span><span class="pagina">00</span></span>
+        </li>
+        <li>
+          <span class="renglon"><a data-indice href="#usuarios">10. Usuarios</a><span class="relleno"></span><span class="pagina">00</span></span>
+          <ol>
+            <li><span class="renglon"><a data-indice href="#alta">10.1 Dar de alta a una persona</a><span class="relleno"></span><span class="pagina">00</span></span></li>
+            <li><span class="renglon"><a data-indice href="#cuentas">10.2 Contraseñas, roles y cuentas desactivadas</a><span class="relleno"></span><span class="pagina">00</span></span></li>
+          </ol>
+        </li>
+        <li>
+          <span class="renglon"><a data-indice href="#cuenta">11. Mi cuenta</a><span class="relleno"></span><span class="pagina">00</span></span>
+        </li>
+        <li>
+          <span class="renglon"><a data-indice href="#celular">12. Desde el celular</a><span class="relleno"></span><span class="pagina">00</span></span>
+        </li>
+        <li>
+          <span class="renglon"><a data-indice href="#practicas">13. Buenas prácticas</a><span class="relleno"></span><span class="pagina">00</span></span>
+        </li>
+        <li>
+          <span class="renglon"><a data-indice href="#problemas">14. Si algo no anda</a><span class="relleno"></span><span class="pagina">00</span></span>
+          <ol>
+            <li><span class="renglon"><a data-indice href="#ayuda">14.1 A quién pedir ayuda</a><span class="relleno"></span><span class="pagina">00</span></span></li>
+          </ol>
+        </li>
+        <li>
+          <span class="renglon"><a data-indice href="#glosario">15. Palabras del panel</a><span class="relleno"></span><span class="pagina">00</span></span>
+        </li>
+      </ol>
+    </nav>
+
+    <!-- ================================================================== 1 -->
+    <section aria-labelledby="antes">
+      <h2 id="antes">1. Antes de empezar</h2>
+      <p>
+        El <strong>panel</strong> es la parte privada del sitio del museo. Desde ahí se cargan y se cambian las
+        novedades, las exposiciones, los horarios, las tarifas y los datos de contacto que ve el público en
+        <strong>mupa.ar</strong>. Lo que guardás en el panel se ve en el sitio en ese mismo momento: no hay que esperar
+        ni pedirle nada a nadie.
+      </p>
+      <h3>Dónde está</h3>
+      <p>
+        Abrí el navegador y escribí <strong>mupa.ar/administracion</strong>. Te conviene guardarlo en favoritos o
+        marcadores.
+      </p>
+      <div class="caja atencion">
+        <span class="titulo">Mientras el sitio se muda</span>
+        <p>
+          Hasta que el sitio nuevo termine de instalarse en mupa.ar, el panel puede estar en otra dirección provisoria.
+          Si mupa.ar/administracion todavía no anda, usá la que te pasó quien mantiene el sitio.
+        </p>
+      </div>
+      <h3>Qué hace falta</h3>
+      <p>
+        Una computadora, una tablet o un celular con un navegador actualizado (Chrome, Edge, Firefox o Safari) y
+        conexión a internet. No hay que instalar nada.
+      </p>
+      <h3>Editores y administradores</h3>
+      <p>Cada persona tiene su propia cuenta, con uno de estos dos roles:</p>
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Rol</th>
+            <th scope="col">Qué puede hacer</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Editor</strong></td>
+            <td>Carga y cambia el contenido del sitio: Novedades, Exposiciones, Visitas y Datos del museo.</td>
+          </tr>
+          <tr>
+            <td><strong>Administrador</strong></td>
+            <td>
+              Todo lo de un editor y, además, ve los Mensajes del formulario de contacto, maneja las cuentas (Usuarios)
+              y elige a qué correo llegan los mensajes del formulario.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <h3>Sobre las imágenes de este manual</h3>
+      <p>
+        Las capturas se sacaron del panel con <strong>contenido de prueba</strong>: todo lo que dice «EJEMPLO»
+        (títulos, direcciones, precios, horarios, mensajes) está inventado para mostrar cómo funciona y
+        <strong>no son datos del museo</strong>. Las personas «Ana Ejemplo», «Bruno Ejemplo» y «Carla Ejemplo»
+        tampoco existen. Los <strong>recuadros naranjas</strong> no son del panel: señalan el botón o el campo del que
+        habla el texto.
+      </p>
+      <p>
+        Las palabras en <span class="ui">negrita</span> son lo que vas a ver escrito en la pantalla, por ejemplo el
+        botón <span class="ui">Guardar</span>. Al final del manual hay una lista de las palabras que usa el panel
+        (<a href="#glosario">sección 15</a>).
+      </p>
+    </section>
+
+    <!-- ================================================================== 2 -->
+    <section aria-labelledby="todas">
+      <h2 id="todas">2. Lo que vale en todas las pantallas</h2>
+      <h3>La barra de arriba</h3>
+      <p>Siempre está arriba y siempre en el mismo orden:</p>
+      <div class="figura" role="group">
+        <img src="img/barra.webp" alt="La barra del panel: Panel del MuPa, Inicio, Novedades, Exposiciones, Visitas, Datos del museo, Mensajes, Usuarios, y a la derecha Ayuda, Mi cuenta y Salir." />
+        <p class="pie">La barra de una administradora. Un editor no ve Mensajes ni Usuarios.</p>
+      </div>
+      <ul>
+        <li><span class="ui">Inicio</span>: los avisos y lo que falta cargar (<a href="#inicio">sección 4</a>).</li>
+        <li><span class="ui">Novedades</span>: noticias y actividades (<a href="#novedades">sección 7</a>).</li>
+        <li><span class="ui">Exposiciones</span>: muestras y salas (<a href="#exposiciones">sección 8</a>).</li>
+        <li><span class="ui">Visitas</span>: horario, tarifas, avisos y compra de entradas (<a href="#visitas">sección 6</a>).</li>
+        <li><span class="ui">Datos del museo</span>: dirección, teléfono, correos, mapa y redes (<a href="#museo">sección 5</a>).</li>
+        <li><span class="ui">Mensajes</span> y <span class="ui">Usuarios</span>: solo para administradores (<a href="#mensajes">secciones 9</a> y <a href="#usuarios">10</a>).</li>
+        <li><span class="ui">Ayuda</span>: abre este manual en otra pestaña.</li>
+        <li><span class="ui">Mi cuenta</span>: tu nombre y tu contraseña (<a href="#cuenta">sección 11</a>).</li>
+        <li><span class="ui">Salir</span>: cierra tu sesión. Usalo siempre al terminar.</li>
+      </ul>
+      <h3>Guardar</h3>
+      <p>
+        Cada parte de una pantalla tiene su propio botón de guardar (<span class="ui">Guardar</span>,
+        <span class="ui">Guardar el horario</span>, <span class="ui">Guardar borrador</span>…). Cuando se guardó,
+        aparece debajo un aviso verde que dice <strong>«Guardado.»</strong> o <strong>«Listo: …»</strong>. Si no lo ves,
+        no se guardó.
+      </p>
+      <h3>Si te vas sin guardar</h3>
+      <p>
+        Si escribiste algo y querés ir a otra pantalla sin guardar, el panel te pregunta antes. Con
+        <span class="ui">Seguir editando</span> volvés a lo que estabas haciendo; con
+        <span class="ui">Salir sin guardar</span> se pierde lo que cambiaste. En algunas pantallas la pregunta dice
+        además qué parte falta guardar.
+      </p>
+      <div class="figura" role="group">
+        <img src="img/cambios-sin-guardar.webp" alt="Diálogo «Hay cambios sin guardar» con los botones Seguir editando y Salir sin guardar." />
+        <p class="pie">La pregunta antes de salir de una pantalla con cambios sin guardar.</p>
+      </div>
+      <h3>Si falta un dato o hay algo mal escrito</h3>
+      <p>
+        Arriba del formulario aparece un recuadro rojo, <strong>«Revisá estos datos»</strong>, con la lista de lo que
+        hay que corregir. Cada renglón es un enlace: si lo tocás, te lleva al campo, que también queda marcado en rojo
+        con la explicación. Corregilo y volvé a guardar.
+      </p>
+      <div class="figura" role="group">
+        <img src="img/ficha-faltan.webp" alt="Recuadro rojo «Revisá estos datos»: para publicar falta completar el resumen, la portada y el texto de la novedad." />
+        <p class="pie">Lo que dice el panel al querer publicar una novedad incompleta.</p>
+      </div>
+      <h3>Campos obligatorios y campos vacíos</h3>
+      <ul>
+        <li><strong>(obligatorio)</strong> junto al nombre de un campo: sin él no se puede guardar.</li>
+        <li><strong>(obligatorio para publicar)</strong>: podés guardar un borrador sin ese dato, pero no publicarlo.</li>
+        <li>
+          Debajo del nombre de cada campo hay una <strong>ayuda</strong> en gris que explica qué va ahí y cuántos
+          caracteres quedan.
+        </li>
+        <li>Lo que dejes vacío <strong>no se muestra</strong> en el sitio: no aparece ni el título de ese dato.</li>
+      </ul>
+    </section>
+
+    <!-- ================================================================== 3 -->
+    <section aria-labelledby="entrar">
+      <h2 id="entrar">3. Entrar al panel</h2>
+      <h3 id="primera-vez">3.1 La primera vez</h3>
+      <p>
+        Para entrar por primera vez necesitás que un administrador te dé de alta. Te va a pasar, en persona o por
+        teléfono, una <strong>contraseña temporal</strong>: cuatro grupos de letras y números separados por guiones.
+        Sirve para entrar hasta que elijas tu propia contraseña y <strong>vence a las 72 horas</strong>.
+      </p>
+      <ol class="pasos">
+        <li>Abrí <strong>mupa.ar/administracion</strong>. Aparece la pantalla <span class="ui">Ingresar</span>.</li>
+        <li>
+          Escribí tu <strong>correo</strong> (el que le diste al administrador) y la <strong>contraseña temporal</strong>.
+          Da lo mismo si la escribís con mayúsculas o minúsculas, con o sin los guiones. Apretá
+          <span class="ui">Ingresar</span>.
+        </li>
+      </ol>
+      <div class="figura" role="group">
+        <img src="img/ingresar.webp" alt="Pantalla Ingresar con el correo y la contraseña escritos y el botón Ingresar señalado. Arriba a la derecha, el enlace Ayuda." />
+        <p class="pie">La pantalla Ingresar. «Ayuda», arriba a la derecha, abre este manual.</p>
+      </div>
+      <ol class="pasos" start="3">
+        <li>
+          El panel te pide que elijas <strong>tu propia contraseña</strong>. En
+          <span class="ui">Contraseña temporal</span> escribí otra vez la que te dieron, y en
+          <span class="ui">Contraseña nueva</span>, la tuya. Apretá <span class="ui">Guardar la contraseña nueva</span>.
+        </li>
+        <li>Listo: llegás al <span class="ui">Inicio</span>. Desde ahora entrás con tu correo y tu contraseña.</li>
+      </ol>
+      <div class="figura" role="group">
+        <img src="img/cambiar-clave.webp" alt="Pantalla Cambiar la contraseña, con la contraseña temporal y la nueva escritas (ocultas con puntos) y el botón Guardar la contraseña nueva señalado." />
+        <p class="pie">El primer ingreso: elegir la contraseña propia. Hasta hacerlo no se puede ir a otra pantalla.</p>
+      </div>
+      <div class="caja">
+        <span class="titulo">Cómo elegir una buena contraseña</span>
+        <ul>
+          <li>
+            Tiene que tener <strong>al menos 15 caracteres</strong>. Lo más fácil es una <strong>frase de tres o
+            cuatro palabras</strong> que no tengan que ver entre sí y que te resulte fácil de recordar. No hace falta
+            sumarle números ni símbolos.
+          </li>
+          <li>No puede tener «mupa», «museo», «paleontológico» ni la primera parte de tu correo.</li>
+          <li>Usá una que <strong>no uses en otro lado</strong> (ni en tu correo, ni en el banco, ni en redes).</li>
+          <li>No se la digas a nadie: cada persona tiene su propia cuenta.</li>
+          <li>
+            Si el navegador te ofrece guardarla, aceptá solo en tu propia computadora o celular, nunca en una
+            compartida.
+          </li>
+          <li>Con <span class="ui">Mostrar</span> ves lo que escribiste, para revisarlo.</li>
+        </ul>
+      </div>
+      <h3 id="olvide">3.2 Si te olvidaste la contraseña</h3>
+      <p>
+        El panel no manda correos para recuperarla. Pedile a un administrador que te dé una
+        <strong>contraseña temporal</strong> nueva (<a href="#cuentas">sección 10.2</a>) y entrá con ella como la primera
+        vez: el panel te va a pedir que elijas una contraseña nueva.
+      </p>
+      <p>
+        Si escribís mal la contraseña varias veces seguidas, el panel dice <strong>«Demasiados intentos. Esperá 15
+        minutos.»</strong>: es una protección. Esperá y probá otra vez, o pedí una temporal. También puede aparecer
+        aunque nadie se haya equivocado, si muchas personas entraron al panel desde la misma red (por ejemplo, la
+        del museo) en poco rato: también ahí, esperá 15 minutos.
+      </p>
+      <h3 id="sesion">3.3 Cuánto dura la sesión y cómo salir</h3>
+      <p>
+        Mientras estás adentro, tenés una <strong>sesión</strong> abierta. Se cierra sola si pasan <strong>dos horas sin
+        usar el panel</strong>, y siempre a las <strong>12 horas</strong>. Si se cerró mientras estabas escribiendo,
+        al guardar aparece <strong>«Volvé a ingresar»</strong>: escribí tu correo y tu contraseña y apretá
+        <span class="ui">Ingresar</span>. Lo que estabas haciendo no se pierde y se guarda en ese momento.
+      </p>
+      <div class="figura" role="group">
+        <img src="img/reingreso.webp" alt="Diálogo «Volvé a ingresar»: tu sesión terminó; con los campos Correo y Contraseña y los botones Ingresar y Ahora no." />
+        <p class="pie">Si la sesión terminó, el panel la vuelve a abrir sin perder lo que escribiste.</p>
+      </div>
+      <p>
+        Si apretás <span class="ui">Ahora no</span>, lo que querías guardar no se guarda, pero queda escrito en la
+        pantalla hasta que te vayas.
+      </p>
+      <div class="caja atencion">
+        <span class="titulo">Al terminar, apretá «Salir»</span>
+        <p>
+          Está siempre arriba a la derecha, también en el celular. Es muy importante si usás una computadora que
+          comparten varias personas: si te vas sin salir, la próxima persona que abra el navegador puede entrar al
+          panel con tu cuenta.
+        </p>
+      </div>
+    </section>
+
+    <!-- ================================================================== 4 -->
+    <section aria-labelledby="inicio">
+      <h2 id="inicio">4. El Inicio y sus avisos</h2>
+      <p>
+        Es la primera pantalla después de entrar. Te saluda, te avisa si algo necesita atención y te muestra lo que
+        el sitio todavía no tiene.
+      </p>
+      <div class="figura" role="group">
+        <img src="img/inicio-primera-vez.webp" alt="Pantalla Inicio la primera vez: el aviso de un solo administrador, la lista Para completar con la dirección, el teléfono, los correos, el horario y las tarifas, el estado del formulario de contacto y los accesos directos." />
+        <p class="pie">El Inicio el primer día, con el museo todavía sin datos cargados.</p>
+      </div>
+      <h3>Para completar</h3>
+      <p>
+        Es la lista de datos básicos que el sitio todavía no tiene: la dirección, el teléfono, los correos, el horario
+        y las tarifas. Cada renglón tiene un enlace a la pantalla donde se carga. Cuando está todo, dice «Están
+        cargados los datos básicos del museo, el horario y las tarifas».
+      </p>
+      <h3>Formulario de contacto</h3>
+      <p>
+        Dice si el formulario de contacto está en el sitio y si los mensajes llegan por correo. El formulario aparece
+        solo cuando un administrador cargó el correo al que llegan los mensajes (<a href="#museo">sección 5</a>).
+        Si dice que el envío por correo <strong>todavía no está configurado</strong>, no tenés que hacer nada: lo
+        configura quien mantiene el sitio, y hasta entonces el formulario no aparece.
+      </p>
+      <h3>Los avisos amarillos</h3>
+      <p>Aparecen arriba solo cuando hace falta. Estos son todos:</p>
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">El aviso dice</th>
+            <th scope="col">Qué hacer</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Hay un solo administrador</td>
+            <td>
+              Si esa persona no puede entrar, nadie puede dar contraseñas temporales. Un administrador tiene que hacer
+              administradora a otra persona de confianza (<a href="#cuentas">sección 10.2</a>).
+            </td>
+          </tr>
+          <tr>
+            <td>Los mensajes del formulario de contacto no se están enviando por correo</td>
+            <td>
+              Los mensajes <strong>no se pierden</strong>: quedan guardados en <span class="ui">Mensajes</span>. Avisale a
+              quien mantiene el sitio (casi siempre es que cambió la contraseña de la casilla de envío).
+            </td>
+          </tr>
+          <tr>
+            <td>Un mensaje (o varios mensajes) del formulario de contacto no salió por correo</td>
+            <td>Fue un problema momentáneo y los mensajes están en Mensajes. Si se repite seguido, avisale a quien mantiene el sitio.</td>
+          </tr>
+          <tr>
+            <td>Una tarea automática del sitio está fallando</td>
+            <td>El sitio sigue andando. Si el aviso sigue al otro día, avisale a quien mantiene el sitio.</td>
+          </tr>
+          <tr>
+            <td>La base de datos se está llenando</td>
+            <td>
+              Las fotos son lo que más lugar ocupa. Avisale <strong>ya</strong> a quien mantiene el sitio para que
+              amplíe el espacio: si se llena, el sitio deja de verse (salvo la página principal) y el panel deja de
+              andar hasta que lo amplíe.
+            </td>
+          </tr>
+          <tr>
+            <td>La base de datos está llena</td>
+            <td>
+              Avisale <strong>ya</strong> a quien mantiene el sitio. Con la base llena, el sitio puede dejar de verse
+              (salvo la página principal) y el panel, dejar de andar: por eso puede pasar que este aviso no llegue a
+              verse, y no hay que esperarlo; con el anterior ya hay que avisar.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="figura" role="group">
+        <img src="img/inicio-correo.webp" alt="Dos avisos amarillos del Inicio: los mensajes del formulario de contacto no se están enviando por correo, y hay un solo administrador." />
+        <p class="pie">Dos avisos: el del correo del formulario y el de un solo administrador.</p>
+      </div>
+      <p>
+        Más abajo están los <strong>accesos directos</strong> a cada sección, con una línea que explica qué hay en
+        cada una.
+      </p>
+    </section>
+
+    <!-- ================================================================== 5 -->
+    <section aria-labelledby="museo">
+      <h2 id="museo">5. Datos del museo</h2>
+      <p>
+        Es lo que el sitio muestra para encontrar y contactar al museo: aparece en el pie de todas las páginas y en la
+        página de Contacto. Lo que dejes vacío no se muestra. Cuando termines, apretá
+        <span class="ui">Guardar</span>, al final de la pantalla.
+      </p>
+      <div class="figura" role="group">
+        <img src="img/museo-ubicacion.webp" data-escala="0.56" alt="Pantalla Datos del museo: Ubicación (dirección, localidad, provincia y código postal) y Contacto (teléfono, correo público y correo de destino del formulario)." />
+        <p class="pie">Ubicación y contacto.</p>
+      </div>
+      <ul>
+        <li><strong>Dirección</strong>: calle y número, como se escribe en un sobre.</li>
+        <li><strong>Teléfono</strong>: escribilo como querés que se vea. Si es un solo número, en el celular se puede tocar para llamar.</li>
+        <li><strong>Correo público</strong>: el que se muestra en el sitio para escribirle al museo.</li>
+        <li>
+          <strong>Correo de destino del formulario</strong> (solo lo ven y lo cambian los administradores): adonde
+          llegan los mensajes que la gente manda desde el formulario de Contacto. No se muestra en el sitio y puede ser
+          cualquier correo, también un Gmail. <strong>Sin este correo, el formulario de contacto no aparece en el
+          sitio.</strong>
+        </li>
+      </ul>
+      <h3>Las redes</h3>
+      <p>
+        Apretá <span class="ui">Agregar una red</span>, elegí cuál es (Instagram, Facebook, YouTube…) y pegá la
+        dirección completa de la página del museo en esa red, la que empieza con <code>https://</code>. Se pueden
+        cargar hasta 8. <span class="ui">Quitar</span> la saca de la lista.
+      </p>
+      <div class="figura" role="group">
+        <img src="img/museo-redes-mapa.webp" data-escala="0.56" alt="Las partes Redes (Instagram y Facebook con sus direcciones y el botón Agregar una red) y Mapa (Insertar mapa y Abrir en Google Maps)." />
+        <p class="pie">Redes y mapa.</p>
+      </div>
+      <h3>El mapa</h3>
+      <p>Son dos datos distintos, y los dos salen de Google Maps:</p>
+      <ol class="pasos">
+        <li>
+          <strong>Insertar mapa</strong> (el mapa que se ve en la página de Contacto): en Google Maps buscá el museo,
+          tocá <span class="ui">Compartir</span>, elegí <span class="ui">Insertar un mapa</span> y después
+          <span class="ui">Copiar HTML</span>. Pegalo en el campo tal cual: el panel se queda solo con lo que hace falta.
+        </li>
+        <li>
+          <strong>Abrir en Google Maps</strong> (el enlace «Abrir en Google Maps» de la página de Contacto, que en el
+          celular abre la aplicación de mapas): en Google Maps buscá el museo, tocá <span class="ui">Compartir</span> y después
+          <span class="ui">Copiar vínculo</span>. Pegalo en el campo.
+        </li>
+      </ol>
+      <p>
+        Debajo de cada uno aparece un enlace para probarlo en otra pestaña (<span class="ui">Ver el mapa en otra
+        pestaña</span>, <span class="ui">Probar el enlace en otra pestaña</span>): usalo para revisar que sea el lugar
+        correcto.
+      </p>
+      <div class="caja">
+        <span class="titulo">Si pegás una dirección sin «https://»</span>
+        <p>
+          Si pegás algo como «www.instagram.com/…», el panel le agrega el «https://» solo cuando pasás al campo
+          siguiente.
+        </p>
+      </div>
+    </section>
+
+    <!-- ================================================================== 6 -->
+    <section aria-labelledby="visitas">
+      <h2 id="visitas">6. Visitas</h2>
+      <p>
+        Es todo lo que necesita saber quien quiere visitar el museo, y se muestra en la página de visitas del sitio.
+        La pantalla tiene cinco partes, una debajo de la otra, y <strong>cada una se guarda con su propio
+        botón</strong>. Las tarifas son la excepción: cada cambio se guarda en el momento.
+      </p>
+      <h3 id="horario">6.1 El horario</h3>
+      <div class="figura" role="group">
+        <img src="img/visitas-horario.webp" alt="Parte Horario semanal: el lunes sin marcar Abierto (Cerrado) y el martes abierto con dos franjas, de 09:00 a 13:00 y de 16:00 a 20:00, y su nota del día." />
+        <p class="pie">El horario semanal: un día cerrado y uno abierto de mañana y de tarde.</p>
+      </div>
+      <ol class="pasos">
+        <li>Para cada día, marcá <span class="ui">Abierto</span> si el museo abre. Si no está marcado, el sitio dice que ese día está cerrado.</li>
+        <li>Escribí a qué hora abre y a qué hora cierra (<span class="ui">Franja 1</span>).</li>
+        <li>
+          Si ese día cierra al mediodía, apretá <span class="ui">Agregar una segunda franja</span> y cargá el horario
+          de la tarde. <span class="ui">Quitar la franja 2</span> la saca.
+        </li>
+        <li>Si querés, sumá una <strong>nota del día</strong> (por ejemplo, a qué hora hay visitas guiadas).</li>
+        <li>
+          Al final de los siete días está la <strong>nota general</strong>, que se muestra debajo del horario: sirve,
+          por ejemplo, para decir qué pasa los feriados.
+        </li>
+        <li>Apretá <span class="ui">Guardar el horario</span>.</li>
+      </ol>
+      <h3 id="tarifas">6.2 Las tarifas</h3>
+      <div class="figura" role="group">
+        <img src="img/visitas-tarifas.webp" alt="Lista de tarifas: General $ 3.000, Estudiantes y jubilados $ 1.500 con credencial, Menores de 6 años gratuita y una tarifa oculta, cada una con los botones Editar, Subir, Bajar y Eliminar. Abajo, Agregar una tarifa." />
+        <p class="pie">Las tarifas, en el orden en que las muestra el sitio. La de borde punteado está oculta.</p>
+      </div>
+      <ul>
+        <li>
+          <span class="ui">Agregar una tarifa</span> abre un cuadro con el <strong>nombre</strong>, si es
+          <strong>gratuita</strong>, el <strong>precio en pesos</strong> (sin centavos: «3000» o «3.000»), una
+          <strong>condición</strong> opcional (por ejemplo, «Con credencial») y si está <strong>visible en el
+          sitio</strong>. Apretá <span class="ui">Guardar la tarifa</span>.
+        </li>
+        <li><span class="ui">Editar</span> abre el mismo cuadro para cambiarla.</li>
+        <li><span class="ui">Subir</span> y <span class="ui">Bajar</span> cambian el orden en el sitio.</li>
+        <li>
+          Si una tarifa no corre por un tiempo, en vez de eliminarla podés <strong>ocultarla</strong>: desmarcá
+          <span class="ui">Visible en el sitio</span>. Queda guardada y con <span class="ui">Mostrar en el sitio</span>
+          vuelve a aparecer.
+        </li>
+        <li><span class="ui">Eliminar</span> la borra para siempre (antes te pregunta y te ofrece ocultarla).</li>
+      </ul>
+      <div class="figura" role="group">
+        <img src="img/visitas-tarifa-nueva.webp" alt="Cuadro Agregar una tarifa: nombre Grupos escolares, Gratuita marcada, condición Con reserva previa, Visible en el sitio marcada, y el botón Guardar la tarifa señalado." />
+        <p class="pie">Una tarifa nueva. Al apretar «Guardar la tarifa» ya está en el sitio.</p>
+      </div>
+      <p>
+        Debajo de la lista está la <strong>nota de las tarifas</strong> (por ejemplo, cómo se paga o quién no paga
+        entrada), que se guarda con su propio botón: <span class="ui">Guardar la nota de las tarifas</span>.
+      </p>
+      <h3 id="textos-visitas">6.3 Los textos: cómo llegar, normas y accesibilidad</h3>
+      <p>
+        Son tres textos que se muestran en la página de visitas, cada uno con su título: <strong>Cómo llegar</strong>
+        (colectivos, estacionamiento, cómo llegar desde la terminal), <strong>Normas del museo</strong> (si se pueden
+        sacar fotos, si se puede entrar con comida…) y <strong>Accesibilidad del edificio</strong> (rampas, ascensor,
+        baños adaptados, sillas de ruedas para prestar). En el sitio aparecen con los títulos «Cómo llegar», «Normas
+        del museo» y «Accesibilidad». Si uno queda vacío, no se muestra.
+      </p>
+      <div class="figura" role="group">
+        <img src="img/visitas-textos.webp" alt="El texto Cómo llegar en el editor, con la barra de botones Negrita, Cursiva, Subtítulo, Lista, Lista numerada, Enlace y Deshacer, un subtítulo, una frase en negrita y un enlace." />
+        <p class="pie">Los textos se escriben con el editor, que se explica en la sección 7.3.</p>
+      </div>
+      <p>Se escriben con el mismo editor que las novedades (<a href="#editor">sección 7.3</a>). Al terminar, apretá <span class="ui">Guardar los textos</span>.</p>
+      <h3 id="aviso">6.4 El aviso general</h3>
+      <p>
+        Es un aviso para feriados, cierres o cambios de horario. Se muestra arriba de la <strong>página de Visitas</strong>
+        del sitio, antes del horario (no en la portada ni en las demás páginas). Escribilo en una oración (hasta 200
+        caracteres), por ejemplo «El lunes 12 de octubre el museo permanece cerrado».
+      </p>
+      <p>
+        Si querés que el cierre se difunda más, podés publicar además una noticia, que aparece en la página de
+        Novedades (<a href="#novedades">sección 7</a>).
+      </p>
+      <div class="figura" role="group">
+        <img src="img/visitas-aviso.webp" alt="Parte Aviso general: el texto del aviso, la fecha Mostrar hasta y los botones Quitar el aviso y Guardar el aviso." />
+        <p class="pie">El aviso general, con su fecha de «Mostrar hasta».</p>
+      </div>
+      <ul>
+        <li>
+          <strong>Mostrar hasta</strong>: el último día en que se ve. Al día siguiente desaparece solo. Si no ponés
+          fecha, queda hasta que lo quites.
+        </li>
+        <li><span class="ui">Guardar el aviso</span> lo publica; <span class="ui">Quitar el aviso</span> lo saca del sitio en el momento.</li>
+      </ul>
+      <h3 id="compra">6.5 La compra de entradas</h3>
+      <p>
+        Si las entradas se venden en otra página (una ticketera), el sitio puede mostrar un botón que lleva ahí, en el
+        menú y en la página de visitas.
+      </p>
+      <div class="figura" role="group">
+        <img src="img/visitas-compra.webp" alt="Parte Compra de entradas: la casilla Mostrar el botón de compra en el sitio, la dirección de la página de venta, el enlace Probar la dirección en otra pestaña, el texto del botón y Guardar la compra de entradas." />
+        <p class="pie">El botón de compra de entradas.</p>
+      </div>
+      <ol class="pasos">
+        <li>Marcá <span class="ui">Mostrar el botón de compra en el sitio</span>.</li>
+        <li>Pegá la <strong>dirección de la página de venta</strong> (la que empieza con <code>https://</code>) y probala con <span class="ui">Probar la dirección en otra pestaña</span>.</li>
+        <li>Si querés, cambiá el <strong>texto del botón</strong>. Si lo dejás vacío, dice «Comprar entradas».</li>
+        <li>Apretá <span class="ui">Guardar la compra de entradas</span>. Para sacar el botón, desmarcá la casilla y guardá.</li>
+      </ol>
+    </section>
+
+    <!-- ================================================================== 7 -->
+    <section aria-labelledby="novedades">
+      <h2 id="novedades">7. Novedades</h2>
+      <p>Las novedades son de dos tipos:</p>
+      <ul>
+        <li><strong>Noticia</strong>: algo que pasó o que el museo quiere contar.</li>
+        <li>
+          <strong>Actividad</strong>: algo que va a pasar un día y a una hora: un taller, una charla, una visita
+          especial. El sitio la muestra entre las próximas actividades hasta que termina; después la marca como
+          «Realizada».
+        </li>
+      </ul>
+      <div class="figura" role="group">
+        <img src="img/novedades-lista.webp" alt="Pantalla Novedades: el botón Nueva novedad, los filtros Estado, Tipo y Buscar, y una tabla con cuatro novedades, su tipo, su estado (Borrador, Publicada, Realizada), la fecha y la última edición." />
+        <p class="pie">La lista de novedades. Los filtros sirven para encontrar una en particular.</p>
+      </div>
+      <p>
+        La lista muestra de cada una el tipo, el <strong>estado</strong> (<strong>Borrador</strong>: solo se ve en el
+        panel; <strong>Publicada</strong>: está en el sitio; <strong>Realizada</strong>: una actividad que ya pasó), la
+        fecha y quién la cambió por última vez. Para abrir una, tocá su título.
+      </p>
+      <h3 id="nueva">7.1 Crear una novedad</h3>
+      <ol class="pasos">
+        <li>En Novedades, apretá <span class="ui">Nueva novedad</span>.</li>
+        <li>Elegí si es una <strong>Noticia</strong> o una <strong>Actividad</strong> y escribí el <strong>título</strong>.</li>
+        <li>Apretá <span class="ui">Crear el borrador</span>.</li>
+      </ol>
+      <div class="figura" role="group">
+        <img src="img/novedad-nueva.webp" alt="Pantalla Nueva novedad: el tipo Noticia elegido, el título escrito y el botón Crear el borrador señalado." />
+        <p class="pie">Una novedad nueva arranca con el tipo y el título.</p>
+      </div>
+      <p>
+        Se crea como <strong>borrador</strong>: todavía no está en el sitio. Se abre su <strong>ficha</strong>, donde
+        completás lo demás con calma: podés guardar el borrador y seguir otro día.
+      </p>
+      <div class="figura" role="group">
+        <img src="img/ficha-borrador.webp" alt="Arriba de la ficha de la novedad recién creada: su título, la última edición, el estado Borrador y el aviso «Se creó la novedad como borrador»." />
+        <p class="pie">La ficha recién creada. Arriba dice en qué estado está y quién la cambió por última vez.</p>
+      </div>
+      <p>Para publicarla hacen falta:</p>
+      <ul>
+        <li>el <strong>título</strong>;</li>
+        <li>el <strong>resumen</strong>: una o dos oraciones que aparecen en las tarjetas del sitio, en Google y al compartir el enlace (hasta 200 caracteres);</li>
+        <li>la <strong>portada</strong>, con su descripción (<a href="#portada">sección 7.2</a>);</li>
+        <li>el <strong>texto</strong> (<a href="#editor">sección 7.3</a>);</li>
+        <li>en una actividad, además, el día y la hora en que <strong>empieza</strong> (<a href="#actividad">sección 7.6</a>).</li>
+      </ul>
+      <p>La galería es opcional.</p>
+
+      <h3 id="portada">7.2 La portada y su descripción</h3>
+      <p>
+        La <strong>portada</strong> es la foto principal: se ve arriba de la página, en las tarjetas del sitio y
+        cuando alguien comparte el enlace en redes o por WhatsApp.
+      </p>
+      <ol class="pasos">
+        <li>En <span class="ui">Elegir la portada</span>, elegí la foto (JPG, PNG o WebP, hasta 20 MB; si es muy grande, el panel la achica antes de subirla).</li>
+        <li>Aparece la foto con sus datos. Escribí la <strong>descripción (texto alternativo)</strong>, que es obligatoria.</li>
+        <li>
+          Si querés, sumá un <strong>epígrafe</strong> (se muestra debajo de la foto) y el <strong>crédito</strong>
+          (quién sacó la foto, por ejemplo «Archivo MuPa»: el sitio le agrega «Foto:» adelante, así que no lo
+          escribas vos).
+        </li>
+        <li>Apretá <span class="ui">Subir la portada</span> y esperá a que termine.</li>
+        <li>La portada queda en la ficha <strong>cuando la guardás</strong> (<a href="#publicar">sección 7.5</a>).</li>
+      </ol>
+      <div class="figura" role="group">
+        <img src="img/portada-elegir.webp" alt="La parte Portada con una foto elegida (una mano que limpia un fósil con un pincel), su descripción escrita, el crédito, y el campo de descripción y el botón Subir la portada señalados." />
+        <p class="pie">Antes de subirla, cada foto lleva su descripción.</p>
+      </div>
+      <div class="caja">
+        <span class="titulo">Por qué importa la descripción</span>
+        <p>
+          Muchas personas ciegas o con poca visión recorren los sitios con un <strong>lector de pantalla</strong>, un
+          programa que lee en voz alta lo que hay. Cuando llega a una foto, lee su descripción: sin ella, esa persona no
+          se entera de qué muestra. La descripción también se ve cuando la foto no carga (por ejemplo, con mala
+          conexión) y ayuda a que Google entienda la foto y la muestre en sus búsquedas. Es una de las cosas que hacen
+          que el sitio del museo sea para todos.
+        </p>
+      </div>
+      <h4>Cómo escribir una buena descripción</h4>
+      <ul>
+        <li>Contá lo que se ve y lo que importa para entender la foto, como se lo contarías a alguien por teléfono.</li>
+        <li>Una o dos oraciones alcanzan. No hace falta empezar con «Foto de…» o «Imagen de…»: el lector ya avisa que es una imagen.</li>
+        <li>Si en la foto hay un texto importante (un cartel, un nombre), incluilo.</li>
+        <li>No repitas el epígrafe: la descripción cuenta lo que se ve; el epígrafe puede contar el contexto.</li>
+      </ul>
+      <table class="ejemplos">
+        <thead>
+          <tr>
+            <th scope="col">Así no</th>
+            <th scope="col">Así sí</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>«Foto», «IMG_2034», «Visita»</td>
+            <td>«Chicos con guardapolvo blanco miran desde una baranda de vidrio.»</td>
+          </tr>
+          <tr>
+            <td>«Imagen de un dinosaurio»</td>
+            <td>«Esqueleto de un dinosaurio carnívoro con la boca abierta, en el hall del museo.»</td>
+          </tr>
+          <tr>
+            <td>«Restauración»</td>
+            <td>«Mano que limpia con un pincel un fósil apoyado sobre la mesa de trabajo.»</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="figura" role="group">
+        <img src="img/portada-subida.webp" data-escala="0.6"alt="La portada ya subida: la foto, su descripción, epígrafe y crédito con el botón Guardar los datos de la foto, y los botones Reemplazar la portada y Quitar la portada." />
+        <p class="pie">La portada subida. Se pueden cambiar sus datos, reemplazarla o quitarla.</p>
+      </div>
+      <p>
+        Con la foto ya subida podés cambiar su descripción, epígrafe o crédito y apretar
+        <span class="ui">Guardar los datos de la foto</span>. <span class="ui">Reemplazar la portada</span> te deja
+        elegir otra, y <span class="ui">Quitar la portada</span> la saca.
+      </p>
+
+      <h3 id="editor">7.3 El texto: el editor</h3>
+      <p>
+        El texto de una novedad (y el de las muestras, las salas y los textos de Visitas) se escribe en un
+        <strong>editor</strong> parecido a un procesador de texto, con una barra de botones arriba.
+      </p>
+      <div class="figura" role="group">
+        <img src="img/editor.webp" alt="El editor del texto de la novedad con la barra de botones señalada: Negrita, Cursiva, Subtítulo, Lista, Lista numerada, Enlace y Deshacer. Abajo, un párrafo con una frase en negrita, un subtítulo y una lista de dos elementos." />
+        <p class="pie">El editor: un párrafo con negrita, un subtítulo y una lista.</p>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Botón</th>
+            <th scope="col">Para qué sirve</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>Negrita</strong> (Ctrl+B)</td><td>Resaltar palabras importantes. Seleccioná las palabras y apretá el botón.</td></tr>
+          <tr><td><em>Cursiva</em> (Ctrl+I)</td><td>Títulos de obras, nombres científicos, palabras en otro idioma.</td></tr>
+          <tr><td>Subtítulo</td><td>Dividir un texto largo en partes. No lo uses para resaltar: para eso está la negrita.</td></tr>
+          <tr><td>Lista y Lista numerada</td><td>Enumerar cosas, una por renglón. Con Enter pasás al punto siguiente; con dos Enter seguidos, salís de la lista.</td></tr>
+          <tr><td>Enlace</td><td>Llevar a otra página. Seleccioná las palabras, apretá Enlace y pegá la dirección. Sirve también «www.…», un correo o un teléfono.</td></tr>
+          <tr><td>Deshacer (Ctrl+Z)</td><td>Volver atrás el último cambio.</td></tr>
+        </tbody>
+      </table>
+      <ul>
+        <li><strong>Enter</strong> empieza un párrafo nuevo.</li>
+        <li>
+          Si <strong>pegás un texto de Word o de una página web</strong>, el editor se queda solo con lo que el sitio
+          usa (negrita, cursiva, subtítulos, listas y enlaces) y descarta el resto (colores, tipos de letra,
+          tamaños). Así el sitio se ve siempre igual.
+        </li>
+        <li>Los botones apretados se ven en azul: por ejemplo, si estás escribiendo en negrita, el botón Negrita está azul.</li>
+        <li>La ayuda de arriba dice cuántos caracteres quedan (hasta 20.000).</li>
+      </ul>
+
+      <h3 id="galeria">7.4 La galería de fotos</h3>
+      <p>
+        Las novedades y las muestras pueden tener una <strong>galería</strong>: fotos que se ven en la página, además
+        de la portada.
+      </p>
+      <ol class="pasos">
+        <li>En <span class="ui">Agregar fotos a la galería</span>, elegí una o varias fotos a la vez (hasta 20 por vez y 40 en total).</li>
+        <li>Escribí la descripción de cada una (y, si querés, su epígrafe y crédito).</li>
+        <li>Apretá <span class="ui">Subir las 2 fotos</span> (el número es el de las que elegiste) y esperá: se suben de a una y el panel dice cómo va.</li>
+      </ol>
+      <p>
+        Cada foto de la galería tiene además una casilla <span class="ui">Foto decorativa</span> (la portada no la
+        tiene): marcala solo si la foto adorna y no aporta nada (una textura, un fondo). Así el lector de pantalla la
+        saltea. Casi nunca hace falta.
+      </p>
+      <div class="figura" role="group">
+        <img src="img/galeria-elegir.webp" alt="La segunda de las dos fotos elegidas para la galería (unas manos que pulen la réplica de una garra), con su descripción escrita, y debajo el botón Subir las 2 fotos señalado." />
+        <p class="pie">La segunda de las dos fotos elegidas, con su descripción. La primera, más arriba, tiene la suya.</p>
+      </div>
+      <div class="figura" role="group">
+        <img src="img/galeria.webp" alt="La galería con dos fotos subidas, cada una con su descripción y los botones Editar los datos, Mover antes, Mover después y Quitar." />
+        <p class="pie">La galería: el orden se cambia con «Mover antes» y «Mover después».</p>
+      </div>
+      <ul>
+        <li><span class="ui">Mover antes</span> y <span class="ui">Mover después</span> cambian el orden.</li>
+        <li><span class="ui">Quitar</span> la saca de la galería (con <span class="ui">Deshacer</span> la volvés a poner).</li>
+        <li><span class="ui">Editar los datos</span> cambia la descripción, el epígrafe o el crédito.</li>
+        <li>El orden, las fotos nuevas y las que quitaste quedan <strong>cuando guardás la ficha</strong>.</li>
+      </ul>
+
+      <h3 id="publicar">7.5 Guardar y publicar</h3>
+      <p>Al final de la ficha están los botones:</p>
+      <ul>
+        <li><span class="ui">Guardar borrador</span>: guarda todo sin publicar. Lo podés seguir otro día.</li>
+        <li>
+          <span class="ui">Publicar</span>: guarda lo que cambiaste y la pone en el sitio. Si falta algo, no la publica
+          y te dice qué completar (como en la <a href="#todas">sección 2</a>).
+        </li>
+      </ul>
+      <p>Una vez publicada, los botones cambian:</p>
+      <div class="figura" role="group">
+        <img src="img/ficha-publicada.webp" alt="El final de la ficha publicada: los botones Guardar cambios, Despublicar y Ver en el sitio (estos dos señalados), el aviso «Publicada: la novedad ya está en el sitio» y la parte Eliminar la novedad." />
+        <p class="pie">Una novedad recién publicada.</p>
+      </div>
+      <ul>
+        <li><span class="ui">Guardar cambios</span>: lo que cambies sale al sitio en el momento en que lo guardás.</li>
+        <li><span class="ui">Ver en el sitio</span>: abre la página de la novedad en otra pestaña, para revisarla como la ve el público.</li>
+        <li><span class="ui">Despublicar</span>: la saca del sitio (<a href="#despublicar">sección 7.7</a>).</li>
+      </ul>
+      <h4>La dirección web</h4>
+      <p>
+        Cada novedad tiene su dirección en el sitio, por ejemplo <code>mupa.ar/novedades/taller-de-paleontologia</code>.
+        Se arma sola con el título y se puede cambiar en el campo <strong>Dirección web</strong> mientras es un
+        borrador. Cuando se publica por primera vez <strong>queda fija</strong>, para que los enlaces que ya se
+        compartieron sigan andando.
+      </p>
+
+      <h3 id="actividad">7.6 Una actividad</h3>
+      <p>Una actividad tiene, además, la parte <strong>La actividad</strong>:</p>
+      <div class="figura" role="group">
+        <img src="img/actividad.webp" alt="La parte La actividad de la ficha de una actividad: Empieza y Termina (día y hora), Lugar, Costo y Enlace de inscripción, con los datos de un taller de ejemplo." />
+        <p class="pie">Los datos propios de una actividad.</p>
+      </div>
+      <ul>
+        <li><strong>Empieza</strong> (obligatorio para publicar): el día y la hora, en hora de San Juan.</li>
+        <li><strong>Termina</strong>: opcional.</li>
+        <li><strong>Lugar</strong>: si queda vacío, el sitio entiende que es en el museo.</li>
+        <li><strong>Costo</strong>: escrito como querés que se vea: «Gratis», «$ 3.000», «Con la entrada al museo».</li>
+        <li><strong>Enlace de inscripción</strong>: si hay un formulario para anotarse (por ejemplo, de Google), pegá su dirección.</li>
+      </ul>
+      <p>
+        Cuando la actividad termina, el panel la marca <strong>Realizada</strong>: el sitio deja de mostrarla entre
+        las próximas actividades, pero su página sigue (sin el enlace de inscripción).
+      </p>
+
+      <h3 id="despublicar">7.7 Despublicar y eliminar</h3>
+      <p>
+        <span class="ui">Despublicar</span> saca la novedad del sitio y la deja como borrador, con todo lo que tiene.
+        La podés volver a publicar cuando quieras, y la dirección web no cambia. Antes de hacerlo, el panel pregunta.
+      </p>
+      <div class="figura" role="group">
+        <img src="img/despublicar.webp" alt="Diálogo «¿Despublicar la novedad?» con la explicación y los botones Cancelar y Despublicar." />
+        <p class="pie">Despublicar se puede deshacer: se vuelve a publicar.</p>
+      </div>
+      <p>
+        <span class="ui">Eliminar la novedad</span>, al final de la ficha, la <strong>borra para siempre</strong>, con su
+        portada y las fotos de su galería. No se puede deshacer. Si solo querés que no se vea, despublicala: el
+        diálogo te ofrece <span class="ui">Despublicarla en vez de eliminarla</span>.
+      </p>
+      <div class="figura" role="group">
+        <img src="img/eliminar.webp" alt="Diálogo «¿Eliminar la novedad?»: se borra para siempre con sus fotos; botones Despublicarla en vez de eliminarla, Cancelar y Eliminar." />
+        <p class="pie">Eliminar no se puede deshacer.</p>
+      </div>
+    </section>
+
+    <!-- ================================================================== 8 -->
+    <section aria-labelledby="exposiciones">
+      <h2 id="exposiciones">8. Exposiciones: muestras y salas</h2>
+      <p>
+        La pantalla Exposiciones tiene dos pestañas: <strong>Muestras</strong> y <strong>Salas</strong>. Las fichas se
+        completan, se guardan, se publican y se eliminan igual que las de Novedades (<a href="#novedades">sección
+        7</a>): portada con descripción, texto con el editor y dirección web.
+      </p>
+      <div class="figura" role="group">
+        <img src="img/exposiciones-muestras.webp" data-escala="0.5" alt="Pantalla Exposiciones, pestaña Muestras: el botón Nueva muestra y tres muestras con su estado (Publicada) y su situación (Actual, Próxima, Permanente), sus fechas, su sala y los botones Subir y Bajar." />
+        <p class="pie">Las muestras, en el orden en que las muestra el sitio.</p>
+      </div>
+      <h3>El orden</h3>
+      <p>
+        En las dos pestañas, <span class="ui">Subir</span> y <span class="ui">Bajar</span> cambian el orden en que el
+        sitio muestra las muestras y las salas. El cambio se guarda en el momento.
+      </p>
+      <h3>Las muestras</h3>
+      <ul>
+        <li>
+          Una muestra es <strong>temporal</strong> (con fecha de inicio y, si se sabe, de fin) o
+          <strong>permanente</strong> (siempre a la vista, sin fechas). Se elige al crearla con
+          <span class="ui">Nueva muestra</span> y se puede cambiar en la ficha.
+        </li>
+        <li>
+          Con las fechas, el panel y el sitio calculan solos si es <strong>Próxima</strong> (todavía no empezó),
+          <strong>Actual</strong> o <strong>Finalizada</strong>. No hay que cambiar nada cuando termina.
+        </li>
+        <li>
+          El sitio muestra las publicadas que están por empezar, las actuales y las permanentes. Las finalizadas
+          conservan su página, pero salen de la lista.
+        </li>
+        <li>La <strong>sala</strong> es opcional: se elige de la lista de salas cargadas.</li>
+        <li>Para publicar hacen falta el título, el resumen, la portada, la descripción y, si es temporal, la fecha de inicio.</li>
+      </ul>
+      <div class="figura" role="group">
+        <img src="img/muestra-fechas.webp" data-escala="0.52" alt="Ficha de una muestra temporal: tipo Temporal, título, resumen, fecha de inicio, fecha de fin y la sala elegida." />
+        <p class="pie">Las fechas y la sala de una muestra temporal.</p>
+      </div>
+      <h3>Las salas</h3>
+      <div class="figura" role="group">
+        <img src="img/exposiciones-salas.webp" alt="Pestaña Salas: el botón Nueva sala y dos salas publicadas con los botones Subir y Bajar." />
+        <p class="pie">La pestaña Salas.</p>
+      </div>
+      <ul>
+        <li>Una sala tiene nombre, resumen, portada y una descripción opcional. No tiene galería.</li>
+        <li>Para publicarla hacen falta el nombre, el resumen y la portada.</li>
+        <li>Si eliminás una sala, las muestras que estaban en ella quedan sin sala.</li>
+      </ul>
+    </section>
+
+    <!-- ================================================================== 9 -->
+    <section aria-labelledby="mensajes">
+      <h2 id="mensajes">9. Mensajes del formulario de contacto</h2>
+      <p>
+        <em>Solo para administradores.</em> Son los mensajes que la gente manda desde el formulario de Contacto del
+        sitio, del más nuevo al más viejo. Cada mensaje llega también por correo al correo de destino de Datos del
+        museo; si no pudo salir por correo, queda acá igual.
+      </p>
+      <div class="figura" role="group">
+        <img src="img/mensajes.webp" alt="Pantalla Mensajes con cuatro mensajes de prueba: el nombre, el correo, la fecha, el estado del envío (Enviado por correo o No se pudo enviar por correo) y el texto." />
+        <p class="pie">Los mensajes del formulario, con el estado de cada envío.</p>
+      </div>
+      <ul>
+        <li><strong>Enviado por correo</strong>: llegó al correo de destino.</li>
+        <li><strong>No se pudo enviar por correo</strong>: no llegó al correo, pero está acá. Si aparece seguido, mirá el aviso del Inicio (<a href="#inicio">sección 4</a>).</li>
+        <li><strong>Envío sin confirmar</strong>: el sitio se cortó justo mientras lo mandaba; puede que haya llegado o no.</li>
+      </ul>
+      <p>
+        Para <strong>responder</strong>, tocá el correo de la persona: se abre tu programa de correo para escribirle.
+        Los mensajes se ven de a 50 por página y <strong>se borran solos a los 180 días</strong>.
+      </p>
+      <div class="caja atencion">
+        <span class="titulo">Son datos personales</span>
+        <p>
+          Los nombres, correos y mensajes son datos de las personas que escribieron. Usalos solo para responderles y
+          no los compartas fuera del museo.
+        </p>
+      </div>
+    </section>
+
+    <!-- ================================================================== 10 -->
+    <section aria-labelledby="usuarios">
+      <h2 id="usuarios">10. Usuarios</h2>
+      <p>
+        <em>Solo para administradores.</em> Son las personas que pueden entrar al panel. Cada una tiene que tener su
+        propia cuenta, con su correo: así nadie comparte contraseñas y el panel sabe quién cambió cada cosa.
+      </p>
+      <div class="figura" role="group">
+        <img src="img/usuarios-cuentas.webp" alt="Pantalla Usuarios: las cuentas de Ana Ejemplo (vos, administradora), Bruno Ejemplo (editor, todavía no eligió su contraseña) y Carla Ejemplo (administradora), con los botones Hacer administrador o Pasar a editor, Desactivar, Dar contraseña temporal y Cerrar sus sesiones." />
+        <p class="pie">Las cuentas del panel, con su rol, su estado y su último acceso.</p>
+      </div>
+      <h3 id="alta">10.1 Dar de alta a una persona</h3>
+      <ol class="pasos">
+        <li>En <strong>Dar de alta a una persona</strong>, escribí su <strong>nombre</strong> y su <strong>correo</strong> (es su usuario para entrar: tiene que ser de esa persona).</li>
+        <li>Elegí el <strong>rol</strong>: Editor o Administrador.</li>
+        <li>Apretá <span class="ui">Dar de alta</span>.</li>
+      </ol>
+      <div class="figura" role="group">
+        <img src="img/usuarios-alta.webp" alt="Formulario Dar de alta a una persona: nombre Bruno Ejemplo, su correo, el rol Editor elegido y el botón Dar de alta señalado." />
+        <p class="pie">El alta de una cuenta nueva.</p>
+      </div>
+      <ol class="pasos" start="4">
+        <li>
+          El panel muestra la <strong>contraseña temporal</strong> de esa persona. <strong>Se muestra una sola
+          vez</strong>: anotala o apretá <span class="ui">Copiar</span>.
+        </li>
+        <li>
+          Dásela <strong>en persona o por teléfono</strong>. No la mandes por correo ni por mensaje: alguien más podría
+          leerla.
+        </li>
+        <li>Apretá <span class="ui">Listo, ya la anoté</span>.</li>
+      </ol>
+      <div class="figura" role="group">
+        <img src="img/usuarios-temporal.webp" alt="Diálogo Contraseña temporal de Bruno Ejemplo, con la contraseña tapada, el botón Copiar, la advertencia de que no se vuelve a mostrar y el botón Listo, ya la anoté." />
+        <p class="pie">La contraseña temporal de la cuenta nueva (en la captura está tapada).</p>
+      </div>
+      <p>
+        Con esa contraseña y su correo, la persona entra como se explica en la <a href="#primera-vez">sección 3.1</a>.
+        La temporal <strong>vence a las 72 horas</strong>: si no la usó a tiempo, dale otra. El panel no le manda
+        ningún correo: se la pasás vos.
+      </p>
+      <h3 id="cuentas">10.2 Contraseñas, roles y cuentas desactivadas</h3>
+      <p>Cada cuenta (menos la tuya) tiene estos botones:</p>
+      <ul>
+        <li>
+          <span class="ui">Dar contraseña temporal</span>: cuando alguien se olvidó la contraseña. La que tenía deja
+          de servir, se cierran sus sesiones y ves la temporal nueva una sola vez, como en el alta.
+        </li>
+        <li>
+          <span class="ui">Hacer administrador</span> / <span class="ui">Pasar a editor</span>: cambia el rol. Al
+          pasar a editor se cierran sus sesiones abiertas.
+        </li>
+        <li>
+          <span class="ui">Desactivar</span>: para cuando alguien deja de trabajar en el panel. Ya no puede entrar y se
+          cierran sus sesiones; lo que cargó sigue en el sitio. <span class="ui">Activar</span> la vuelve a habilitar.
+        </li>
+        <li>
+          <span class="ui">Cerrar sus sesiones</span>: si dejó el panel abierto en una computadora que no es suya.
+          Tiene que volver a entrar en todos sus dispositivos.
+        </li>
+      </ul>
+      <div class="figura" role="group">
+        <img src="img/usuarios-dar-temporal.webp" alt="Diálogo «¿Dar una contraseña temporal a Bruno Ejemplo?» con la explicación y los botones Cancelar y Dar contraseña temporal." />
+        <p class="pie">
+          Antes de dar una temporal, cambiar un rol, desactivar una cuenta o cerrar sus sesiones, el panel pregunta.
+          Activar una cuenta no pregunta.
+        </p>
+      </div>
+      <div class="caja">
+        <span class="titulo">Que siempre haya dos administradores</span>
+        <p>
+          Si hay una sola persona administradora y un día no puede entrar (se olvidó la contraseña, está de
+          vacaciones, dejó el museo), nadie más puede dar contraseñas temporales ni dar de alta cuentas. Por eso el
+          Inicio avisa cuando hay uno solo. El panel tampoco deja desactivar ni pasar a editor al último
+          administrador.
+        </p>
+      </div>
+      <p>Tu propia cuenta no se cambia acá sino en <a href="#cuenta">Mi cuenta</a>.</p>
+    </section>
+
+    <!-- ================================================================== 11 -->
+    <section aria-labelledby="cuenta">
+      <h2 id="cuenta">11. Mi cuenta</h2>
+      <p>Se abre desde <span class="ui">Mi cuenta</span>, arriba a la derecha. Tiene tres partes:</p>
+      <div class="figura" role="group">
+        <img src="img/cuenta.webp" data-escala="0.6" alt="Pantalla Mi cuenta: el correo y el rol, Tu nombre con el botón Guardar el nombre, Cambiar la contraseña con la contraseña actual, la nueva y el botón Guardar la contraseña nueva, y Cerrar sesión en todos lados con su botón." />
+        <p class="pie">Mi cuenta.</p>
+      </div>
+      <ul>
+        <li><strong>Tu nombre</strong>: es el que ven las demás personas del panel, por ejemplo en «Última edición».</li>
+        <li>
+          <strong>Cambiar la contraseña</strong>: escribí la actual y la nueva. Al guardarla se cierra tu sesión en los
+          demás dispositivos y pestañas.
+        </li>
+        <li>
+          <strong>Cerrar sesión en todos lados</strong>: cierra tu sesión en todos los dispositivos donde entraste,
+          también en este. Usalo si entraste desde una computadora que no es tuya y no saliste, o si perdiste el
+          celular.
+        </li>
+      </ul>
+      <p>Tu correo y tu rol no se cambian desde acá: si hace falta, pedíselo a un administrador.</p>
+    </section>
+
+    <!-- ================================================================== 12 -->
+    <section aria-labelledby="celular">
+      <h2 id="celular">12. Desde el celular</h2>
+      <p>
+        El panel se usa igual desde el celular o una tablet. Cambia la forma: la barra ocupa varios renglones, las
+        listas se ven como tarjetas y los campos van uno debajo del otro.
+      </p>
+      <div class="celulares">
+        <div class="figura" role="group">
+          <img src="img/celular-inicio.webp" alt="El Inicio en un celular: arriba Panel del MuPa, Ayuda, Mi cuenta y Salir, y debajo las secciones." />
+          <p class="pie">El Inicio en el celular. Salir está siempre a la vista.</p>
+        </div>
+        <div class="figura" role="group">
+          <img src="img/celular-novedades.webp" alt="La lista de novedades en un celular, con cada novedad en una tarjeta." />
+          <p class="pie">Las novedades, como tarjetas.</p>
+        </div>
+        <div class="figura" role="group">
+          <img src="img/celular-foto.webp" alt="La portada de una novedad en un celular, con una foto elegida desde el teléfono y su descripción escrita." />
+          <p class="pie">Una foto elegida desde el celular.</p>
+        </div>
+      </div>
+      <h3>Fotos desde el celular</h3>
+      <ul>
+        <li>Al tocar <span class="ui">Elegir la portada</span> o <span class="ui">Agregar fotos a la galería</span>, el celular te deja elegir de la galería o sacar una foto en el momento.</li>
+        <li>Las fotos grandes se achican antes de subirlas: se suben más rápido y gastan menos datos.</li>
+        <li>Para subir muchas fotos, mejor con wifi.</li>
+        <li>
+          Las fotos de un iPhone se pueden subir directamente desde el iPhone: el teléfono las convierte solo. Si en
+          cambio pasás una foto del iPhone a una computadora y la subís desde ahí, puede aparecer «Esta foto está en
+          formato HEIC…»: exportala como JPG, o subila desde el iPhone. Para que las fotos nuevas salgan compatibles,
+          en el iPhone: <strong>Configuración &gt; Cámara &gt; Formatos &gt; Más compatible</strong>.
+        </li>
+      </ul>
+    </section>
+
+    <!-- ================================================================== 13 -->
+    <section aria-labelledby="practicas">
+      <h2 id="practicas">13. Buenas prácticas</h2>
+      <h3>Cerrá la sesión al terminar</h3>
+      <ul>
+        <li>Apretá <span class="ui">Salir</span> cada vez que terminás, sobre todo en una computadora que usan otras personas.</li>
+        <li>No guardes la contraseña en el navegador de una computadora compartida.</li>
+        <li>
+          Si te olvidaste de salir en otra computadora, entrá en <span class="ui">Mi cuenta</span> y apretá
+          <span class="ui">Cerrar sesión en todos lados</span> (o pedile a un administrador que use
+          <span class="ui">Cerrar sus sesiones</span>).
+        </li>
+      </ul>
+      <h3>Una ficha, una persona a la vez</h3>
+      <p>
+        Si dos personas cambian <strong>la misma ficha al mismo tiempo</strong>, queda lo que guardó la última, y lo
+        que había cambiado la otra se pierde. Antes de editar una novedad o una muestra que puede estar tocando otra
+        persona, avisá («estoy con la ficha del taller»).
+      </p>
+      <h3>Preparar con tiempo</h3>
+      <ul>
+        <li>Armá las novedades como <strong>borrador</strong> y publicalas cuando estén completas y revisadas.</li>
+        <li>Después de publicar, mirala con <span class="ui">Ver en el sitio</span>.</li>
+        <li>
+          Para un cierre o un feriado, usá el <strong>aviso general</strong> con <span class="ui">Mostrar hasta</span>:
+          se va solo. Se ve solo en la página de Visitas (no en la portada): si querés difundirlo más, publicá además
+          una noticia.
+        </li>
+        <li>Si una tarifa no corre por un tiempo, ocultala en vez de borrarla.</li>
+      </ul>
+      <h3>Fotos</h3>
+      <ul>
+        <li><strong>Describí siempre</strong> cada foto (<a href="#portada">sección 7.2</a>).</li>
+        <li>Para la portada, mejor una foto horizontal, nítida y con buena luz.</li>
+        <li>Poné el <strong>crédito</strong> cuando la foto es de otra persona.</li>
+        <li>
+          Si en la foto se ven personas que se puedan reconocer, y sobre todo chicos, asegurate de que el museo tenga
+          su permiso (o el de sus familias) para publicarla.
+        </li>
+      </ul>
+      <h3>Cuentas y datos</h3>
+      <ul>
+        <li>Cada persona con su propia cuenta: no compartas la tuya.</li>
+        <li>Las contraseñas temporales se pasan en persona o por teléfono, nunca por correo ni por mensaje.</li>
+        <li>Cuando alguien deja de trabajar en el panel, un administrador desactiva su cuenta.</li>
+        <li>Los mensajes del formulario son datos personales: no los compartas fuera del museo.</li>
+      </ul>
+    </section>
+
+    <!-- ================================================================== 14 -->
+    <section aria-labelledby="problemas">
+      <h2 id="problemas">14. Si algo no anda</h2>
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Lo que pasa</th>
+            <th scope="col">Qué hacer</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>«Correo o contraseña incorrectos.»</td>
+            <td>Revisá que el correo esté bien escrito y la contraseña también (con <span class="ui">Mostrar</span> la ves). Si no te acordás, pedile una temporal a un administrador. Si tu cuenta está desactivada, el mensaje es el mismo: el administrador lo puede revisar.</td>
+          </tr>
+          <tr>
+            <td>«Demasiados intentos. Esperá 15 minutos.»</td>
+            <td>
+              Es una protección: aparece después de varias contraseñas equivocadas, o si muchas personas entraron desde
+              la misma red en poco rato. Esperá 15 minutos y probá de nuevo.
+            </td>
+          </tr>
+          <tr>
+            <td>«La contraseña temporal venció» (al ingresar) o «Tu contraseña temporal venció» (en el cuadro para volver a entrar)</td>
+            <td>Las temporales duran 72 horas. Pedile otra a un administrador.</td>
+          </tr>
+          <tr>
+            <td>Aparece «Volvé a ingresar»</td>
+            <td>Pasaron dos horas sin usar el panel o se cerró tu sesión. Escribí tu correo y tu contraseña: lo que estabas haciendo no se pierde.</td>
+          </tr>
+          <tr>
+            <td>«Algo salió mal. Probá de nuevo en unos minutos.» (al entrar o en cualquier pantalla)</td>
+            <td>
+              Esperá unos minutos y probá de nuevo. Si sigue, y sobre todo si el sitio tampoco se ve (salvo la página
+              principal), avisale a quien mantiene el sitio: puede ser que la base de datos se haya llenado
+              (<a href="#inicio">sección 4</a>).
+            </td>
+          </tr>
+          <tr>
+            <td>«Sin conexión, reintentá.»</td>
+            <td>Se cortó internet. Lo que escribiste sigue en la pantalla: cuando vuelva la conexión, apretá otra vez el botón de guardar.</td>
+          </tr>
+          <tr>
+            <td>«Hay una versión nueva del panel: guardá lo que estés haciendo y recargá la página.»</td>
+            <td>Guardá y recargá la página (F5, o el botón de recargar del navegador).</td>
+          </tr>
+          <tr>
+            <td>«No tenés permiso.»</td>
+            <td>Esa pantalla es solo para administradores.</td>
+          </tr>
+          <tr>
+            <td>«La foto pesa 25 MB; el máximo es 20 MB.»</td>
+            <td>Elegí otra foto o achicala antes (por ejemplo, exportándola más chica desde el celular o la computadora).</td>
+          </tr>
+          <tr>
+            <td>«Esta foto está en formato HEIC…»</td>
+            <td>
+              Pasa al subir desde una computadora una foto sacada con un iPhone. Exportala como JPG, o subila
+              directamente desde el iPhone. Para que las fotos nuevas salgan compatibles: en el iPhone, Configuración
+              &gt; Cámara &gt; Formatos &gt; Más compatible.
+            </td>
+          </tr>
+          <tr>
+            <td>«Hay muchas fotos subiéndose…» o «La foto tardó demasiado en llegar»</td>
+            <td>Esperá unos minutos y probá de nuevo, mejor con una conexión más rápida (wifi).</td>
+          </tr>
+          <tr>
+            <td>«La lista cambió mientras tanto…» al cambiar un orden</td>
+            <td>Otra persona agregó o eliminó algo. La lista ya está actualizada: volvé a hacer el cambio.</td>
+          </tr>
+          <tr>
+            <td>Guardé, pero no lo veo en el sitio</td>
+            <td>
+              ¿Viste el aviso verde de «Guardado» o «Publicada»? ¿Está <strong>publicada</strong> (los borradores no se
+              ven)? Recargá la página del sitio. Acordate de que una tarifa oculta, un aviso vencido, una muestra
+              finalizada o una actividad realizada no aparecen en las listas.
+            </td>
+          </tr>
+          <tr>
+            <td>Un aviso amarillo en el Inicio</td>
+            <td>Seguí lo que dice el aviso (<a href="#inicio">sección 4</a>). Casi siempre es avisarle a quien mantiene el sitio.</td>
+          </tr>
+        </tbody>
+      </table>
+      <h3 id="ayuda">14.1 A quién pedir ayuda</h3>
+      <ul>
+        <li>
+          <strong>Para entrar, contraseñas y cuentas</strong>: a un <strong>administrador del panel</strong> del museo.
+          Puede darte una contraseña temporal, revisar que tu cuenta esté activa o cambiar tu rol.
+        </li>
+        <li>
+          <strong>Si algo no anda, aparece un error que no está en este manual o un aviso del Inicio lo pide</strong>:
+          a <strong>quien mantiene el sitio</strong>. Contale qué estabas haciendo, en qué pantalla, qué decía el
+          mensaje (mejor con una captura de pantalla) y a qué hora pasó.
+        </li>
+      </ul>
+      <div class="anotar">
+        <p><strong>Para anotar</strong> (completalo a mano)</p>
+        <p>Administradores del panel:</p>
+        <p>Quien mantiene el sitio:</p>
+      </div>
+    </section>
+
+    <!-- ================================================================== 15 -->
+    <section aria-labelledby="glosario">
+      <h2 id="glosario">15. Palabras del panel</h2>
+      <table>
+        <tbody>
+          <tr><th scope="row">Borrador</th><td>Una novedad, muestra o sala guardada que todavía no está en el sitio: solo se ve en el panel.</td></tr>
+          <tr><th scope="row">Publicar</th><td>Poner en el sitio una ficha completa. Desde ese momento, cada cambio que guardás sale al sitio.</td></tr>
+          <tr><th scope="row">Despublicar</th><td>Sacar del sitio una ficha publicada, sin borrarla: vuelve a ser un borrador.</td></tr>
+          <tr><th scope="row">Ficha</th><td>La pantalla con todos los datos de una novedad, una muestra o una sala.</td></tr>
+          <tr><th scope="row">Resumen</th><td>Una o dos oraciones que presentan una ficha: aparecen en las tarjetas del sitio, en Google y al compartir el enlace.</td></tr>
+          <tr><th scope="row">Portada</th><td>La foto principal de una ficha.</td></tr>
+          <tr><th scope="row">Galería</th><td>Las otras fotos de una novedad o una muestra.</td></tr>
+          <tr><th scope="row">Descripción (texto alternativo)</th><td>Lo que se ve en una foto, contado en palabras para quien no puede verla.</td></tr>
+          <tr><th scope="row">Epígrafe</th><td>El texto que se muestra debajo de una foto.</td></tr>
+          <tr><th scope="row">Crédito</th><td>Quién sacó la foto. El sitio lo muestra con «Foto:» adelante.</td></tr>
+          <tr><th scope="row">Dirección web</th><td>La parte final de la dirección de una página en el sitio (por ejemplo, <code>mupa.ar/novedades/<strong>taller-de-paleontologia</strong></code>).</td></tr>
+          <tr><th scope="row">Sesión</th><td>El tiempo que estás adentro del panel después de ingresar. Se cierra con Salir, a las dos horas sin usarlo o a las 12 horas.</td></tr>
+          <tr><th scope="row">Contraseña temporal</th><td>La que da un administrador para entrar por primera vez o cuando alguien se olvidó la suya. Vence a las 72 horas y se cambia al entrar.</td></tr>
+          <tr><th scope="row">Rol</th><td>Editor o administrador: qué puede hacer cada cuenta en el panel.</td></tr>
+          <tr><th scope="row">Correo de destino</th><td>El correo al que llegan los mensajes del formulario de contacto. Lo cargan los administradores en Datos del museo.</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </body>
+</html>

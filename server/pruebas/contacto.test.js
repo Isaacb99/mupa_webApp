@@ -17,22 +17,35 @@
 //   cuentan aunque se corte la conexión (COD-01), sin cabeceras RateLimit (CON-03), el mensaje repetido (CON-02), los
 //   topes de la base y del envío (CON-01) y lo escrito a la vista en el 503 no_disponible (CON-07). Cada envío que
 //   tiene que guardarse lleva un texto distinto (unico()): uno igual a otro reciente es el mismo mandado dos veces.
+// - Desde la limpieza del 27/10/2026: el destino que la base tarda en dar (CON-08: con un contacto falso, sin base, y
+//   con la tabla del museo bloqueada, con base; el Inicio no culpa a la casilla), los caracteres de Windows-1252
+//   (CON-09) y el Retry-After del límite diario hasta la medianoche de San Juan (CON-10).
 import assert from 'node:assert/strict'
 import { connect } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { after, before, beforeEach, describe, test } from 'node:test'
+import express from 'express'
 import { CONTACTO, contarEnlaces, sinInvisibles, unaLinea } from '../../compartido/contacto.js'
 import { acomodarMensaje, erroresDeContacto, esquemaContacto } from '../../compartido/esquemas/contacto.js'
 import { estadoDelCorreo } from '../api/estado.js'
 import { crearApp } from '../app.js'
 import { leerConfig } from '../config.js'
-import { crearContacto, esMarcaDeEnviado, huellaDeMensaje, marcaDeEnviado, VIGENCIA_AVISO_MS } from '../contacto.js'
+import {
+  crearContacto,
+  crearRecepcion,
+  esMarcaDeEnviado,
+  huellaDeMensaje,
+  marcaDeEnviado,
+  SIN_CORREO_POR_OTRA_CAUSA,
+  VIGENCIA_AVISO_MS,
+} from '../contacto.js'
 import { armarCorreo, codigoDeCorreo, crearCorreo, NOMBRE_REMITENTE, opcionesSmtp } from '../correo.js'
 import { crearConexion } from '../db/conexion.js'
 import { crearMuseoPublico } from '../museo.js'
 import { crearSsr, partir } from '../ssr.js'
+import { segundosHastaMedianoche } from '../limites.js'
 import { crearRegistroDeTareas, programarTareas } from '../tareas.js'
 import { conTope } from '../tope.js'
 import { cerrarBase, escucharLogs, levantar, pedir, prepararBase, salteoVisible, sql } from './ayudas.js'
@@ -171,13 +184,25 @@ describe('sin base: el esquema, el mail y el correo', () => {
     assert.equal(datos({ nombre: 'Ana 3' }).nombre, 'Ana 3')
     // El mensaje pegado de otro lado: los saltos de línea de todos lados pasan a \n, lo demás de control se saca.
     assert.equal(datos({ mensaje: 'Hola,\u2028quería consultar\u2029por las visitas.' }).mensaje, 'Hola,\nquería consultar\npor las visitas.')
-    assert.equal(datos({ mensaje: 'Primera\u000BSegunda\u000CTercera\u0085Cuarta' }).mensaje, 'Primera\nSegunda\nTercera\nCuarta')
+    assert.equal(datos({ mensaje: 'Primera\u000BSegunda\u000CTercera' }).mensaje, 'Primera\nSegunda\nTercera')
     assert.equal(datos({ mensaje: 'Un mensaje con un \u0000 adentro' }).mensaje, 'Un mensaje con un  adentro')
     assert.equal(
       datos({ mensaje: '\u0093Hola\u0094 \u0096 dijo \u0091ella\u0092 \u0097 fin' }).mensaje,
       '“Hola” – dijo ‘ella’ — fin',
     )
     assert.equal(acomodarMensaje('\u0001\u0007 hola \t\n'), 'hola')
+    // Lo de Windows-1252 leído como C1 (CON-09): todo el bloque de 0x80 a 0x9F es lo que es en Windows-1252 (U+0085 son
+    // los puntos suspensivos, no un salto de línea); los cinco que Windows-1252 no define se sacan.
+    assert.equal(
+      acomodarMensaje('Cuesta 5 \u0080 \u0095 MuPa\u0099 \u0084sí\u0093 y \u008Bno\u009B \u0085 fin'),
+      'Cuesta 5 € • MuPa™ „sí“ y ‹no› … fin',
+    )
+    assert.equal(acomodarMensaje('a\u0081\u008D\u008F\u0090\u009Db'), 'ab')
+    const todos = Array.from({ length: 32 }, (_, i) => String.fromCharCode(0x80 + i)).join('')
+    assert.equal(acomodarMensaje(`x${todos}y`), 'x€‚ƒ„…†‡ˆ‰Š‹ŒŽ‘’“”•–—˜™š›œžŸy')
+    // El nombre con la comilla de Windows: O’Brien, no un error de "una sola línea".
+    assert.equal(datos({ nombre: 'Ana O\u0092Brien' }).nombre, 'Ana O’Brien')
+    assert.deepEqual(errores({ nombre: 'Ana\nPérez' }), { nombre: 'una_linea' })
     assert.equal(acomodarMensaje('a\r\nb\rc\n\td'), 'a\nb\nc\n\td')
     // Lo que queda corto después de acomodar, corto; solo controles, vacío.
     assert.deepEqual(errores({ mensaje: `${'\u0000'.repeat(20)}Hola` }), { mensaje: 'corto' })
@@ -366,9 +391,18 @@ describe('sin base: el esquema, el mail y el correo', () => {
 
   test('estadoDelCorreo: sin casilla, ok, falla por la casilla o por mensajes sin enviar (desde el primero)', () => {
     const fila = (cambios = {}) => ({ email_destino_contacto: 'd@example.com', sin_enviar: 0, sin_enviar_desde: null, sin_enviar_codigo: null, ...cambios })
-    assert.deepEqual(estadoDelCorreo(null, fila()), { estado: 'sin_configurar', formulario: false, desde: null, codigo: null, sinEnviar: 0 })
+    assert.deepEqual(estadoDelCorreo(null, fila()), { estado: 'sin_configurar', formulario: false, desde: null, codigo: null, sinEnviar: 0, otraCausa: 0 })
     const correo = enMemoria(configProduccion(CASILLA))
-    assert.deepEqual(estadoDelCorreo(correo, fila()), { estado: 'ok', formulario: true, desde: null, codigo: null, sinEnviar: 0 })
+    assert.deepEqual(estadoDelCorreo(correo, fila()), { estado: 'ok', formulario: true, desde: null, codigo: null, sinEnviar: 0, otraCausa: 0 })
+    // Los que no salieron por otra causa (CON-08) no son una falla de la casilla: van aparte.
+    assert.deepEqual(estadoDelCorreo(correo, fila({ otra_causa: 3 })), {
+      estado: 'ok',
+      formulario: true,
+      desde: null,
+      codigo: null,
+      sinEnviar: 0,
+      otraCausa: 3,
+    })
     assert.equal(estadoDelCorreo(correo, fila({ email_destino_contacto: '  ' })).formulario, false)
     const desde = new Date('2026-10-18T12:00:00Z')
     assert.deepEqual(estadoDelCorreo(correo, fila({ sin_enviar: 2, sin_enviar_desde: desde, sin_enviar_codigo: 'ETIMEDOUT' })), {
@@ -377,7 +411,19 @@ describe('sin base: el esquema, el mail y el correo', () => {
       desde: desde.toISOString(),
       codigo: 'ETIMEDOUT',
       sinEnviar: 2,
+      otraCausa: 0,
     })
+    assert.deepEqual(SIN_CORREO_POR_OTRA_CAUSA, ['SIN_DESTINO', 'DESTINO_NO_LEIDO', 'GUARDADO_TARDE'])
+  })
+
+  test('el Retry-After del límite diario: hasta la medianoche de San Juan (CON-10)', () => {
+    // San Juan es UTC-3 todo el año: las 23:59 del 26/10 son las 02:59 UTC del 27.
+    assert.equal(segundosHastaMedianoche(new Date('2026-10-27T02:59:00Z')), 60)
+    assert.equal(segundosHastaMedianoche(new Date('2026-10-27T02:59:59.500Z')), 1)
+    assert.equal(segundosHastaMedianoche(new Date('2026-10-27T03:00:00Z')), 24 * 3600)
+    assert.equal(segundosHastaMedianoche(new Date('2026-10-27T15:00:00Z')), 12 * 3600)
+    // El 31 de diciembre, a la medianoche del año nuevo.
+    assert.equal(segundosHastaMedianoche(new Date('2027-01-01T02:00:00Z')), 3600)
   })
 
   test('con la base caída: GET /contacto, la 503 simple; POST /contacto, la página otra vez con lo escrito (503)', async () => {
@@ -417,6 +463,123 @@ describe('sin base: el esquema, el mail y el correo', () => {
     }
     assert.ok(logs.eventos().some((e) => e.evento === 'contacto_no_guardado'))
     assert.doesNotMatch(logs.lineas.join('\n'), /ana\.perez|Ana Pérez|feriado/)
+  })
+})
+
+describe('el destino que la base tarda en dar (CON-08, sin base: un contacto falso)', () => {
+  const DESTINO = 'destino.falso@example.com'
+  const tarde = (ms, valor) => new Promise((r) => setTimeout(() => r(valor), ms))
+  /**
+   * POST /contacto (crearRecepcion) sobre un contacto falso: leerDestino da el destino a los destinoMs (o falla, con
+   * destino 'falla') y guardar da el id 41 a los guardarMs; los topes de la base, 150 ms. La página es el estado en JSON.
+   */
+  async function armar({ destinoMs = 0, destino = DESTINO, guardarMs = 0, correoFalla = null }) {
+    const config = configProduccion(CASILLA)
+    const correo = enMemoria(config)
+    if (correoFalla) correo.simularFalla(correoFalla)
+    const marcas = []
+    const lecturas = []
+    const contacto = {
+      correo,
+      topes: { base: 150, envio: 1_000 },
+      leerDestino() {
+        lecturas.push(Date.now())
+        if (destino === 'falla') {
+          destino = DESTINO
+          return Promise.reject(Object.assign(new Error('se cortó'), { code: 'ECONNRESET' }))
+        }
+        return tarde(destinoMs, destino)
+      },
+      guardar: () => tarde(guardarMs, 41),
+      async marcar(id, envio, error) {
+        marcas.push([id, envio, error])
+      },
+    }
+    const ssr = { dibujarPagina: async (req, res, { status, datos }) => res.status(status).json(datos) }
+    const app = express()
+    app.set('trust proxy', 1)
+    app.post('/contacto', ...crearRecepcion({ config, contacto, ssr }))
+    const servidor = app.listen(0, '127.0.0.1')
+    await new Promise((r) => servidor.once('listening', r))
+    const puerto = servidor.address().port
+    return {
+      correo,
+      marcas,
+      lecturas,
+      enviar: () => pedir(puerto, 'POST', '/contacto', { cuerpo: formulario(unico()), tipo: 'application/x-www-form-urlencoded' }),
+      cerrar: () => new Promise((r) => servidor.close(r)),
+    }
+  }
+  let logs
+  before(() => {
+    logs = escucharLogs()
+  })
+  after(() => logs.detener())
+
+  test('el destino llega tarde pero el mensaje se guardó: se lo espera otra vez y el mail sale', async () => {
+    const a = await armar({ destinoMs: 250 })
+    try {
+      const r = await a.enviar()
+      assert.equal(r.status, 303, r.texto)
+      assert.equal(a.correo.enviados.length, 1)
+      assert.equal(a.correo.enviados[0].to, DESTINO)
+      assert.deepEqual(a.marcas, [[41, 'enviado', null]])
+      assert.equal(a.lecturas.length, 1, 'la misma lectura, no otra')
+    } finally {
+      await a.cerrar()
+    }
+  })
+
+  test('si la primera lectura falló, se lee otra vez; si nunca llega, DESTINO_NO_LEIDO (no un código de la casilla)', async () => {
+    const a = await armar({ destino: 'falla' })
+    try {
+      assert.equal((await a.enviar()).status, 303)
+      assert.equal(a.lecturas.length, 2)
+      assert.equal(a.correo.enviados.length, 1)
+      assert.deepEqual(a.marcas, [[41, 'enviado', null]])
+    } finally {
+      await a.cerrar()
+    }
+    const b = await armar({ destinoMs: 5_000 })
+    try {
+      const r = await b.enviar()
+      assert.equal(r.status, 303, 'el mensaje se guardó: la persona ve "Recibimos tu mensaje"')
+      assert.equal(b.correo.enviados.length, 0)
+      assert.deepEqual(b.marcas, [[41, 'fallido', 'DESTINO_NO_LEIDO']])
+      assert.equal(b.correo.estado().ok, null, 'la casilla no se tocó: el Inicio no la culpa')
+    } finally {
+      await b.cerrar()
+    }
+    // Sin destino (lo sacaron mientras se guardaba): SIN_DESTINO.
+    const c = await armar({ destinoMs: 250, destino: null })
+    try {
+      assert.equal((await c.enviar()).status, 303)
+      assert.deepEqual(c.marcas, [[41, 'fallido', 'SIN_DESTINO']])
+    } finally {
+      await c.cerrar()
+    }
+  })
+
+  test('guardado tarde: después de un 503, GUARDADO_TARDE; después de un 303 (salió por correo), enviado', async () => {
+    const a = await armar({ guardarMs: 400, correoFalla: 'EAUTH' })
+    try {
+      const r = await a.enviar()
+      assert.equal(r.status, 503)
+      assert.equal(r.json.error, 'no_enviado')
+      assert.deepEqual(a.marcas, [])
+      await espera(500)
+      assert.deepEqual(a.marcas, [[41, 'fallido', 'GUARDADO_TARDE']])
+    } finally {
+      await a.cerrar()
+    }
+    const b = await armar({ guardarMs: 400 })
+    try {
+      assert.equal((await b.enviar()).status, 303)
+      await espera(500)
+      assert.deepEqual(b.marcas, [[41, 'enviado', null]])
+    } finally {
+      await b.cerrar()
+    }
   })
 })
 
@@ -673,7 +836,7 @@ describe('el formulario de contacto con base', { skip: base.motivo ?? false }, (
     }
     // Uno que sale después: el aviso se va (los fallidos de antes del último enviado no cuentan).
     assert.equal((await enviar(unico(), { ip: otraIp() })).status, 303)
-    assert.deepEqual(await estado(editor), { estado: 'ok', formulario: true, desde: null, codigo: null, sinEnviar: 0 })
+    assert.deepEqual(await estado(editor), { estado: 'ok', formulario: true, desde: null, codigo: null, sinEnviar: 0, otraCausa: 0 })
     await sql('DELETE FROM mensajes_contacto')
     s.correo.enviados.length = 0
   })
@@ -738,7 +901,9 @@ describe('el formulario de contacto con base', { skip: base.motivo ?? false }, (
       assert.equal(r.status, 429)
       assert.equal(estadoDe(r.texto).datos.error, 'limite_dia')
       assert.equal(r.h.ratelimit, undefined)
-      assert.ok(Number(r.h['retry-after']) > 0)
+      // Hasta la medianoche de San Juan (CON-10), no 24 h desde el primero.
+      const hasta = segundosHastaMedianoche()
+      assert.ok(Math.abs(Number(r.h['retry-after']) - hasta) <= 5, `${r.h['retry-after']} contra ${hasta}`)
       assert.match(r.texto, /Probá mañana o escribinos a/)
       assert.equal(otra.correo.enviados.length, 50)
     } finally {
@@ -866,6 +1031,42 @@ describe('el formulario de contacto con base', { skip: base.motivo ?? false }, (
       await lentaApp.cerrar()
     }
     await sql('DELETE FROM mensajes_contacto')
+  })
+
+  test('la tabla del museo bloqueada (CON-08): con el mensaje guardado, el destino se espera otra vez; si no llega, el Inicio no culpa a la casilla', async () => {
+    const otra = await levantar(CASILLA, { obtener, correo: enMemoria, topesContacto: { base: 600 } })
+    /** Un envío con la tabla del museo bloqueada durante ms (una migración que tarda): la lectura del destino espera. */
+    async function conMuseoBloqueado(ms, ip) {
+      const t = await base.sequelize.transaction()
+      await base.sequelize.query('LOCK TABLE museo IN ACCESS EXCLUSIVE MODE', { transaction: t })
+      const soltar = espera(ms).then(() => t.rollback())
+      try {
+        return await otra.pedir('POST', '/contacto', { cuerpo: formulario(unico()), tipo: 'application/x-www-form-urlencoded', ip })
+      } finally {
+        await soltar
+      }
+    }
+    try {
+      // Se suelta antes de la segunda espera: el mail sale.
+      const r = await conMuseoBloqueado(900, '192.0.2.140')
+      assert.equal(r.status, 303, r.texto)
+      assert.equal(otra.correo.enviados.length, 1)
+      assert.equal(otra.correo.enviados[0].to, 'destino.secreto@example.com')
+      assert.deepEqual((await filas()).map((f) => [f.envio, f.error]), [['enviado', null]])
+      // Bloqueada más que las dos esperas: guardado, sin mail, DESTINO_NO_LEIDO.
+      const r2 = await conMuseoBloqueado(2_500, '192.0.2.141')
+      assert.equal(r2.status, 303, r2.texto)
+      assert.equal(otra.correo.enviados.length, 1)
+      assert.deepEqual((await filas()).map((f) => [f.envio, f.error]), [['enviado', null], ['fallido', 'DESTINO_NO_LEIDO']])
+      // El Inicio: la casilla anda (no la culpa) y el que no salió va aparte (es posterior al último enviado).
+      const inicio = await otra.pedir('GET', 'api:/estado', { cookie: editor.cookie })
+      assert.equal(inicio.status, 200, inicio.texto)
+      assert.deepEqual(inicio.json.data.correo, { estado: 'ok', formulario: true, desde: null, codigo: null, sinEnviar: 0, otraCausa: 1 })
+    } finally {
+      await otra.cerrar()
+    }
+    await sql('DELETE FROM mensajes_contacto')
+    s.correo.enviados.length = 0
   })
 
   test('la tarea diaria: borra los mensajes de más de 180 días y prueba la casilla (una que falla no es una tarea fallida)', async () => {

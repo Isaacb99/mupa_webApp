@@ -1,7 +1,11 @@
 // Guardas de los comandos que borran datos (server/db/guardas.js). Sin base: son funciones puras.
+// Desde la limpieza del 27/10/2026, también qué dice prepararBase (server/pruebas/ayudas.js) cuando la base de prueba
+// acepta la conexión y no contesta (COD-06 de la verificación de E4): que no contestó, no que está mal configurada.
 import assert from 'node:assert/strict'
+import { createServer } from 'node:net'
 import { test } from 'node:test'
 import { exigirBaseDePrueba, exigirBaseLocal, exigirConfirmacion } from '../db/guardas.js'
+import { codigoDeLaPrueba, prepararBase } from './ayudas.js'
 
 const DEV = { produccion: false }
 const PROD = { produccion: true }
@@ -52,5 +56,37 @@ test('el mensaje nunca incluye la contraseña de la URL', () => {
     assert.fail('tenía que negarse')
   } catch (err) {
     assert.doesNotMatch(err.message, /clave-secreta/)
+  }
+})
+
+test('prepararBase: una base que acepta la conexión y no contesta es TOPE, no "mal configurada" (COD-06)', async () => {
+  // Los errores de pg y de Sequelize cuando no hay respuesta: TOPE; los de Postgres y de la red, con su código.
+  const conexion = (mensaje) => Object.assign(new Error(mensaje), { name: 'SequelizeConnectionError', original: new Error(mensaje) })
+  assert.equal(codigoDeLaPrueba(conexion('timeout expired')), 'TOPE')
+  assert.equal(codigoDeLaPrueba(conexion('Connection terminated due to connection timeout')), 'TOPE')
+  assert.equal(codigoDeLaPrueba(Object.assign(new Error('Connection timed out'), { name: 'SequelizeConnectionTimedOutError' })), 'TOPE')
+  assert.equal(codigoDeLaPrueba(Object.assign(new Error('x'), { name: 'SequelizeConnectionAcquireTimeoutError' })), 'TOPE')
+  assert.equal(codigoDeLaPrueba(Object.assign(new Error('no contestó'), { code: 'TOPE' })), 'TOPE')
+  assert.equal(codigoDeLaPrueba(Object.assign(new Error('auth'), { parent: { code: '28P01' } })), '28P01')
+  assert.equal(codigoDeLaPrueba(Object.assign(new Error('refused'), { code: 'ECONNREFUSED' })), 'ECONNREFUSED')
+  assert.equal(codigoDeLaPrueba(new Error('otra cosa')), undefined)
+
+  // De punta a punta: un servidor que acepta la conexión y no dice nada (pg la corta a los 5 s con "timeout expired").
+  const conexiones = []
+  const mudo = createServer((socket) => conexiones.push(socket))
+  await new Promise((r) => mudo.listen(0, '127.0.0.1', r))
+  try {
+    const url = `postgres://nadie:nada@127.0.0.1:${mudo.address().port}/muda_test`
+    // Con un tope más largo que el de pg: el error que llega es el del driver.
+    await assert.rejects(prepararBase({ url, intentos: 1, topeIntentoMs: 8_000 }), (err) => {
+      assert.match(err.message, /no contestó en 1 intento de 8 s \(TOPE\): acepta la conexión pero no responde/)
+      assert.doesNotMatch(err.message, /mal configurada/)
+      return true
+    })
+    // Con uno más corto: el tope de la prueba.
+    await assert.rejects(prepararBase({ url, intentos: 2, topeIntentoMs: 300 }), /no contestó en 2 intentos de 0.3 s \(TOPE\)/)
+  } finally {
+    for (const socket of conexiones) socket.destroy()
+    await new Promise((r) => mudo.close(r))
   }
 })

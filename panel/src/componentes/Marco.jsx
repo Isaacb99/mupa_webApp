@@ -1,19 +1,25 @@
 // El marco de las pantallas del panel (plan 5.2 y 5.6).
 // - Marco: el de las pantallas con sesión. "Ir al contenido", la barra superior (siempre igual y en el mismo lugar,
-//   WCAG 3.2.6: las secciones de navegacion.js según el rol, "Mi cuenta" (con el nombre de la persona desde sm) y
-//   "Salir", que se ve siempre, también en el celular: no hay menú escondido) y el <main>. En el celular la barra
+//   WCAG 3.2.6: las secciones de navegacion.js según el rol, "Ayuda", "Mi cuenta" (con el nombre de la persona entre
+//   sm y lg) y "Salir", que se ve siempre, también en el celular: no hay menú escondido) y el <main>. En el celular la barra
 //   ocupa dos filas (arriba el nombre del panel, Mi cuenta y Salir; abajo las secciones; a 320 px, Mi cuenta y Salir
 //   bajan a una fila propia) y se va con el scroll; desde lg queda fija arriba, y el scroll-padding de panel.css deja
 //   lugar para que no tape lo que recibe el foco (2.4.11): toma el alto real de la barra (--alto-barra, que pone un
 //   ResizeObserver), porque con Novedades y Exposiciones, entre 1024 y ~1180 px, la barra pasaba a dos filas (110 px)
-//   y tapaba el foco al volver con Mayús+Tab (corrección de E3, 16/10/2026). Por lo mismo, entre lg y xl "Mi cuenta"
-//   va sin el nombre: así la barra entra en una fila con el nombre que sea.
+//   y tapaba el foco al volver con Mayús+Tab (corrección de E3, 16/10/2026). Por lo mismo, desde lg "Mi cuenta" va sin
+//   el nombre: hasta E6.2 era solo entre lg y xl, y con "Ayuda" la barra de un admin pasaba a dos filas desde 1280 con
+//   cualquier nombre (medido con tools/manual.mjs, 27/10/2026: desde lg el contenido mide como mucho 72 rem y no
+//   queda lugar). Así entra en una fila desde ~1100 px; entre 1024 y ~1100, la de un admin (con Mensajes y Usuarios)
+//   va en dos, y --alto-barra lo cubre. El nombre se ve en el Inicio ("Hola, …") y en Mi cuenta.
 //   El orden del Tab es el de escritorio (secciones, Mi cuenta, Salir), donde se va a usar más: en el celular las
 //   secciones se ven en la segunda fila pero el Tab las recorre primero. Es a propósito (revisión de accesibilidad de
 //   E2, 14/10/2026): para que coincidieran en los dos tamaños habría que repetir la barra o pasar Salir a una tercera
 //   fila.
 // - MarcoSimple: el de Ingresar, Cambiar la contraseña y los errores generales: sin secciones (con una temporal sin
 //   cambiar no se puede ir a otra pantalla), con "Salir" si hay sesión.
+// - "Ayuda" (E6.2, plan 5.2): el manual en PDF (AYUDA, navegacion.js), en las dos barras y en el mismo lugar, antes de
+//   "Mi cuenta" y "Salir" (WCAG 3.2.6, ayuda consistente): también en Ingresar, donde más se necesita. Es un <a> común
+//   (no del router) que se abre en otra pestaña, así lo que se está escribiendo queda donde estaba.
 // "Salir" va a /salir (un loader cierra la sesión y lleva a Ingresar): es una navegación, así un formulario con
 // cambios sin guardar pregunta antes.
 // Mientras se carga la pantalla siguiente (sus datos), abajo aparece "Cargando…" y el <main> queda aria-busy: con la
@@ -21,7 +27,7 @@
 // en una conexión rápida no parpadea; la región role="status" está siempre (vacía), para que el lector lo anuncie.
 import { useEffect, useRef, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate, useNavigation } from 'react-router'
-import { esDeLaSeccion, seccionesPara } from '../navegacion.js'
+import { AYUDA, esDeLaSeccion, seccionesPara } from '../navegacion.js'
 import { useSesion } from '../sesion.jsx'
 import { Boton } from './Boton.jsx'
 import { NOMBRE_PANEL } from './Encabezado.jsx'
@@ -47,6 +53,16 @@ const claseSeccion = ({ isActive }) =>
   (isActive
     ? 'bg-blanco font-bold text-tinta shadow-[inset_0_-3px_0_var(--color-accion)]'
     : 'text-tinta hover:bg-blanco hover:text-accion-fuerte hover:underline')
+
+/** "Ayuda": el manual en PDF, en otra pestaña (con el mismo aspecto que una sección de la barra). */
+function EnlaceAyuda() {
+  return (
+    <a href={AYUDA.href} target="_blank" rel="noopener" className={`${claseSeccion({ isActive: false })} shrink-0`}>
+      {AYUDA.texto}
+      <span className="sr-only">{AYUDA.aclaracion}</span>
+    </a>
+  )
+}
 
 /** true si hace más de 400 ms que se está cargando la pantalla siguiente. */
 function useCargandoPantalla() {
@@ -115,13 +131,14 @@ export function Marco() {
             </ul>
           </nav>
           <div className="ml-auto flex min-w-0 items-center gap-2">
+            <EnlaceAyuda />
             {usuario ? (
               <NavLink
                 to="/cuenta"
                 className={(estado) => `${claseSeccion(estado)} min-w-0 max-w-[20rem] whitespace-nowrap`}
               >
                 <span className="shrink-0">Mi cuenta</span>
-                <span className="hidden min-w-0 truncate font-normal sm:block lg:hidden xl:block">: {usuario.nombre}</span>
+                <span className="hidden min-w-0 truncate font-normal sm:block lg:hidden">: {usuario.nombre}</span>
               </NavLink>
             ) : null}
             <Boton variante="secundario" onClick={() => navigate('/salir')}>
@@ -159,11 +176,14 @@ export function MarcoSimple({ children, conSalir = false }) {
             <span className="font-bold">{NOMBRE_PANEL}</span>
             <span className="hidden text-tenue sm:inline"> · Museo Paleontológico de San Juan</span>
           </p>
-          {conSalir ? (
-            <Boton variante="secundario" onClick={() => navigate('/salir')}>
-              Salir
-            </Boton>
-          ) : null}
+          <div className="ml-auto flex items-center gap-2">
+            <EnlaceAyuda />
+            {conSalir ? (
+              <Boton variante="secundario" onClick={() => navigate('/salir')}>
+                Salir
+              </Boton>
+            ) : null}
+          </div>
         </div>
       </header>
       <main id="contenido" tabIndex={-1} className="mx-auto w-full max-w-xl px-4 py-8">

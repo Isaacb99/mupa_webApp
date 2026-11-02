@@ -362,7 +362,7 @@ export default function Museo() {
           <Campo
             id="mapaUrl"
             etiqueta="Abrir en Google Maps"
-            ayuda="El enlace «Cómo llegar» del sitio, que abre Google Maps en el celular. En Google Maps, buscá el museo, tocá «Compartir» y después «Copiar vínculo»."
+            ayuda="El enlace «Abrir en Google Maps» de la página de Contacto, que en el celular abre la aplicación de mapas. En Google Maps, buscá el museo, tocá «Compartir» y después «Copiar vínculo»."
             type="url"
             inputMode="url"
             autoComplete="off"

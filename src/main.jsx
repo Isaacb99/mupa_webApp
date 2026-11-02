@@ -7,6 +7,12 @@ import Raiz, { cargarPagina } from './Raiz.jsx'
 import iniciarAnalitica from './analitica.js'
 import iniciarUserWay from './userway.js'
 
+// Solo en desarrollo (npm run dev): server/dev.js pone el CSS como <link> para que la primera pintura salga con estilos.
+// A esta altura Vite ya inyectó los mismos estilos (los import de arriba), así que el <link> se saca: si no, con un
+// cambio en index.css la recarga en caliente cambiaría el <style> de Vite y el <link> seguiría aplicando lo de antes.
+// En el build esta rama no existe.
+if (import.meta.env.DEV) for (const enlace of document.querySelectorAll('link[data-estilos-dev]')) enlace.remove()
+
 const raiz = document.getElementById('root')
 const nodo = document.getElementById('estado')
 

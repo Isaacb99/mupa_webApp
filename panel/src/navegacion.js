@@ -2,9 +2,25 @@
 //
 // La barra va siempre en el mismo lugar y en el mismo orden (WCAG 3.2.6, plan 5.2): Inicio, Novedades,
 // Exposiciones, Visitas y Datos del museo para todos; Mensajes y Usuarios para admin. Una sección nueva se suma acá, en
-// su lugar, y su ruta en rutas.jsx (Mensajes entró con E4.9). "Ayuda" (el manual, /administracion/manual.pdf) se suma con
-// E6.2. Novedades y Exposiciones entraron con E3.3 y E3.4; las fichas de una muestra o una sala (/muestras/12,
-// /salas/3) son de Exposiciones (tambien), así la barra marca dónde se está.
+// su lugar, y su ruta en rutas.jsx (Mensajes entró con E4.9). Novedades y Exposiciones entraron con E3.3 y E3.4; las
+// fichas de una muestra o una sala (/muestras/12, /salas/3) son de Exposiciones (tambien), así la barra marca dónde se
+// está. "Ayuda" (AYUDA, E6.2) no es una sección: abre el manual en PDF en otra pestaña.
+
+import { RUTA_PANEL } from '../../compartido/panel.js'
+
+/**
+ * "Ayuda" de la barra (plan 5.2, E6.2): el manual del panel en PDF (docs/manual/manual.html, que tools/manual.mjs pasa
+ * a panel/public/manual.pdf; Vite lo copia a dist/panel y server/panel.js lo sirve). Es un enlace común, no del router
+ * (no es una pantalla del panel), y se abre en otra pestaña: así lo que se está escribiendo queda donde estaba. Va en
+ * las dos barras (Marco y MarcoSimple), en el mismo lugar (WCAG 3.2.6, ayuda consistente): también en Ingresar, donde
+ * todavía no hay sesión. El nombre accesible empieza con el texto visible (2.5.3) y dice que es un PDF y que se abre
+ * aparte.
+ */
+export const AYUDA = Object.freeze({
+  href: `${RUTA_PANEL}/manual.pdf`,
+  texto: 'Ayuda',
+  aclaracion: ': el manual del panel, en PDF (se abre en otra pestaña)',
+})
 
 /**
  * @typedef {object} Seccion

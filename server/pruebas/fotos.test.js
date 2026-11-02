@@ -10,6 +10,9 @@
 // sin decodificarse, una imagen muy alta sale con sus salidas de hasta 16383 px de alto (antes, "dañada"), como mucho 3
 // subidas en curso (la cuarta, 503 sin leer el archivo), la fila de lecturas espera (hasta 1000, 10 s) en vez de dar 503
 // en el momento, y lo que no existe se recuerda.
+// Desde la limpieza del 27/10/2026: las claves al azar van por su propia fila y no traban las fotos que existen
+// (API-05), una subida en curso por cuenta, con 2 minutos para que llegue el archivo (API-07; desde la corrección del
+// mismo día, un 400 y no un 408, que Chrome reenvía solo: LIM-01) y Retry-After de 10 s.
 // Las imágenes se arman acá con sharp (nada de archivos en el repo).
 import assert from 'node:assert/strict'
 import { request } from 'node:http'
@@ -38,8 +41,10 @@ import {
   nombreConExtension,
   tieneTransparencia,
 } from '../../panel/src/achicarFoto.js'
+import { randomBytes } from 'node:crypto'
+import { ESPERA_COLA_S, lugarEnLaCola, recibirFoto, STATUS_SUBIDA_LENTA } from '../api/fotos.js'
 import { crearAlmacen, crearLru, crearSemaforo } from '../fotos/almacen.js'
-import { crearCola, MENSAJE_COLA_LLENA } from '../fotos/cola.js'
+import { crearCola, MENSAJE_COLA_LLENA, MENSAJE_SUBIDA_LENTA, MENSAJE_YA_SUBIENDO } from '../fotos/cola.js'
 import {
   formatoPorFirma,
   LADO_MAX,
@@ -342,6 +347,24 @@ describe('la cola, la caché y el semáforo (sin base)', () => {
     assert.equal(MENSAJE_COLA_LLENA, 'Hay muchas fotos subiéndose en este momento. Probá de nuevo en un minuto.')
   })
 
+  test('un lugar por cuenta (API-07): la misma cuenta no tiene dos subidas en curso; otra sí; al soltarlo, vuelve', () => {
+    const cola = crearCola()
+    const primera = cola.reservar(7)
+    assert.ok(primera)
+    assert.equal(cola.ocupadaPor(7), true)
+    assert.equal(cola.ocupadaPor(8), false)
+    assert.equal(cola.reservar(7), null)
+    const otra = cola.reservar(8)
+    assert.ok(otra)
+    assert.equal(cola.reservadas, 2)
+    primera()
+    primera()
+    assert.equal(cola.ocupadaPor(7), false)
+    assert.ok(cola.reservar(7))
+    assert.equal(cola.reservadas, 2)
+    assert.equal(crearCola().topeRecepcionMs, 120_000, 'el archivo tiene 2 minutos para llegar')
+  })
+
   test('el semáforo: la que espera más que el tope sale de la fila con FOTOS_OCUPADO y las demás siguen', async () => {
     const semaforo = crearSemaforo(1, 10, 50)
     let soltar
@@ -425,6 +448,150 @@ function pedirA(puerto, metodo, ruta, cabeceras = {}) {
     p.end()
   })
 }
+
+describe('la recepción de una subida (sin base, API-07)', () => {
+  let servidor
+  let puerto
+  let cola
+  before(async () => {
+    cola = crearCola({ topeRecepcionMs: 300 })
+    const app = express()
+    app.post(
+      '/subir/:cuenta',
+      (req, res, next) => {
+        req.usuario = { id: Number(req.params.cuenta) }
+        next()
+      },
+      lugarEnLaCola(cola),
+      recibirFoto,
+      // Lo que sigue a multer puede tardar más que el tope de recepción (el procesado tiene el suyo).
+      async (req, res) => {
+        await new Promise((r) => setTimeout(r, 500))
+        res.json({ bytes: req.file?.size ?? 0 })
+      },
+    )
+    // eslint-disable-next-line no-unused-vars
+    app.use((err, req, res, next) => {
+      if (res.headersSent) return
+      res.status(err.status ?? 500).json({ error: err.message, ...err.extra })
+    })
+    servidor = app.listen(0, '127.0.0.1')
+    await new Promise((r) => servidor.once('listening', r))
+    puerto = servidor.address().port
+  })
+  after(() => servidor?.close())
+
+  /** Un POST que anuncia 1 MB y manda solo el principio: queda recibiendo. Devuelve la respuesta y cuándo llegó. */
+  function lenta(cuenta) {
+    const { tipo } = multipart({ campos: {}, archivos: [] })
+    const boundary = tipo.split('boundary=')[1]
+    const inicio = Date.now()
+    const p = request({
+      host: '127.0.0.1',
+      port: puerto,
+      path: `/subir/${cuenta}`,
+      method: 'POST',
+      headers: { 'content-type': tipo, 'content-length': String(1024 * 1024) },
+    })
+    // cerrada: cuándo se cortó la conexión (ms desde el principio).
+    const cerrada = new Promise((resolver) => p.on('socket', (s) => s.once('close', () => resolver(Date.now() - inicio))))
+    const respuesta = new Promise((resolver) => {
+      p.on('response', (res) => {
+        const trozos = []
+        res.on('data', (d) => trozos.push(d))
+        res.on('end', () =>
+          resolver({ status: res.statusCode, h: res.headers, json: JSON.parse(Buffer.concat(trozos).toString() || 'null'), ms: Date.now() - inicio }),
+        )
+      })
+      p.on('error', () => resolver({ status: 0, ms: Date.now() - inicio }))
+    })
+    p.write(`--${boundary}\r\nContent-Disposition: form-data; name="foto"; filename="a.jpg"\r\nContent-Type: image/jpeg\r\n\r\n`)
+    p.write(Buffer.alloc(1024, 7))
+    return { p, respuesta, cerrada }
+  }
+
+  /** Un POST con el archivo entero. */
+  function completa(cuenta) {
+    const { cuerpo, tipo } = multipart({ campos: { alt: 'Una' }, archivos: [{ datos: Buffer.alloc(2048, 1), nombre: 'a.jpg', tipo: 'image/jpeg' }] })
+    return new Promise((resolver, rechazar) => {
+      const p = request(
+        { host: '127.0.0.1', port: puerto, path: `/subir/${cuenta}`, method: 'POST', headers: { 'content-type': tipo, 'content-length': String(cuerpo.length) } },
+        (res) => {
+          const trozos = []
+          res.on('data', (d) => trozos.push(d))
+          res.on('end', () => resolver({ status: res.statusCode, h: res.headers, json: JSON.parse(Buffer.concat(trozos).toString()) }))
+        },
+      )
+      p.on('error', rechazar)
+      p.end(cuerpo)
+    })
+  }
+
+  test('el archivo que no termina de llegar: 400 (no 408) pasado el tope, con su mensaje, la conexión cortada y el lugar suelto', async () => {
+    const logs = escucharLogs()
+    let r
+    let corte
+    try {
+      const { p, respuesta, cerrada } = lenta(7)
+      r = await Promise.race([respuesta, new Promise((x) => setTimeout(() => x({ status: 'sin respuesta' }), 5000))])
+      // El corte lo hace el servidor (Connection: close), enseguida: es lo que frena la subida en el navegador.
+      corte = await Promise.race([cerrada, new Promise((x) => setTimeout(() => x('sin corte'), 5000))])
+      p.destroy()
+    } finally {
+      logs.detener()
+    }
+    // Un 408 en una conexión reusada, Chromium lo reenvía solo (LIM-01): tiene que ser otro código.
+    assert.equal(STATUS_SUBIDA_LENTA, 400)
+    assert.equal(r.status, STATUS_SUBIDA_LENTA)
+    assert.ok(r.ms >= 280 && r.ms < 2000, `${r.ms} ms`)
+    assert.deepEqual(r.json, { error: MENSAJE_SUBIDA_LENTA, campos: { foto: MENSAJE_SUBIDA_LENTA } })
+    assert.equal(r.h['cache-control'], 'no-store')
+    assert.equal(r.h.connection, 'close')
+    assert.equal(typeof corte, 'number', 'el servidor corta la conexión')
+    assert.ok(corte - r.ms < 500, `la conexión se cortó ${corte - r.ms} ms después de la respuesta`)
+    for (let i = 0; i < 20 && cola.reservadas > 0; i++) await new Promise((x) => setTimeout(x, 25))
+    assert.equal(cola.reservadas, 0)
+    assert.deepEqual(logs.eventos().map((e) => [e.evento, e.por]), [['foto_subida_lenta', 7]])
+  })
+
+  test('el navegador corta la subida antes del tope (el panel, LIM-01): el lugar se suelta enseguida, sin llegar al tope', async () => {
+    const logs = escucharLogs()
+    try {
+      const { p, respuesta } = lenta(9)
+      await new Promise((x) => setTimeout(x, 100))
+      assert.equal(cola.reservadas, 1)
+      p.destroy()
+      await respuesta
+      for (let i = 0; i < 20 && cola.reservadas > 0; i++) await new Promise((x) => setTimeout(x, 10))
+      assert.equal(cola.reservadas, 0, 'el lugar se soltó con el corte')
+      // Pasado el tope (300 ms desde el principio): nada que anotar.
+      await new Promise((x) => setTimeout(x, 350))
+    } finally {
+      logs.detener()
+    }
+    assert.deepEqual(logs.eventos().map((e) => e.evento), [])
+  })
+
+  test('la misma cuenta con una subida en curso: 503 con su mensaje y Retry-After; otra cuenta sube; el tope no corta lo que ya llegó', async () => {
+    const { p, respuesta } = lenta(7)
+    try {
+      await new Promise((x) => setTimeout(x, 50))
+      const otraVez = await completa(7)
+      assert.equal(otraVez.status, 503)
+      assert.equal(otraVez.h['retry-after'], String(ESPERA_COLA_S))
+      assert.deepEqual(otraVez.json, { error: MENSAJE_YA_SUBIENDO, campos: { foto: MENSAJE_YA_SUBIENDO } })
+      // Otra cuenta: entra, y aunque lo que sigue a multer tarda más que el tope de recepción, no da 408.
+      const otra = await completa(8)
+      assert.equal(otra.status, 200, JSON.stringify(otra.json))
+      assert.equal(otra.json.bytes, 2048)
+    } finally {
+      p.destroy()
+      await respuesta
+    }
+    for (let i = 0; i < 20 && cola.reservadas > 0; i++) await new Promise((x) => setTimeout(x, 25))
+    assert.equal(cola.reservadas, 0)
+  })
+})
 
 describe('la ruta /fotos sin base', () => {
   let servidor
@@ -895,7 +1062,8 @@ describe('fotos con base', { skip: base.motivo ?? false }, () => {
   })
 
   test('como mucho 3 subidas en curso: la cuarta da 503 antes de que llegue su archivo; al cortarse, se liberan', async () => {
-    const quien = await s.cookiePara('editor')
+    // Una cuenta por subida: cada cuenta tiene un solo lugar (API-07).
+    const cuentas = [await s.cookiePara('editor'), await s.cookiePara('editor'), await s.cookiePara('editor'), await s.cookiePara('editor')]
     const { tipo } = multipart({ campos: {}, archivos: [] })
     const boundary = tipo.split('boundary=')[1]
     const inicio = Buffer.from(
@@ -903,7 +1071,7 @@ describe('fotos con base', { skip: base.motivo ?? false }, () => {
         `--${boundary}\r\nContent-Disposition: form-data; name="foto"; filename="a.jpg"\r\nContent-Type: image/jpeg\r\n\r\n`,
     )
     /** Un POST /fotos que anuncia 10 MB y manda solo el principio: queda recibiendo. */
-    function abrir() {
+    function abrir(quien) {
       const p = request({
         host: '127.0.0.1',
         port: s.puerto,
@@ -930,13 +1098,13 @@ describe('fotos con base', { skip: base.motivo ?? false }, () => {
       p.write(Buffer.alloc(64 * 1024, 7))
       return { p, respuesta }
     }
-    const tres = [abrir(), abrir(), abrir()]
+    const tres = [abrir(cuentas[0]), abrir(cuentas[1]), abrir(cuentas[2])]
     await new Promise((r) => setTimeout(r, 300))
-    const cuarta = abrir()
+    const cuarta = abrir(cuentas[3])
     const r = await Promise.race([cuarta.respuesta, new Promise((x) => setTimeout(() => x({ status: 'sin respuesta' }), 5000))])
     // Llegó la respuesta con el cuerpo a medio mandar: el servidor no esperó (ni guardó) el archivo.
     assert.equal(r.status, 503)
-    assert.equal(r.h['retry-after'], '30')
+    assert.equal(r.h['retry-after'], String(ESPERA_COLA_S))
     assert.deepEqual(JSON.parse(r.cuerpo), { error: MENSAJE_COLA_LLENA, campos: { foto: MENSAJE_COLA_LLENA } })
     for (const { p } of [...tres, cuarta]) p.destroy()
     await Promise.all(tres.map((t) => t.respuesta))
@@ -980,6 +1148,48 @@ describe('fotos con base', { skip: base.motivo ?? false }, () => {
       contador.detener()
     }
     assert.ok(propio.estadisticas().noExisten >= 30)
+  })
+
+  test('claves al azar (API-05): van por su propia fila y no traban las fotos que existen; la lista se actualiza', async () => {
+    /** Una foto guardada directo (unos bytes por archivo), con el almacén que se pase. */
+    const guardarCon = (a, n) =>
+      a.guardar(
+        { alt: 'Para la lista', decorativa: false, epigrafe: null, credito: null, subidaPor: null },
+        { ancho: 10, alto: 10, variantes: [480, 960, 1600, 2400], bytes: 15, archivos: ['480', '960', '1600', '2400', 'og'].map((variante) => ({ variante, datos: Buffer.from([n, 9]) })) },
+      )
+    const real = await guardarCon(almacen, 1)
+    // Sin caché (cada lectura va a la base) y filas chicas: 1 a la vez y 5 esperando en cada una.
+    const propio = crearAlmacen(base.sequelize, {
+      bytesCache: 0,
+      lecturas: 1,
+      maxEsperando: 5,
+      esperaMaxMs: 5_000,
+      dudosas: { lecturas: 1, maxEsperando: 5, esperaMaxMs: 300 },
+    })
+    // 300 claves inventadas a la vez y, detrás, las cuatro variantes de la foto que existe.
+    const azar = Array.from({ length: 300 }, () => propio.abrir(randomBytes(8).toString('hex'), '960').then((d) => d, (err) => err.code))
+    const reales = ['480', '960', '1600', 'og'].map((v) => propio.abrir(real.clave, v))
+    const datos = await Promise.all(reales)
+    assert.ok(datos.every((d) => d?.equals(Buffer.from([1, 9]))), 'las fotos que existen salen')
+    const deAzar = await Promise.all(azar)
+    assert.ok(deAzar.filter((d) => d === 'FOTOS_OCUPADO').length >= 290, 'las inventadas llenan su propia fila')
+    assert.ok(deAzar.every((d) => d === null || d === 'FOTOS_OCUPADO'))
+    const e = propio.estadisticas()
+    assert.equal(e.lecturasDudosasMaximas, 1)
+    assert.equal(e.lecturasMaximas, 1)
+    const conocidas = e.conocidas
+    assert.ok(conocidas >= 1)
+    // Una que guardó otro proceso (otro almacén): no está en la lista, pero se encuentra y pasa a conocida.
+    const deOtro = await guardarCon(crearAlmacen(base.sequelize), 2)
+    assert.ok((await propio.abrir(deOtro.clave, '960')).equals(Buffer.from([2, 9])))
+    assert.equal(propio.estadisticas().conocidas, conocidas + 1)
+    // Las que guarda y borra el mismo almacén entran y salen de la lista.
+    const propia = await guardarCon(propio, 3)
+    assert.equal(propio.estadisticas().conocidas, conocidas + 2)
+    assert.deepEqual(await propio.liberar([propia.id]), [propia.clave])
+    assert.equal(propio.estadisticas().conocidas, conocidas + 1)
+    assert.equal(await propio.abrir(propia.clave, '960'), null)
+    await almacen.liberar([real.id, deOtro.id])
   })
 
   test('la tarea diaria: borra las huérfanas de más de 24 h (no las nuevas ni las que se usan) y queda en el registro', async () => {

@@ -8,7 +8,19 @@
 // se cierra una banda de arriba, el documento se achica ~1000 px por encima y el hook corrige el scroll en el mismo
 // cuadro: dy ≈ -1000 y la cabecera no se mueve (corrección compensada, se informa). Un tirón es un cuadro en que la
 // cabecera se mueve en pantalla más de UMBRAL px que no se explican por el scroll (salto + dy lejos de 0 y salto
-// grande): la corrección llegó tarde, no llegó, o llegó sola sin el cambio de layout.
+// grande): la corrección llegó tarde, no llegó, o llegó sola sin el cambio de layout. No es un tirón el cuadro de un
+// cierre bien compensado (HOME-02 de la verificación de E4): con un cuadro que dura dos (la CPU cargada) o un flick
+// rápido, el scroll del cuadro pasaba de UMBRAL y se contaba como tirón. Se informan aparte (cierresCompensados).
+// Cómo se distingue (LIM-03 de la verificación de la limpieza, 27/10/2026): en el cuadro de un cierre de P px por
+// encima, con s px de scroll de la persona, salto + dy = -P SIEMPRE, se haya corregido o no (por eso esa cuenta no
+// sirve para decidir). Lo que cambia es el salto: compensado (el scroll corregido -P en el mismo momento), la cabecera
+// se mueve lo que el scroll de la persona (|salto| = |s|, en la escala del scroll); sin corregir, o con la corrección
+// deshecha (--pisada), lo que se plegó más eso (|salto| = P + s, en la escala del plegado). Es compensado si el hook
+// informó en ese cuadro una corrección igual a lo plegado (corregido = -plegado), la cabecera se movió menos de la
+// mitad de lo plegado y lo que se movió es lo que explica el scroll que venía (s, estimado con la velocidad de los
+// cuadros vecinos por lo que duró el cuadro: al final de la página una corrección deshecha queda recortada y puede
+// medir menos de la mitad de lo plegado, pero con el scroll quieto). Un cierre sin corregir, corregido tarde (--tarde)
+// o corregido y deshecho (--pisada) sigue siendo un tirón.
 // Da ok: true si no hay tirones y las bandas se abren de arriba hacia abajo sin reabrirse. Informa cuántas quedan
 // abiertas al final (con el dedo, al final de la página pueden quedar dos: la de arriba nunca sale de la pantalla).
 // Con --como-safari, además, la página cree que el navegador no tiene anclaje (CSS.supports('overflow-anchor') da
@@ -16,12 +28,25 @@
 // recién con el scroll quieto y el dedo levantado.
 // Uso: node tools/acordeon-dedo.mjs [--url http://127.0.0.1:5183/] [--ancho 375] [--alto 812] [--modo flick|apoyado|lectura]
 //        [--sin-anclaje | --como-safari] [--dist 650] [--ms 90] [--veces 4] [--espera 1800] [--umbral 60] [--tarde] [--subir]
+//        [--cpu 4] [--cuadro-lento 50] [--pisada]
 //   --tarde: control del propio arnés: la corrección del hook se aplica dos cuadros tarde (como si iOS la pisara) y
 //   entonces TIENE que informar tirones; si da 0, la medición no sirve.
+//   --pisada: otro control: algo deshace la corrección del hook en la misma tarea, después de que el hook la midió y la
+//   informó (como si el navegador la pisara): la cabecera salta de verdad, aunque el hook diga que corrigió. TIENE que
+//   informar tirones (la verificación del 27/10/2026, a 390x664: con el criterio anterior daba 0 y la cabecera saltaba
+//   1002 px).
 //   flick: `veces` flicks de `dist` px en `ms` ms, con `espera` ms entre uno y otro (la inercia corre sola).
 //   apoyado: un solo arrastre largo sin levantar el dedo (18 px por cuadro).
 //   lectura: como alguien que lee: arrastres cortos (`dist` px en `ms` ms) con el dedo que se levanta y `espera` ms de
 //   pausa, `veces` veces; con --subir, al final vuelve a subir igual hasta el principio de la sección.
+//   --cpu: la CPU limitada esas veces (Emulation.setCPUThrottlingRate; con 4 a 412x780 aparecían los cierres
+//   compensados que se contaban como tirones).
+//   --cuadro-lento: otro control del arnés: el cuadro de cada cierre dura esos ms más (como con la CPU cargada), así el
+//   scroll de ese cuadro pasa de UMBRAL. Tiene que dar cierresCompensados y 0 tirones (la limpieza del 27/10/2026, a
+//   412x780 y a 390x664 con --sin-anclaje: 1 y 2). Junto con --tarde no sirve: la corrección atrasada llega dentro del
+//   mismo cuadro largo; --tarde se usa solo.
+// Con una URL local (127.0.0.1 o localhost), Chrome no resuelve ningún otro nombre: nada sale de esta máquina (ni
+// Google ni UserWay).
 import { spawn } from 'node:child_process'
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -50,6 +75,10 @@ const comoSafari = bandera('--como-safari')
 const tarde = bandera('--tarde')
 const subir = bandera('--subir')
 const sinAnclaje = bandera('--sin-anclaje') || comoSafari
+const cpu = Number(opt('--cpu', 1))
+const cuadroLento = Number(opt('--cuadro-lento', 0))
+const pisada = bandera('--pisada')
+const local = ['127.0.0.1', 'localhost'].includes(new URL(url).hostname)
 
 const sleep = (t) => new Promise((r) => setTimeout(r, t))
 // Puerto 0: Chrome elige uno libre y lo anota en DevToolsActivePort, dentro de su perfil (un puerto al azar podía
@@ -57,7 +86,16 @@ const sleep = (t) => new Promise((r) => setTimeout(r, t))
 const profile = mkdtempSync(join(tmpdir(), 'cdp-'))
 const chrome = spawn(
   process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe',
-  ['--headless=new', '--enable-automation', '--disable-gpu', '--hide-scrollbars', '--remote-debugging-port=0', `--user-data-dir=${profile}`, 'about:blank'],
+  [
+    '--headless=new',
+    '--enable-automation',
+    ...(local ? ['--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1, EXCLUDE localhost'] : []),
+    '--disable-gpu',
+    '--hide-scrollbars',
+    '--remote-debugging-port=0',
+    `--user-data-dir=${profile}`,
+    'about:blank',
+  ],
   { stdio: 'ignore' },
 )
 let salida = null
@@ -98,9 +136,17 @@ try {
   await send('Page.enable')
   await send('Emulation.setDeviceMetricsOverride', { width: ancho, height: alto, deviceScaleFactor: 2, mobile: true })
   await send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 })
+  if (cpu > 1) await send('Emulation.setCPUThrottlingRate', { rate: cpu })
   // Registro de las decisiones del hook (window.__acordeonDiag, el mismo gancho que usa ?diag).
   await send('Page.addScriptToEvaluateOnNewDocument', {
-    source: `window.__eventos = []; window.__acordeonDiag = (tipo, datos) => window.__eventos.push({ t: Math.round(performance.now()), tipo, ...datos })`,
+    // tf: el momento sin redondear, para saber en qué cuadro se vio cada evento.
+    source:
+      `window.__eventos = []; window.__acordeonDiag = (tipo, datos) => { const tf = performance.now(); ` +
+      `window.__eventos.push({ t: Math.round(tf), tf, tipo, ...datos }); ` +
+      // --cuadro-lento: el hilo principal ocupado después del cierre (y de su corrección), en el mismo cuadro.
+      `if (tipo === 'cierra' && ${cuadroLento} > 0) { const fin = performance.now() + ${cuadroLento}; while (performance.now() < fin); } ` +
+      // --pisada: la corrección del hook, deshecha en la misma tarea (la cabecera salta de verdad).
+      `if (tipo === 'cierra' && ${pisada} && datos.corregido) window.scrollBy({ top: -datos.corregido, behavior: 'instant' }) }`,
   })
   if (comoSafari) {
     await send('Page.addScriptToEvaluateOnNewDocument', {
@@ -133,8 +179,9 @@ try {
       const falta = lis.map((li) => { const p = li.querySelector('[data-panel]'); return ab[lis.indexOf(li)] ? Math.round(p.firstElementChild.scrollHeight - p.getBoundingClientRect().height) : 0 })
       const act = ab.lastIndexOf(true)
       const y = scrollY
+      const tf = performance.now()
       window.__t.push({
-        t: Math.round(performance.now()), y: Math.round(y), est: ab.map((v) => (v ? 'A' : 'c')).join(''), act,
+        t: Math.round(tf), tf, y: Math.round(y), est: ab.map((v) => (v ? 'A' : 'c')).join(''), act,
         top: act >= 0 ? Math.round(tops[act]) : null,
         salto: prev && prev.act === act && act >= 0 ? Math.round(tops[act] - prev.top) : null,
         dy: prev ? Math.round(y - prev.y) : 0,
@@ -201,7 +248,45 @@ try {
   const eventos = await ev('window.__eventos')
   const anclajeSegunLaPagina = await ev("CSS.supports('overflow-anchor', 'auto')")
   s.close()
-  const saltos = t.filter((v) => v.salto != null && Math.abs(v.salto + v.dy) > umbral && Math.abs(v.salto) > umbral)
+  // Los cierres del hook, por el cuadro en que se ven (el primero muestreado después del evento), con lo que se plegó y
+  // lo que se corrigió el scroll en el mismo momento (corregido: negativo, la página sube lo que se plegó arriba).
+  const cierresPorCuadro = new Map()
+  for (const e of eventos.filter((e) => e.tipo === 'cierra')) {
+    const k = t.findIndex((v) => v.tf >= e.tf)
+    if (k < 0) continue
+    const c = cierresPorCuadro.get(k) ?? { plegado: 0, corregido: 0 }
+    c.plegado += e.plegado ?? 0
+    c.corregido += e.corregido ?? 0
+    cierresPorCuadro.set(k, c)
+  }
+  // La velocidad del scroll (px/ms) en el cuadro k, si no es un cuadro de cierre; y el scroll que se espera en el cuadro
+  // k según los cuadros vecinos, escalado por lo que duró (con la CPU cargada un cuadro dura dos o más).
+  const velocidad = (k) => {
+    if (k < 1 || k >= t.length || cierresPorCuadro.has(k)) return null
+    const dt = t[k].tf - t[k - 1].tf
+    return dt > 0 ? t[k].dy / dt : null
+  }
+  const scrollEsperado = (k) => {
+    const vs = [velocidad(k - 1), velocidad(k + 1)].filter((v) => v != null)
+    return vs.length ? (vs.reduce((a, b) => a + b, 0) / vs.length) * (t[k].tf - t[k - 1].tf) : 0
+  }
+  // ¿El cuadro k es un cierre bien compensado? (ver el encabezado: HOME-02 y LIM-03) El hook informó una corrección
+  // igual a lo plegado, la cabecera se movió en la escala del scroll y no en la de lo plegado, y lo que se movió es lo
+  // que explica el scroll que venía (salto ≈ -scrollEsperado, con margen: UMBRAL o la mitad de ese scroll). Lo último
+  // separa una corrección deshecha que el final de la página recortó (salto de 414 px con el scroll quieto, --pisada
+  // en el camino de Safari) de un cierre compensado en un cuadro largo en pleno flick (salto de 456 px con el scroll a
+  // ~5 px/ms).
+  const compensado = (v, k) => {
+    const c = cierresPorCuadro.get(k)
+    if (!c || c.plegado <= 0 || Math.abs(c.corregido + c.plegado) > 2) return false
+    const esperado = scrollEsperado(k)
+    return Math.abs(v.salto) < c.plegado / 2 && Math.abs(v.salto + esperado) <= Math.max(umbral, Math.abs(esperado) / 2)
+  }
+  const candidatos = t.flatMap((v, k) =>
+    v.salto != null && Math.abs(v.salto + v.dy) > umbral && Math.abs(v.salto) > umbral ? [[v, k]] : [],
+  )
+  const saltos = candidatos.filter(([v, k]) => !compensado(v, k)).map(([v]) => v)
+  const cierresCompensados = candidatos.filter(([v, k]) => compensado(v, k)).map(([v, k]) => ({ v, c: cierresPorCuadro.get(k), esperado: Math.round(scrollEsperado(k)) }))
   const correcciones = t.filter((v) => v.salto != null && Math.abs(v.salto + v.dy) > 250)
   // Velocidad máxima del scroll por cuadro, sin contar los cuadros de corrección.
   const velocidadMaxima = Math.max(0, ...t.filter((v) => !correcciones.includes(v)).map((v) => Math.abs(v.dy)))
@@ -239,16 +324,20 @@ try {
   const cierres = eventos.filter((e) => e.tipo === 'cierra').map((e) => `${e.bandas.join(',')} (${e.motivo})`)
   salida = {
     ok: saltos.length === 0 && !desorden && salteadas.length === 0,
-    url, tamano: `${ancho}x${alto}`, modo, sinAnclaje, comoSafari, cuadros: t.length, scroll: `${t[0].y} -> ${final.y}`,
+    url, tamano: `${ancho}x${alto}`, modo, sinAnclaje, comoSafari, cpu, tarde, cuadroLento, pisada, cuadros: t.length, scroll: `${t[0].y} -> ${final.y}`,
     velocidadMaximaPorCuadro: velocidadMaxima,
     tirones: saltos.length,
     detalleTirones: saltos.slice(0, 6).map((v) => `t${v.t} y${v.y} ${v.est} la cabecera se movió ${v.salto}px con dy ${v.dy}`),
+    cierresCompensados: cierresCompensados.length,
+    detalleCierresCompensados: cierresCompensados
+      .slice(0, 6)
+      .map(({ v, c, esperado }) => `t${v.t} y${v.y} ${v.est} salto ${v.salto} dy ${v.dy}: se plegaron ${c.plegado} y se corrigió ${c.corregido}; el scroll que venía, ${esperado}`),
     correccionesCompensadas: correcciones.length,
     detalleCorrecciones: correcciones.slice(0, 6).map((v) => `t${v.t} dy ${v.dy} -> la activa se movió ${v.salto ?? 'n/a'} px`),
     estados: estados.join(' -> '),
     aperturas,
     cierres,
-    eventos: eventos.map((e) => { const { t: tt, tipo, ...resto } = e; return `t${tt} ${tipo} ${JSON.stringify(resto)}` }),
+    eventos: eventos.map((e) => { const { t: tt, tf: _tf, tipo, ...resto } = e; return `t${tt} ${tipo} ${JSON.stringify(resto)}` }),
     cambios,
     anclajeSegunLaPagina,
     desorden, salteadas, abiertasAlFinal,

@@ -601,9 +601,9 @@ describe('IndexNow (E4.6): avisa lo publicado, nunca un borrador, sin pedidos de
   })
   const espera = () => new Promise((r) => setTimeout(r, 20))
 
-  test('con la clave: sirve /<clave>.txt y avisa al publicar, al cambiar algo publicado y al despublicar', async () => {
+  test('con la clave, después del corte: sirve /<clave>.txt y avisa al publicar, al cambiar algo publicado y al despublicar', async () => {
     const almacen = crearAlmacen(base.sequelize)
-    const s = await levantar({ INDEXNOW_CLAVE: CLAVE }, { almacen })
+    const s = await levantar({ INDEXNOW_CLAVE: CLAVE, CANONICO: '1' }, { almacen })
     const original = console.log
     console.log = () => {}
     try {
@@ -668,9 +668,14 @@ describe('IndexNow (E4.6): avisa lo publicado, nunca un borrador, sin pedidos de
     }
   })
 
-  test('sin la clave, o fuera de mupa.ar: no avisa ni sirve el archivo', async () => {
+  test('sin la clave, fuera de mupa.ar o antes del corte (E5-01): no avisa', async () => {
     pedidos.length = 0
-    for (const env of [{}, { INDEXNOW_CLAVE: CLAVE, URL_PUBLICA: 'https://mupa-web.onrender.com/' }]) {
+    // Antes del corte (CANONICO=0), mupa.ar sigue siendo la landing de Hostinger: como en Render desde el primer deploy.
+    for (const env of [
+      {},
+      { INDEXNOW_CLAVE: CLAVE, URL_PUBLICA: 'https://mupa-web.onrender.com/', CANONICO: '1' },
+      { INDEXNOW_CLAVE: CLAVE, CANONICO: '0' },
+    ]) {
       const s = await levantar(env)
       const original = console.log
       console.log = () => {}

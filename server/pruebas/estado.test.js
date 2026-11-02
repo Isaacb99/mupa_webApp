@@ -135,7 +135,7 @@ describe('GET /estado', { skip: base.motivo ?? false }, () => {
     assert.deepEqual(deEditor, {
       paraCompletar: ['direccion', 'telefono', 'emailPublico', 'horario', 'tarifas'],
       unSoloAdmin: true,
-      correo: { estado: 'sin_configurar', formulario: false, desde: null, codigo: null, sinEnviar: 0 },
+      correo: { estado: 'sin_configurar', formulario: false, desde: null, codigo: null, sinEnviar: 0, otraCausa: 0 },
       tareasFallidas: [],
     })
     // El espacio: lo que ocupa la base (una recién migrada ocupa unos pocos MB) y el contratado (1024 por defecto).

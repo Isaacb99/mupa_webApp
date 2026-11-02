@@ -520,8 +520,10 @@ export const pie = {
   instituciones: identidad.instituciones,
   legal: '© Museo Paleontológico de San Juan',
   // Las secciones del sitio también en el pie: andan sin JavaScript y antes de que cargue (el botón Menú del celular
-  // necesita JavaScript), y en la 404 (A11Y-03 de la verificación de E4).
-  secciones: 'Secciones del sitio',
+  // necesita JavaScript), y en la 404 (A11Y-03 de la verificación de E4). El nombre de su navegación es distinto del
+  // de la del header ("Principal") y del de la 404 ("Secciones del sitio"), así en la lista de regiones de un lector de
+  // pantalla no hay dos iguales (A11Y-07).
+  secciones: 'Secciones del sitio (pie de página)',
   // Línea de privacidad (plan 6.7 y 9, Ley 25.326: la medición de visitas y los mensajes del formulario). La escribe
   // el museo y todavía no la mandó: vacía, no se dibuja. No inventarla.
   privacidad: '',

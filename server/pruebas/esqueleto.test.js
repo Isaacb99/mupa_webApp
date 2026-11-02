@@ -36,6 +36,8 @@ const PAGINA_PANEL = `<!doctype html>
 <script type="module" crossorigin src="/administracion/assets/panel-abc123.js"></script></head>
 <body><div id="raiz"></div></body></html>
 `
+// El manual del panel (E6.2, panel/public/manual.pdf en el build): unos bytes que empiezan como un PDF.
+const MANUAL = '%PDF-1.7\n% manual de prueba\n%%EOF\n'
 const ENTRADA = `export function render(estado) {
   return '<main data-pagina="' + estado.pagina + '"><p>' + "$' $& $$" + '</p></main>'
 }
@@ -55,6 +57,7 @@ before(() => {
   mkdirSync(join(carpeta, 'panel', 'assets'), { recursive: true })
   writeFileSync(join(carpeta, 'panel', 'assets', 'panel-abc123.js'), 'console.log(2)\n')
   writeFileSync(join(carpeta, 'panel', 'index.html'), PAGINA_PANEL)
+  writeFileSync(join(carpeta, 'panel', 'manual.pdf'), MANUAL)
 })
 after(() => rmSync(carpeta, { recursive: true, force: true }))
 
@@ -208,6 +211,13 @@ describe('con CANONICO=0 (antes del corte)', () => {
         assert.equal(r.h['content-security-policy'], CSP_PANEL)
         assert.equal(r.h['cache-control'], 'no-store')
         assert.equal((await pedir(t.puerto, '/')).status, 200)
+        // Sin el manual en el build: 404, no la página del panel ni un PDF vacío.
+        const manual = await pedir(t.puerto, '/administracion/manual.pdf')
+        assert.equal(manual.status, 404)
+        assert.match(manual.h['content-type'], /^text\/plain/)
+        assert.equal(manual.h['cache-control'], 'no-store')
+        assert.equal(manual.h['content-disposition'], undefined)
+        assert.equal(manual.h['content-security-policy'], CSP_PANEL)
       } finally {
         await t.cerrar()
       }
@@ -217,6 +227,32 @@ describe('con CANONICO=0 (antes del corte)', () => {
       console.log = original
       rmSync(otra, { recursive: true, force: true })
     }
+  })
+
+  test('el manual del panel (Ayuda, E6.2): application/pdf, inline, no-cache, sin sesión y con la CSP del panel', async () => {
+    for (const ruta of ['/administracion/manual.pdf', '/administracion/manual.pdf?v=1']) {
+      const r = await pedir(s.puerto, ruta)
+      assert.equal(r.status, 200, ruta)
+      assert.equal(r.cuerpo, MANUAL, ruta)
+      assert.equal(r.h['content-type'], 'application/pdf', ruta)
+      assert.equal(r.h['content-disposition'], 'inline; filename="manual-del-panel-mupa.pdf"', ruta)
+      assert.equal(r.h['cache-control'], 'no-cache', ruta)
+      assert.ok(r.h.etag, ruta)
+      assert.equal(r.h['x-content-type-options'], 'nosniff', ruta)
+      assert.equal(r.h['content-security-policy'], CSP_PANEL, ruta)
+      assert.equal(r.h['x-robots-tag'], 'noindex, nofollow', ruta)
+      assert.equal(r.h['set-cookie'], undefined, ruta)
+    }
+    const head = await pedir(s.puerto, '/administracion/manual.pdf', { metodo: 'HEAD' })
+    assert.equal(head.status, 200)
+    assert.equal(head.h['content-type'], 'application/pdf')
+    assert.equal(head.cuerpo, '')
+    // Con el mismo ETag: 304 (se revalida, no se baja de nuevo).
+    const r = await pedir(s.puerto, '/administracion/manual.pdf')
+    const otra = await pedir(s.puerto, '/administracion/manual.pdf', { cabeceras: { 'if-none-match': r.h.etag } })
+    assert.equal(otra.status, 304)
+    // Solo GET y HEAD: lo demás, el 404 del panel.
+    assert.equal((await pedir(s.puerto, '/administracion/manual.pdf', { metodo: 'POST' })).status, 404)
   })
 
   test('los assets del panel: un año e immutable (no el no-store del resto del panel)', async () => {

@@ -914,6 +914,19 @@ describe('contenidos con base', { skip: base.motivo ?? false }, () => {
     assert.equal(cuenta.status, 413)
   })
 
+  test('los 300 kB son del PUT de un contenido con su id; /salas/orden y /muestras/orden, 100 kB (COD-08)', async () => {
+    // ~150 kB: el orden con un relleno que el esquema descartaría (lo que importa es si el parser lo lee o no).
+    const relleno = 'x'.repeat(150_000)
+    for (const tipo of ['salas', 'muestras']) {
+      const orden = await api('PUT', `/${tipo}/orden`, { ids: [], relleno })
+      assert.equal(orden.status, 413, `${tipo}/orden: ${orden.texto}`)
+      // Con un id, el mismo tamaño se lee (y llega a validar: 400 o 404, nunca 413).
+      const conId = await api('PUT', `/${tipo}/2147483647`, { relleno })
+      assert.notEqual(conId.status, 413, `${tipo}/:id`)
+      assert.ok([400, 404].includes(conId.status), `${tipo}/:id: ${conId.status}`)
+    }
+  })
+
   test('el sitio (E4): un borrador da 404; publicado, se ve en el pedido siguiente; despublicado, otra vez 404', async () => {
     const n = await novedadCompleta({ titulo: 'Recién publicada en el sitio' })
     const ruta = urlPublica('novedades', n.slug)

@@ -31,9 +31,9 @@
 // bytes de la forma canónica en JSON (corrección de E3, 16/10/2026: con mucho formato, 20.000 caracteres pueden ser más
 // de 100 kB de JSON, y el pedido daba el 413 genérico en vez de un error en el campo). Los pedidos que llevan textos con
 // formato admiten 300 kB (server/api/indice.js, limiteJson): entran los tres de Visitas juntos, cada uno en su tope, EN
-// SU FORMA CANÓNICA. Ojo: el panel manda el JSON del editor (con target, rel, class y title en cada enlace), que con
-// cientos de enlaces pesa más; tres textos así, cambiados a la vez, pueden pasar los 300 kB (hallazgo COD-09 de la
-// verificación de E3, pendiente: que el panel mande la forma canónica que ya calcula).
+// SU FORMA CANÓNICA, que es lo que manda el panel: lo que devuelve este esquema, no el JSON del editor, que lleva
+// target, rel y class en cada enlace y con cientos de enlaces pasaría los 300 kB (COD-09 de la verificación de E3: el
+// panel ya mandaba lo validado; lo prueba panel-api.test.js con panel/src/pantallas/visitas/cuerpoTextos.js).
 // El error es uno solo y va en el campo (no en "comoLlegar.content.3.content.0…"), con un mensaje para la persona.
 import { ENLACE_MAX, completarEnlace, esEnlacePermitido, MENSAJE_ENLACE } from '../enlaces.js'
 import { z } from './zod.js'
@@ -44,8 +44,8 @@ export const BLOQUES_MAX = 300
 export const CARACTERES_MAX = 20_000
 /**
  * Bytes de la forma canónica en JSON (UTF-8), como mucho: 20.000 caracteres sin formato son unos 22 kB; el resto es
- * lugar para negritas, cursivas, listas y enlaces. Tres textos en su tope, en la forma canónica, entran en un pedido de
- * 300 kB (ver arriba: el panel todavía manda el JSON del editor).
+ * lugar para negritas, cursivas, listas y enlaces. Tres textos en su tope, en la forma canónica (la que manda el
+ * panel), entran en un pedido de 300 kB.
  */
 export const BYTES_MAX = 90_000
 // Topes por arreglo, antes de sacar los vacíos, para no recorrer de más lo que no puede entrar (el cuerpo del pedido

@@ -3,19 +3,29 @@
 // 5.1) y, la subida de fotos (api.subir, E3.1), con un XMLHttpRequest falso. Sin base y sin navegador. La lógica del
 // achique de fotos (panel/src/achicarFoto.js) está en fotos.test.js. Desde E3.3 y E3.4, también lo que el panel sabe
 // de los contenidos (panel/src/contenidos.js) y lo que manda una ficha (panel/src/pantallas/contenido/valores.js).
+// Desde la limpieza del 27/10/2026: el reintento de una subida ante el 503 de la cola (API-07) y lo que manda Visitas
+// al guardar los textos, en la forma canónica (panel/src/pantallas/visitas/cuerpoTextos.js, COD-09). Desde la corrección
+// del mismo día: las subidas de una página van de a una (LIM-02) y el panel corta la que tarda demasiado en subir
+// (LIM-01).
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 import {
   crearApi,
   ErrorApi,
+  ESPERA_MAX_S,
   esTemporalVencida,
   PREFIJO_API,
   quizasGuardo,
   repartirError,
+  segundosDeEspera,
   SESION_TERMINADA,
   SIN_CONEXION,
+  TOPE_SUBIDA_PANEL_MS,
 } from '../../panel/src/api.js'
+import { MENSAJE_SUBIDA_LENTA, TOPE_RECEPCION_MS } from '../../compartido/fotos.js'
 import { TIPOS_NOVEDAD } from '../../compartido/esquemas/contenido.js'
+import { BYTES_MAX, bytesDe } from '../../compartido/esquemas/textoRico.js'
+import { cuerpoDeTextos } from '../../panel/src/pantallas/visitas/cuerpoTextos.js'
 import {
   CONTENIDOS,
   consultaDe,
@@ -24,7 +34,7 @@ import {
   textosDelSitio,
   traerTodas,
 } from '../../panel/src/contenidos.js'
-import { esDeLaSeccion, rutaSinBase, SECCIONES, seccionesPara, volverSeguro } from '../../panel/src/navegacion.js'
+import { AYUDA, esDeLaSeccion, rutaSinBase, SECCIONES, seccionesPara, volverSeguro } from '../../panel/src/navegacion.js'
 import {
   CAMPOS_FICHA,
   comparable,
@@ -255,6 +265,7 @@ function xhrFalso(...respuestas) {
       this.cabeceras[nombre] = valor
     }
     getResponseHeader(nombre) {
+      if (nombre.toLowerCase() === 'retry-after') return this.respuesta?.retryAfter ?? null
       return nombre.toLowerCase() === 'content-type' && this.respuesta?.json !== undefined ? 'application/json; charset=utf-8' : null
     }
     abort() {
@@ -333,6 +344,216 @@ describe('api.subir (la subida de fotos, con XMLHttpRequest)', () => {
     // Con la señal ya abortada, ni se arma el pedido.
     await assert.rejects(api.subir('/fotos', {}, { signal: control.signal }), (err) => err.name === 'AbortError')
   })
+
+  test('503 con Retry-After (la cola de subidas llena, API-07): avisa la espera, espera y reintenta UNA vez', async () => {
+    const lleno = { status: 503, json: { error: 'Hay muchas fotos subiéndose.', campos: { foto: 'Hay muchas.' } }, retryAfter: '10' }
+    const esperas = []
+    const esperar = async (ms) => {
+      esperas.push(ms)
+    }
+    // El segundo intento sale bien.
+    const Xhr = xhrFalso(lleno, { status: 201, json: { data: { id: 9 } } })
+    const avisos = []
+    const api = crearApi({ xhr: Xhr, esperar })
+    assert.deepEqual(await api.subir('/fotos', {}, { alEsperar: (s) => avisos.push(s) }), { id: 9 })
+    assert.equal(Xhr.pedidos.length, 2)
+    assert.deepEqual([esperas, avisos], [[10_000], [10]])
+    // Una sola vez: si el segundo también da 503, sale el error (con su Retry-After).
+    const dos = xhrFalso(lleno, lleno, { status: 201, json: { data: {} } })
+    await assert.rejects(crearApi({ xhr: dos, esperar }).subir('/fotos', {}), (err) => err.status === 503 && err.reintentarEn === 10)
+    assert.equal(dos.pedidos.length, 2)
+    // Sin Retry-After (la base caída, un 503 del proxy) o con una espera de más de ESPERA_MAX_S: no reintenta.
+    for (const r of [{ status: 503, json: { error: 'Sin base.' } }, { ...lleno, retryAfter: String(ESPERA_MAX_S + 1) }, { ...lleno, retryAfter: 'Wed, 21 Oct 2026 07:28:00 GMT' }]) {
+      const uno = xhrFalso(r, { status: 201, json: { data: {} } })
+      await assert.rejects(crearApi({ xhr: uno, esperar }).subir('/fotos', {}), (err) => err.status === 503)
+      assert.equal(uno.pedidos.length, 1, JSON.stringify(r))
+    }
+    // Cancelar durante la espera (la de verdad): AbortError, sin segundo intento.
+    const control = new AbortController()
+    const cancelada = xhrFalso(lleno, { status: 201, json: { data: {} } })
+    const enCurso = crearApi({ xhr: cancelada }).subir('/fotos', {}, { signal: control.signal, alEsperar: () => control.abort() })
+    await assert.rejects(enCurso, (err) => err.name === 'AbortError')
+    assert.equal(cancelada.pedidos.length, 1)
+    // Lo que se lee del Retry-After: solo segundos.
+    assert.deepEqual(['10', ' 30 ', '0', '', null, '1.5', '-3', 'Wed, 21 Oct 2026 07:28:00 GMT'].map(segundosDeEspera), [10, 30, 0, null, null, null, null, null])
+    // Los pedidos comunes también traen el Retry-After en el error.
+    const conFetch = crearApi({ fetch: fetchFalso(new Response(JSON.stringify({ error: 'x' }), { status: 429, headers: { 'Content-Type': 'application/json', 'Retry-After': '60' } })) })
+    await assert.rejects(conFetch.get('/estado'), (err) => err.status === 429 && err.reintentarEn === 60)
+  })
+
+  test('el archivo que no termina de subir a tiempo (LIM-01): el panel corta la subida, con el mismo error que el servidor', async () => {
+    // El tope del panel, antes que el del servidor (que empieza a contar cuando llega el pedido).
+    assert.equal(TOPE_SUBIDA_PANEL_MS, TOPE_RECEPCION_MS - 10_000)
+    // Un XMLHttpRequest que manda y nunca termina de subir (una conexión muy lenta); o que termina de subir enseguida
+    // y responde mucho después (el procesado: el tope ya no corre).
+    const pedidos = []
+    class Xhr {
+      constructor() {
+        this.upload = {}
+        this.status = 0
+        this.responseText = ''
+        pedidos.push(this)
+      }
+      open() {}
+      setRequestHeader() {}
+      getResponseHeader(nombre) {
+        return nombre.toLowerCase() === 'content-type' ? 'application/json' : null
+      }
+      abort() {
+        this.abortado = true
+        queueMicrotask(() => this.onabort?.())
+      }
+      send(cuerpo) {
+        this.cuerpo = cuerpo
+        if (cuerpo === 'procesa-lento') {
+          queueMicrotask(() => this.upload.onload?.())
+          setTimeout(() => {
+            this.status = 201
+            this.responseText = JSON.stringify({ data: { id: 1 } })
+            this.onload?.()
+          }, 80)
+        }
+      }
+    }
+    const api = crearApi({ xhr: Xhr, topeSubidaMs: 30 })
+    const inicio = Date.now()
+    await assert.rejects(
+      api.subir('/fotos', 'lenta'),
+      (err) => err instanceof ErrorApi && err.status === 400 && err.message === MENSAJE_SUBIDA_LENTA && err.campos?.foto === MENSAJE_SUBIDA_LENTA,
+    )
+    assert.ok(Date.now() - inicio < 1000)
+    assert.equal(pedidos[0].abortado, true, 'el panel cortó la subida')
+    assert.equal(pedidos.length, 1, 'y no la reintenta')
+    // Terminó de subir antes del tope: el procesado puede tardar más.
+    assert.deepEqual(await api.subir('/fotos', 'procesa-lento'), { id: 1 })
+    // Cancelar la sigue dando AbortError (no el error de lenta).
+    const control = new AbortController()
+    const cancelada = api.subir('/fotos', 'lenta', { signal: control.signal })
+    await new Promise((r) => setTimeout(r, 5))
+    control.abort()
+    await assert.rejects(cancelada, (err) => err.name === 'AbortError')
+  })
+
+  test('de a una por página (LIM-02): la segunda espera su turno sin mandar nada, lo avisa y sube cuando termina la primera', async () => {
+    // Un XMLHttpRequest que responde cuando la prueba lo dice.
+    const enviados = []
+    class Xhr {
+      constructor() {
+        this.upload = {}
+        this.status = 0
+        this.responseText = ''
+      }
+      open() {}
+      setRequestHeader() {}
+      getResponseHeader(nombre) {
+        return nombre.toLowerCase() === 'content-type' ? 'application/json' : null
+      }
+      abort() {
+        queueMicrotask(() => this.onabort?.())
+      }
+      send(cuerpo) {
+        this.cuerpo = cuerpo
+        enviados.push(this)
+      }
+      responder(status, json) {
+        this.upload.onload?.()
+        this.status = status
+        this.responseText = JSON.stringify(json)
+        this.onload?.()
+      }
+    }
+    const tick = () => new Promise((r) => setTimeout(r, 0))
+    const cuerpos = () => enviados.map((x) => x.cuerpo)
+    const api = crearApi({ xhr: Xhr })
+    const eventos = []
+    const anotar = (quien) => ({
+      alEnEspera: () => eventos.push(`${quien} en espera`),
+      alProgreso: (f) => eventos.push(`${quien} ${f}`),
+    })
+    // La portada y, enseguida, una foto de la galería (dos SubirFoto en la misma ficha).
+    const portada = api.subir('/fotos', 'portada', anotar('portada'))
+    const galeria = api.subir('/fotos', 'galeria', anotar('galeria'))
+    await tick()
+    assert.deepEqual(cuerpos(), ['portada'], 'la segunda no manda nada mientras sube la primera')
+    assert.deepEqual(eventos, ['galeria en espera'])
+    enviados[0].responder(201, { data: { id: 1 } })
+    assert.deepEqual(await portada, { id: 1 })
+    await tick()
+    assert.deepEqual(cuerpos(), ['portada', 'galeria'])
+    // "portada 1": terminó de subir; "galeria 0": le tocó (SubirFoto vuelve a mostrar "Subiendo…").
+    assert.deepEqual(eventos, ['galeria en espera', 'portada 1', 'galeria 0'])
+    enviados[1].responder(201, { data: { id: 2 } })
+    assert.deepEqual(await galeria, { id: 2 })
+
+    // Si la que sube falla, la siguiente sube igual.
+    const falla = api.subir('/fotos', 'mala')
+    const sigue = api.subir('/fotos', 'buena')
+    await tick()
+    enviados[2].responder(400, { error: 'La foto tardó demasiado en llegar.' })
+    await assert.rejects(falla, (err) => err.status === 400)
+    await tick()
+    assert.equal(enviados[3].cuerpo, 'buena')
+    enviados[3].responder(201, { data: { id: 3 } })
+    assert.deepEqual(await sigue, { id: 3 })
+
+    // Cancelar mientras espera: AbortError sin mandar nada, y la que viene después no se traba.
+    const control = new AbortController()
+    const primera = api.subir('/fotos', 'a')
+    const cancelada = api.subir('/fotos', 'b', { signal: control.signal })
+    const ultima = api.subir('/fotos', 'c')
+    await tick()
+    control.abort()
+    await assert.rejects(cancelada, (err) => err.name === 'AbortError')
+    assert.deepEqual(cuerpos().slice(4), ['a'])
+    enviados[4].responder(201, { data: { id: 4 } })
+    await primera
+    await tick()
+    assert.deepEqual(cuerpos().slice(4), ['a', 'c'], 'la cancelada no se mandó; la siguiente sí')
+    enviados[5].responder(201, { data: { id: 5 } })
+    assert.deepEqual(await ultima, { id: 5 })
+
+    // Otra página (otra instancia, como otra pestaña) tiene su propia fila: ahí decide el servidor (503 y Retry-After).
+    const otra = crearApi({ xhr: Xhr })
+    const deAca = api.subir('/fotos', 'aca')
+    const deOtra = otra.subir('/fotos', 'otra')
+    await tick()
+    assert.deepEqual(cuerpos().slice(6), ['aca', 'otra'])
+    enviados[6].responder(201, { data: { id: 6 } })
+    enviados[7].responder(201, { data: { id: 7 } })
+    await Promise.all([deAca, deOtra])
+  })
+})
+
+describe('los textos de Visitas: lo que se manda (COD-09)', () => {
+  /** Un texto con muchos enlaces, como lo da el editor (con target, rel y class en cada uno). */
+  function conEnlaces(n, marca) {
+    const content = []
+    for (let i = 0; i < n; i++) {
+      content.push({ type: 'text', text: `enlace ${marca}${i}`, marks: [{ type: 'link', attrs: { href: `https://mupa.ar/${marca}/${i}`, target: '_blank', rel: 'noopener noreferrer nofollow', class: null } }] })
+      content.push({ type: 'text', text: ' y ' })
+    }
+    return { type: 'doc', content: [{ type: 'paragraph', attrs: { textAlign: null }, content }] }
+  }
+
+  test('tres textos cerca del tope, con cientos de enlaces: se manda la forma canónica, que entra en los 300 kB', () => {
+    const valores = { comoLlegar: conEnlaces(560, 'a'), normas: conEnlaces(560, 'b'), accesibilidad: conEnlaces(560, 'c') }
+    const crudo = new TextEncoder().encode(JSON.stringify(valores)).length
+    const v = cuerpoDeTextos(valores, ['comoLlegar', 'normas', 'accesibilidad'])
+    assert.equal(v.ok, true, JSON.stringify(v.errores))
+    const mandado = bytesDe(v.datos)
+    // El JSON del editor pasaba los 300 kB del pedido (el 413 genérico); la forma canónica entra.
+    assert.ok(crudo > 300 * 1024, `crudo ${crudo}`)
+    assert.ok(mandado < 300 * 1024, `mandado ${mandado}`)
+    for (const campo of Object.keys(valores)) {
+      const enlace = v.datos[campo].content[0].content[0].marks[0]
+      assert.deepEqual(Object.keys(enlace.attrs), ['href'], 'sin target, rel ni class')
+      assert.ok(bytesDe(v.datos[campo]) <= BYTES_MAX && bytesDe(v.datos[campo]) > BYTES_MAX * 0.8, `${campo}: ${bytesDe(v.datos[campo])}`)
+    }
+    // Uno que en su forma canónica pasa del tope: 400 en su campo (no el 413 genérico).
+    const grande = cuerpoDeTextos({ normas: conEnlaces(700, 'd') }, ['normas'])
+    assert.equal(grande.ok, false)
+    assert.match(grande.errores.normas, /demasiado formato/)
+  })
 })
 
 describe('repartirError', () => {
@@ -372,6 +593,14 @@ describe('repartirError', () => {
 })
 
 describe('navegacion.js', () => {
+  test('AYUDA: el manual en PDF del panel (lo sirve server/panel.js), con un nombre que empieza con lo que se ve', () => {
+    assert.equal(AYUDA.href, '/administracion/manual.pdf')
+    assert.equal(AYUDA.texto, 'Ayuda')
+    // El nombre accesible es texto + aclaracion (WCAG 2.5.3: contiene la etiqueta visible, al principio).
+    assert.match(`${AYUDA.texto}${AYUDA.aclaracion}`, /^Ayuda: .*PDF.*otra pestaña/)
+    assert.ok(Object.isFrozen(AYUDA))
+  })
+
   test('volverSeguro: solo rutas del panel', () => {
     for (const ok of ['/', '/museo', '/usuarios?pagina=2', '/novedades/3#galeria']) assert.equal(volverSeguro(ok), ok)
     for (const mal of [

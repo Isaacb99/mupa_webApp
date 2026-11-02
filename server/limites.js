@@ -26,8 +26,20 @@
 // por ventana y clave (el primer pedido bloqueado), no una por pedido: quien insiste no llena el log.
 // Se crean con cada app (server/api/indice.js): cada prueba arranca con los contadores en cero.
 import { ipKeyGenerator, rateLimit } from 'express-rate-limit'
-import { hoyEnSanJuan } from '../compartido/fechas.js'
+import { hoyEnSanJuan, instanteDeLocal } from '../compartido/fechas.js'
 import { log } from './log.js'
+
+const UN_DIA = 24 * 60 * 60_000
+
+/**
+ * Los segundos que faltan para la medianoche de San Juan (cuando el límite de todos vuelve a cero: su clave es el día).
+ * San Juan no tiene horario de verano: la medianoche de mañana es la de hoy más 24 h.
+ * @param {Date} [ahora]
+ */
+export function segundosHastaMedianoche(ahora = new Date()) {
+  const manana = instanteDeLocal(`${hoyEnSanJuan(ahora)}T00:00`).getTime() + UN_DIA
+  return Math.max(1, Math.ceil((manana - ahora.getTime()) / 1000))
+}
 
 const QUINCE_MINUTOS = 15 * 60_000
 
@@ -122,10 +134,14 @@ export function crearLimites() {
  */
 export function crearLimitesDeContacto() {
   const comunes = { standardHeaders: false, legacyHeaders: false }
-  const marcar = (codigo, evento) => (req, res, next) => {
+  // El Retry-After: el de la ventana del límite o, el de todos, hasta la medianoche de San Juan, que es cuando vuelve a
+  // cero (su clave es el día); la ventana de 24 h desde el primer pedido llegaba a decir casi un día cuando faltaban
+  // horas (CON-10 de la verificación de E4).
+  const marcar = (codigo, evento, espera = null) => (req, res, next) => {
     if (req.rateLimit?.used === req.rateLimit?.limit + 1) log('aviso', evento)
     const reinicio = req.rateLimit?.resetTime?.getTime?.()
-    if (reinicio) res.set('Retry-After', String(Math.max(1, Math.ceil((reinicio - Date.now()) / 1000))))
+    const segundos = espera ? espera() : reinicio ? Math.max(1, Math.ceil((reinicio - Date.now()) / 1000)) : null
+    if (segundos) res.set('Retry-After', String(segundos))
     req.limiteContacto = codigo
     next()
   }
@@ -137,7 +153,7 @@ export function crearLimitesDeContacto() {
       limit: 50,
       keyGenerator: () => `dia-${hoyEnSanJuan()}`,
       skip: (req) => Boolean(req.limiteContacto),
-      handler: marcar('limite_dia', 'limite_contacto_dia'),
+      handler: marcar('limite_dia', 'limite_contacto_dia', () => segundosHastaMedianoche()),
     }),
   ]
 }

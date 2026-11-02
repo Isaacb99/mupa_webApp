@@ -14,6 +14,7 @@ import MenuMovil from './MenuMovil.jsx'
 // sobre el PDF); en el celular, 260 px a 24 del borde.
 // El menú va centrado en el alto del logo sin correrlo: su caja mide 0 de alto (h-0) y está centrada en la fila, que
 // mide lo que el logo; el botón de 44 px sobresale lo mismo arriba y abajo.
+// Sobre el hero, el logo no se invierte con colores forzados en un tema claro (Logo.jsx, sobreFoto: A11Y-08).
 
 /**
  * @param {{ ruta: string | null, compra: { url: string, texto: string | null } | null, sobreHero: boolean }} props
@@ -32,7 +33,7 @@ export default function Header({ ruta, compra, sobreHero }) {
       <div
         className={`flex items-start justify-between gap-2 px-6 pt-6 md:px-10 md:pt-8 lg:px-[5.15625rem] lg:pt-[4.4375rem] ${sobreHero ? '' : 'pb-8 md:pb-10 lg:pb-14'}`}
       >
-        <Logo />
+        <Logo sobreFoto={sobreHero} />
         <div className="flex h-0 shrink-0 items-center self-center print:hidden">
           <Menu ruta={ruta} compra={compra} className="hidden xl:block" />
           <MenuMovil ruta={ruta} compra={compra} className="xl:hidden" />

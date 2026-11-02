@@ -6,6 +6,10 @@
 //   demás métodos, así nada esquiva el router de la API (ni su CSRF ni sus límites);
 // - /administracion/assets: los archivos con hash de dist/panel/assets, un año e immutable, y 404 si falta. Va ANTES
 //   del no-store: send solo pone su Cache-Control si la respuesta todavía no tiene uno;
+// - /administracion/manual.pdf (E6.2): el manual del panel (panel/public/manual.pdf, que Vite copia a dist/panel; en
+//   desarrollo, el de panel/public), application/pdf, inline y con no-cache (se revalida: cambia con cada deploy que lo
+//   cambia). Sin sesión: también lo abre "Ayuda" de Ingresar, y no tiene nada que no se vea en el panel. Si falta, 404
+//   (no la página del panel);
 // - /administracion/api/…: la API, siempre en JSON (CSRF por origen, express.json con tope, límites, sesión, rol y
 //   validación; lo que no existe, 404 en JSON; sin base, 503 en JSON);
 // - todo otro GET (y HEAD) de /administracion o /administracion/…: dist/panel/index.html con no-store; las rutas del
@@ -37,6 +41,24 @@ function paginaDelBuild(dirBuild) {
     log('aviso', 'panel_sin_build', { mensaje: `no está ${archivo}: npm run build arma el panel`, codigo: err.code })
   }
   return async () => html
+}
+
+/**
+ * GET y HEAD /administracion/manual.pdf: el manual (E6.2). Va antes del no-store del resto del panel: send pone su
+ * Cache-Control solo si la respuesta todavía no tiene uno, así que se pone acá.
+ * @param {string} archivo  la ruta del PDF en el disco
+ */
+function servirManual(archivo) {
+  return function manual(req, res) {
+    res.set('Cache-Control', 'no-cache')
+    res.set('Content-Disposition', 'inline; filename="manual-del-panel-mupa.pdf"')
+    res.sendFile(archivo, { dotfiles: 'deny', lastModified: true }, (err) => {
+      if (!err || res.headersSent) return
+      res.removeHeader('Content-Disposition')
+      res.set('Cache-Control', 'no-store')
+      res.status(404).type('text').send('No encontrado.')
+    })
+  }
 }
 
 /**
@@ -105,6 +127,10 @@ export function crearPanel({
       }),
     )
   }
+  panel.get(
+    '/manual.pdf',
+    servirManual(vite ? resolve(vite.config.publicDir, 'manual.pdf') : resolve(dirBuild, 'panel', 'manual.pdf')),
+  )
   panel.use((req, res, next) => {
     res.set('Cache-Control', 'no-store')
     next()

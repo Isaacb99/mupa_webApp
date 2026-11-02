@@ -159,7 +159,7 @@ export function DatosFoto({ id, foto, conDecorativa = true, alGuardar, alCancela
       <Campo
         id={`${prefijo}credito`}
         etiqueta="Crédito"
-        ayuda="Opcional: quién sacó la foto, por ejemplo «Foto: Archivo MuPa»."
+        ayuda="Opcional: quién sacó la foto, por ejemplo «Archivo MuPa» (el sitio le agrega «Foto:» adelante)."
         maxLength={CREDITO_MAX}
         autoComplete="off"
         value={v.credito}

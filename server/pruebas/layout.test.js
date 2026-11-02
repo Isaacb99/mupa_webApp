@@ -285,6 +285,18 @@ describe('Layout, header, menú y pie (sin base)', () => {
 
   test('la 404 dentro del Layout: un h1, el inicio y las secciones, el pie', () => {
     const html = pagina({ pagina: 'no-encontrada', ruta: '/no-existe', museo: MUSEO_MAXIMO })
+    // Las navegaciones con nombres distintos (A11Y-07: la de la 404 y la del pie se llamaban igual). La del menú del
+    // celular va adentro de su <dialog>, que solo existe para el lector abierto, cuando la del header está oculta.
+    const sinDialogo = html.replace(/<dialog[\s\S]*?<\/dialog>/g, '')
+    const nombres = [...sinDialogo.matchAll(/<nav ([^>]*)>/g)].map(([, atributos]) => {
+      const etiqueta = /aria-label="([^"]*)"/.exec(atributos)?.[1]
+      if (etiqueta) return etiqueta
+      const id = /aria-labelledby="([^"]*)"/.exec(atributos)?.[1]
+      return new RegExp(`id="${id}"[^>]*>([^<]*)<`).exec(html)?.[1]
+    })
+    assert.ok(nombres.length >= 3, nombres.join(' | '))
+    assert.ok(nombres.every(Boolean), nombres.join(' | '))
+    assert.equal(new Set(nombres).size, nombres.length, nombres.join(' | '))
     assert.equal(cuantas(html, '<h1'), 1)
     assert.ok(html.includes(contenido.noEncontrada.titulo))
     const main = html.slice(html.indexOf('<main'), html.indexOf('</main>'))
@@ -339,21 +351,24 @@ describe('Layout, header, menú y pie (sin base)', () => {
 
   test('el pie: las secciones del sitio (sin JavaScript, A11Y-03), con aria-current; enlaces de 44 px (A11Y-01)', () => {
     const html = renderToStaticMarkup(createElement(Pie, { museo: MUSEO_MAXIMO, ruta: '/visitas' }))
-    const nav = /<nav aria-label="Secciones del sitio"[^>]*>(.*?)<\/nav>/s.exec(html)?.[1] ?? ''
+    const etiqueta = `<nav aria-label="${contenido.pie.secciones}"`
+    assert.ok(html.includes(etiqueta), etiqueta)
+    const nav = html.slice(html.indexOf(etiqueta), html.indexOf('</nav>', html.indexOf(etiqueta)))
     for (const s of contenido.navegacion.secciones) assert.ok(nav.includes(`href="${s.ruta}"`), s.ruta)
     assert.equal(cuantas(nav, 'aria-current="page"'), 1)
     assert.match(nav, /<a href="\/visitas" aria-current="page"/)
     assert.equal(cuantas(renderToStaticMarkup(createElement(Pie, { museo: MUSEO_VACIO, ruta: '/exposiciones/x' })), 'aria-current="true"'), 1)
     assert.equal(cuantas(renderToStaticMarkup(createElement(Pie, { museo: MUSEO_VACIO })), 'aria-current'), 0)
-    // Todos los enlaces del pie (secciones, teléfono, correo y redes) miden 44 px de alto.
+    // Todos los enlaces del pie (secciones, teléfono, correo y redes) miden 44 px de alto y de ancho ("Visitas" medía 43
+    // de ancho: A11Y-07).
     const enlaces = html.match(/<a [^>]*>/g) ?? []
     assert.equal(enlaces.length, 4 + 1 + 1 + datos.redesConocidas(MUSEO_MAXIMO.redes).length)
-    for (const a of enlaces) assert.match(a, /class="inline-flex min-h-11 /, a)
+    for (const a of enlaces) assert.match(a, /class="inline-flex min-h-11 min-w-11 /, a)
     // Lo que carga el museo se parte si no entra (una dirección o una nota larga): PAG-01.
     assert.ok(cuantas(html, 'wrap-anywhere') >= 4)
   })
 
-  test('los logos blancos (header, menú del celular, pie y el cierre de Identidad) llevan data-logo-blanco (A11Y-04)', () => {
+  test('los logos blancos (menú del celular, pie y el cierre de Identidad) llevan data-logo-blanco (A11Y-04); el del header sobre el hero, no (A11Y-08)', () => {
     const html = pagina({ pagina: 'home', museo: MUSEO_MAXIMO })
     const instituciones = contenido.pie.instituciones.filter((i) => i.logo).map((i) => i.nombre)
     const logos = (html.match(/<img [^>]*>/g) ?? []).filter((img) => {
@@ -362,7 +377,16 @@ describe('Layout, header, menú y pie (sin base)', () => {
     })
     // El logo (dos piezas) en el header y en el menú del celular; las instituciones en el pie y en Identidad.
     assert.equal(logos.length, 2 + 2 + 2 * instituciones.length)
-    for (const img of logos) assert.ok(img.includes('data-logo-blanco=""'), img.slice(0, 120))
+    // El del header de la Home va sobre la foto del hero: con colores forzados en un tema claro no se invierte (negro
+    // sobre el cielo quedaba de 3 a 3,7:1). Son las dos primeras imágenes del logo (el header va antes que el menú).
+    const [marca, texto, ...resto] = logos
+    for (const img of [marca, texto]) assert.ok(!img.includes('data-logo-blanco'), img.slice(0, 120))
+    for (const img of resto) assert.ok(img.includes('data-logo-blanco=""'), img.slice(0, 120))
+    // En las demás páginas el header va en el flujo, sobre el fondo del sitio: su logo sí se invierte.
+    const interna = pagina({ pagina: 'visitas', ruta: '/visitas', museo: MUSEO_VACIO })
+    const delHeader = interna.slice(interna.indexOf('<header'), interna.indexOf('</header>'))
+    const conMarca = (delHeader.match(/<img [^>]*>/g) ?? []).filter((img) => img.includes(`alt="${contenido.site.nombre}"`))
+    assert.ok(conMarca.length >= 1 && conMarca.every((img) => img.includes('data-logo-blanco=""')))
     // Y el logo del header mide 44 px o más de alto debajo de lg sin moverse (padding y margen negativo).
     assert.match(html, /<a href="\/" class="inline-grid [^"]*max-lg:-my-3 max-lg:py-3/)
   })

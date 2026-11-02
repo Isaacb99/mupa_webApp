@@ -28,6 +28,17 @@ export const ARCHIVOS_PUBLICOS = Object.freeze({
   'og.jpg': Object.freeze({ variante: 'og', tipo: 'image/jpeg' }),
 })
 
+/**
+ * Cuánto puede tardar en llegar el archivo de una subida (API-07 de la verificación de E3): el servidor corta a los 2
+ * minutos (topeRecepcionMs de server/fotos/cola.js) y el panel, 10 s antes (TOPE_SUBIDA_PANEL_MS de panel/src/api.js):
+ * en una conexión HTTP/1.1 el corte del servidor llega al navegador como una conexión reiniciada, sin la respuesta, y
+ * Chrome reenvía el pedido solo (LIM-01 de la verificación de la limpieza, 27/10/2026). Cortando el panel antes, la
+ * persona ve este mensaje la primera vez y nada se reenvía.
+ */
+export const TOPE_RECEPCION_MS = 120_000
+export const MENSAJE_SUBIDA_LENTA =
+  'La foto tardó demasiado en llegar: la conexión está muy lenta. Probá de nuevo, mejor con una conexión más rápida.'
+
 /** La clave de una foto: 64 bits al azar en hexadecimal (16 caracteres, en minúsculas). */
 export const CLAVE_FOTO = /^[0-9a-f]{16}$/
 
