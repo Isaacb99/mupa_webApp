@@ -1,3 +1,7 @@
+// Sin uso desde la Visitas del tablero "Web" de la diseñadora (03/11/2026; V1 y V2 del desarrollador): el sitio ya no
+// muestra las tarifas y la pantalla Visitas ya no las pide. Queda, con la API y la tabla, hasta que se decida al cierre
+// (como D1); las tarifas cargadas siguen en la base.
+//
 // Las tarifas de Visitas (plan 5.3 y 5.4): la lista en el orden del sitio, con Editar, Subir, Bajar y Eliminar en
 // cada una y "Agregar una tarifa" (un diálogo con el formulario). Cada acción se guarda en el momento y se anuncia en
 // una región role="status" ("«General» quedó en el lugar 1 de 3"). El orden va con botones, sin arrastrar (WCAG

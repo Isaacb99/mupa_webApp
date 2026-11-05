@@ -13,8 +13,19 @@
 // - Escapes: </script> y $' $& $$ en los títulos no rompen el HTML ni el JSON-LD.
 // - El sitemap con las páginas fijas y lo publicado (también lo finalizado o realizado), sin borradores.
 // - Ninguna respuesta pública pone Set-Cookie aunque el pedido traiga la cookie de sesión (desde auth.test.js).
-// - Sin base (sin la base de prueba también corre): con la base caída la Home sale (200) y las demás, la 503 simple; el
-//   cálculo de las precargas (modulepreload) a partir del manifiesto; cada página de la tabla tiene su archivo.
+// - Sin base (sin la base de prueba también corre): con la base caída la Home sale (200, con el año del © del pie en el
+//   estado, que pone el servidor) y las demás, la 503 simple; el cálculo de las precargas (modulepreload) a partir del
+//   manifiesto; cada página de la tabla tiene su archivo.
+// - La Home del tablero "Web" (02/11/2026): con base, las 6 últimas novedades publicadas en orden (sin borradores ni
+//   actividades realizadas) y una sin portada sin foto; sin base, con 0, 1 y 6 novedades de un lector falso, y con la
+//   base caída o colgada sale igual (200, sin el carrusel; colgada, a los TOPE_HOME_MS), nunca la 503. Con una falla
+//   sin código ("timeout expired"), el aviso del log lleva el mensaje (PAN-05). El lastmod de la Home en el sitemap es
+//   el más nuevo entre el build y la última novedad publicada, y publicar una novedad le avisa a IndexNow también la
+//   Home (COD-03/PAN-04).
+// - Visitas del tablero "Web" (03/11/2026, V1 y V8): con base, las tarjetas con los datos cargados por la API y el texto
+//   "Accesibilidad", sin nada de lo que ya no muestra aunque esté cargado, y la descripción nueva; sin base, cargarVisitas
+//   (solo el texto de accesibilidad, y la 503 sin el museo de ahora) y la página con el museo máximo y el vacío (la foto
+//   del hero precargada con prioridad).
 import assert from 'node:assert/strict'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -25,12 +36,14 @@ import { hoyEnSanJuan, localDeInstante } from '../../compartido/fechas.js'
 import { VARIANTES_FOTO } from '../../compartido/fotos.js'
 import { crearApp } from '../app.js'
 import { leerConfig } from '../config.js'
+import { crearLectorPublico, LECTOR_VACIO, TOPE_HOME_MS } from '../contenido-publico.js'
 import { crearConexion } from '../db/conexion.js'
 import { crearAlmacen } from '../fotos/almacen.js'
-import { crearMuseoPublico } from '../museo.js'
+import { crearMuseoPublico, MUSEO_MAXIMO, MUSEO_VACIO } from '../museo.js'
+import { cargarVisitas, horarioDeLaSemana } from '../paginas.js'
 import { RUTAS } from '../rutas-publicas.js'
 import { CSP_PANEL } from '../seguridad.js'
-import { cortarEnPalabra, horarioSchema, medidasOg } from '../seo.js'
+import { cortarEnPalabra, entradasDelSitemap, horarioSchema, medidasOg } from '../seo.js'
 import { crearSsr, partir, precargasDePaginas } from '../ssr.js'
 import { cerrarBase, levantar, pedir, prepararBase, salteoVisible, sql } from './ayudas.js'
 
@@ -170,6 +183,7 @@ describe('las páginas internas con base', { skip: base.motivo ?? false }, () =>
           redes: [{ red: 'instagram', url: 'https://www.instagram.com/mupa-prueba' }],
           notaTarifas: 'Nota de las tarifas',
           comoLlegar: parrafo('Así se llega.'),
+          accesibilidad: parrafo('Hay rampa en la entrada.'),
         },
         admin,
       ),
@@ -296,32 +310,43 @@ describe('las páginas internas con base', { skip: base.motivo ?? false }, () =>
     }
   })
 
-  test('/visitas: el horario con hoy, las tarifas visibles con su precio, las notas y los textos', async () => {
+  test('/visitas (tablero "Web", V1): las tarjetas con los datos cargados y el texto de accesibilidad; nada de lo que ya no muestra', async () => {
     const r = await s.pedir('GET', '/visitas')
     assert.equal(r.status, 200)
-    const { datos, hoy } = estadoDe(r.texto)
-    assert.equal(datos.horario.length, 7)
-    const deHoy = datos.horario.filter((h) => h.hoy)
-    assert.equal(deHoy.length, 1)
-    assert.match(deHoy[0].dia, /^Hoy \((lunes|martes|miércoles|jueves|viernes|sábado|domingo)\)$/)
-    assert.equal(hoy, hoyEnSanJuan())
-    assert.deepEqual(datos.horario[0], { dia: datos.horario[0].hoy ? deHoy[0].dia : 'Lunes', hoy: datos.horario[0].hoy, horas: null, nota: null })
-    assert.equal(datos.horario[1].horas, '9:00 a 13:00')
-    assert.equal(datos.horario[6].nota, 'Visitas guiadas')
-    assert.deepEqual(
-      datos.tarifas.map((t) => [t.nombre, t.precio]),
-      [
-        ['General', '$ 3.000'],
-        ['Menores', null],
-      ],
-    )
-    assert.equal(datos.notaTarifas, 'Nota de las tarifas')
-    assert.deepEqual(datos.comoLlegar, parrafo('Así se llega.'))
-    assert.equal(datos.normas, null)
-    assert.match(r.texto, /<tr [^>]*aria-current="date"/)
-    assert.match(r.texto, />Gratis</)
-    assert.match(r.texto, /<h2 id="comoLlegar"/)
+    const { datos, museo, pagina } = estadoDe(r.texto)
+    assert.equal(pagina, 'visitas')
+    // Los datos de la página: solo el texto "Accesibilidad" (V1: ni el horario de la semana, ni las tarifas, ni las
+    // notas, ni el aviso, ni la compra, ni "Cómo llegar", ni las normas). Lo demás de las tarjetas viene en estado.museo.
+    assert.deepEqual(datos, { accesibilidad: parrafo('Hay rampa en la entrada.') })
+    assert.ok(!('comoLlegar' in museo) && !('accesibilidad' in museo))
+    // El museo común tampoco lleva lo que el sitio ya no muestra (COD-01 y PAN-01): ni las tarifas, ni sus notas, ni
+    // la nota de cada día; el HTML entero (también el estado), ninguno de esos textos.
+    for (const campo of ['tarifas', 'notaTarifas', 'notaHorarios', 'aviso']) assert.ok(!(campo in museo), campo)
+    assert.ok(museo.horarios.every((h) => !('nota' in h)))
+    for (const fuera of ['Visitas guiadas', 'Nota de las tarifas', '"General"', '"Menores"', 'Así se llega.']) {
+      assert.equal(cuantas(r.texto, fuera), 0, fuera)
+    }
+    // Lo dibujado (sin el estado).
+    const app = r.texto.slice(r.texto.indexOf('<div id="root">'), r.texto.indexOf('<script id="estado"'))
+    assert.equal(cuantas(app, '<h1'), 1)
+    assert.ok(app.includes('>Visitá el MuPa</h1>'))
+    assert.ok(app.includes('<span class="block">Avenida de prueba 1234</span><span class="block">5400 San Juan, San Juan</span>'))
+    assert.ok(app.includes('<li>Martes a domingo: 9:00\u00a0a\u00a013:00</li><li>Lunes: cerrado</li>'))
+    assert.match(app, /<a href="tel:\+542640000000" class="inline-flex min-h-11 /)
+    assert.match(app, /<a href="mailto:museo@example\.com" class="inline-flex min-h-11 /)
+    assert.match(app, /<a href="\/contacto" class="inline-flex min-h-11 /)
+    assert.ok(app.includes('<p>Hay rampa en la entrada.</p>'))
+    // Sin "Insertar mapa" cargado, sin el mapa.
+    assert.equal(cuantas(app, '<iframe'), 0)
+    for (const fuera of ['Visitas guiadas', 'Nota de las tarifas', 'Gratis', '$ 3.000', '>General<', 'Así se llega.', 'aria-current="date"', 'data-entradas="" class="inline-block']) {
+      assert.equal(cuantas(app, fuera), 0, fuera)
+    }
     assert.ok(!r.texto.includes('Tarifa escondida'))
+    // La descripción nueva (V8): sin las tarifas.
+    assert.equal(
+      meta(r.texto, 'description'),
+      'Cómo llegar, horarios, contacto y recursos de accesibilidad para visitar el Museo Paleontológico de San Juan.',
+    )
   })
 
   test('/novedades: las próximas actividades y 12 noticias por página; ?pagina=1 da 301; lo que no es una página, 404', async () => {
@@ -380,18 +405,59 @@ describe('las páginas internas con base', { skip: base.motivo ?? false }, () =>
     assert.equal((await s.pedir('GET', urlPublica('novedades', creadas.novedadBorrador.slug))).status, 404)
   })
 
+  test('la Home (tablero "Web"): las 6 últimas novedades publicadas, noticias y actividades, sin borradores ni realizadas, en orden', async () => {
+    const r = await s.pedir('GET', '/')
+    assert.equal(r.status, 200)
+    const { datos } = estadoDe(r.texto)
+    // La actividad que viene se publicó después que las noticias (y la realizada, después, pero no se lista: plan 6.1);
+    // después, las noticias de la más nueva a la más vieja. Hay 16 publicadas: van 6.
+    const esperadas = [creadas.proximaActividad, ...creadas.noticias.slice(-5).reverse()]
+    assert.deepEqual(datos.novedades.map((n) => n.titulo), esperadas.map((n) => n.titulo))
+    assert.deepEqual(datos.novedades.map((n) => n.url), esperadas.map((n) => urlPublica('novedades', n.slug)))
+    assert.deepEqual(Object.keys(datos.novedades[0]).sort(), ['portada', 'resumen', 'titulo', 'url'])
+    for (const fuera of [creadas.novedadBorrador, creadas.realizada, creadas.noticias[0], creadas.noticias[8]]) {
+      assert.ok(!r.texto.includes(urlPublica('novedades', fuera.slug)), fuera.titulo)
+    }
+    // El carrusel en el HTML: el título de cada tarjeta es su enlace, con su portada (las fotos del panel) y su resumen.
+    assert.match(r.texto, /<section aria-labelledby="novedades-titulo"/)
+    for (const n of esperadas) {
+      assert.ok(r.texto.includes(`<a href="${urlPublica('novedades', n.slug)}" class="`), n.titulo)
+      assert.ok(r.texto.includes(`/fotos/${n.portada.clave}/480.webp 480w`), n.titulo)
+      assert.ok(r.texto.includes(`>Resumen de ${n.titulo}</p>`), n.titulo)
+    }
+    assert.ok(r.texto.includes('href="/novedades"'))
+    assert.equal(cuantas(r.texto, '<h1'), 1)
+    // Una publicada sin portada (el panel no deja publicar sin ella; acá se la quita a mano): su tarjeta va sin foto.
+    const sinFoto = creadas.noticias[12]
+    await sql('UPDATE novedades SET portada_id = NULL WHERE id = :id', { id: sinFoto.id })
+    try {
+      const otra = await s.pedir('GET', '/')
+      const tarjeta = estadoDe(otra.texto).datos.novedades.find((n) => n.titulo === sinFoto.titulo)
+      assert.equal(tarjeta.portada, null)
+      const html = otra.texto.split('<article').find((a) => a.includes(`>${sinFoto.titulo}</a>`))
+      assert.ok(html, 'la tarjeta sin portada')
+      assert.equal(cuantas(html.slice(0, html.indexOf('</article>')), '<img'), 0)
+    } finally {
+      await sql('UPDATE novedades SET portada_id = :foto WHERE id = :id', { id: sinFoto.id, foto: sinFoto.portada.id })
+    }
+  })
+
   test('un borrador que se publica se ve en el pedido siguiente; despublicado, otra vez 404', async () => {
     const n = creadas.novedadBorrador
     const ruta = urlPublica('novedades', n.slug)
     assert.equal((await s.pedir('GET', ruta)).status, 404)
+    assert.ok(!(await s.pedir('GET', '/')).texto.includes(ruta), 'en borrador no está en la Home')
     await ok(api('POST', `/novedades/${n.id}/publicar`))
     assert.equal((await s.pedir('GET', ruta)).status, 200)
     assert.ok((await s.pedir('GET', '/novedades')).texto.includes(ruta))
     assert.ok((await s.pedir('GET', '/sitemap.xml')).texto.includes(`https://mupa.ar${ruta}`))
+    // Recién publicada, es la primera del carrusel de la Home.
+    assert.equal(estadoDe((await s.pedir('GET', '/')).texto).datos.novedades[0].url, ruta)
     await ok(api('POST', `/novedades/${n.id}/despublicar`))
     assert.equal((await s.pedir('GET', ruta)).status, 404)
     assert.ok(!(await s.pedir('GET', '/novedades')).texto.includes(ruta))
     assert.ok(!(await s.pedir('GET', '/sitemap.xml')).texto.includes(ruta))
+    assert.ok(!(await s.pedir('GET', '/')).texto.includes(ruta), 'despublicada no está en la Home')
   })
 
   test('el <head>: título, descripción, canonical, og:image de la portada con sus medidas y JSON-LD que parsea', async () => {
@@ -496,6 +562,12 @@ describe('las páginas internas con base', { skip: base.motivo ?? false }, () =>
         '"estado":"borrador"',
         'Editora del sitio',
         'actualizadoPor',
+        // Lo que el sitio ya no muestra ni el panel deja cambiar (la Visitas del tablero, V1 y V2): ni en lo dibujado ni
+        // en el estado (COD-01 y PAN-01 de la verificación de Visitas).
+        'Nota de las tarifas',
+        'Visitas guiadas',
+        '"General"',
+        '"tarifas"',
       ]) {
         assert.ok(!r.texto.includes(prohibido), `${ruta}: ${prohibido}`)
       }
@@ -634,7 +706,7 @@ describe('IndexNow (E4.6): avisa lo publicado, nunca un borrador, sin pedidos de
       assert.equal((await api('PUT', `/novedades/${alta.id}`, cuerpo)).status, 200)
       await espera()
       assert.equal(pedidos.length, 0)
-      // Publicar: la página y el listado.
+      // Publicar: la página, el listado y la Home, que muestra las últimas novedades (tablero "Web", PAN-04).
       assert.equal((await api('POST', `/novedades/${alta.id}/publicar`)).status, 200)
       await espera()
       assert.equal(pedidos.length, 1)
@@ -644,14 +716,15 @@ describe('IndexNow (E4.6): avisa lo publicado, nunca un borrador, sin pedidos de
         host: 'mupa.ar',
         key: CLAVE,
         keyLocation: `https://mupa.ar/${CLAVE}.txt`,
-        urlList: [`https://mupa.ar/novedades/${alta.slug}`, 'https://mupa.ar/novedades'],
+        urlList: [`https://mupa.ar/novedades/${alta.slug}`, 'https://mupa.ar/novedades', 'https://mupa.ar/'],
       })
-      // Cambiar algo publicado, despublicar: un aviso cada uno. Publicar otra vez lo ya publicado: nada.
+      // Cambiar algo publicado, despublicar: un aviso cada uno, también con la Home. Publicar otra vez lo ya publicado: nada.
       assert.equal((await api('PUT', `/novedades/${alta.id}`, { ...cuerpo, slug: alta.slug, resumen: 'Otro' })).status, 200)
       assert.equal((await api('POST', `/novedades/${alta.id}/despublicar`)).status, 200)
       assert.equal((await api('POST', `/novedades/${alta.id}/despublicar`)).status, 200)
       await espera()
       assert.equal(pedidos.length, 3)
+      for (const p of pedidos) assert.ok(p.cuerpo.urlList.includes('https://mupa.ar/'), JSON.stringify(p.cuerpo.urlList))
       // Una sala: /exposiciones.
       const sala = (await api('POST', '/salas', { nombre: 'Sala avisada' })).json.data
       await api('PUT', `/salas/${sala.id}`, { nombre: 'Sala avisada', slug: null, resumen: 'R', descripcion: null, portadaId: portada.id })
@@ -723,7 +796,17 @@ describe('sin base', () => {
     try {
       const home = await pedir(puerto, 'GET', '/')
       assert.equal(home.status, 200)
-      assert.equal(estadoDe(home.texto).pagina, 'home')
+      const estado = estadoDe(home.texto)
+      assert.equal(estado.pagina, 'home')
+      // Sin las novedades (la base no respondió): la Home sale igual, sin el carrusel (tablero "Web", D12).
+      assert.deepEqual(estado.datos, { novedades: [] })
+      assert.equal(cuantas(home.texto, 'novedades-titulo'), 0)
+      assert.equal(cuantas(home.texto, '<h1'), 1)
+      assert.match(home.texto, /aria-labelledby="mapa-titulo"/)
+      // El año del © del pie lo pone el servidor en el estado: el de hoy en San Juan (tablero "Web", 02/11/2026).
+      assert.equal(estado.anio, Number(estado.hoy.slice(0, 4)))
+      assert.ok([hoyEnSanJuan(new Date(Date.now() - 60_000)), hoyEnSanJuan()].includes(estado.hoy))
+      assert.ok(home.texto.includes(`>© ${estado.anio} MUPA - Museo Paleontológico de San Juan</p>`))
       for (const ruta of ['/exposiciones', '/exposiciones/una', '/visitas', '/novedades', '/novedades/una', '/contacto']) {
         const r = await pedir(puerto, 'GET', ruta)
         assert.equal(r.status, 503, ruta)
@@ -741,6 +824,224 @@ describe('sin base', () => {
       await new Promise((r) => servidor.close(r))
       await caida.close()
     }
+  })
+
+  test('la Home con 0, 1 y 6 novedades (un lector falso): el carrusel solo con novedades, en su orden; una sin portada, sin foto', async () => {
+    // La dirección de la base no se usa (el lector y el museo son los de la prueba): producción la exige.
+    const config = leerConfig({ NODE_ENV: 'production', URL_PUBLICA: 'https://mupa.ar/', DATABASE_URL: 'postgres://nadie:nada@127.0.0.1:1/no_existe' })
+    const foto = (n) => ({ clave: String(n).repeat(16), ancho: 1600, alto: 1067, variantes: [480, 960, 1600], alt: `Portada ${n}`, decorativa: false })
+    let publicadas = []
+    let pedidos = []
+    const lector = {
+      ...LECTOR_VACIO,
+      async ultimasNovedades(opciones) {
+        pedidos.push(opciones)
+        return publicadas
+      },
+    }
+    const ssr = crearSsr({ config, obtener, museoPublico: async () => MUSEO_VACIO, lector })
+    const app = crearApp({ config, ssr, estaticos: () => {} })
+    const servidor = app.listen(0, '127.0.0.1')
+    await new Promise((r) => servidor.once('listening', r))
+    const puerto = servidor.address().port
+    try {
+      // Ninguna: sin la sección.
+      let r = await pedir(puerto, 'GET', '/')
+      assert.equal(r.status, 200)
+      assert.deepEqual(estadoDe(r.texto).datos, { novedades: [] })
+      assert.equal(cuantas(r.texto, 'novedades-titulo'), 0)
+      assert.equal(pedidos.length, 1)
+      assert.ok(pedidos[0].ahora instanceof Date)
+      // Una: la sección con su tarjeta, sin las flechas ni el contador.
+      publicadas = [{ titulo: 'Una sola', slug: 'una-sola', resumen: 'Su resumen', portada: foto(1) }]
+      r = await pedir(puerto, 'GET', '/')
+      assert.deepEqual(estadoDe(r.texto).datos.novedades, [{ titulo: 'Una sola', url: '/novedades/una-sola', resumen: 'Su resumen', portada: foto(1) }])
+      assert.match(r.texto, /<section aria-labelledby="novedades-titulo"/)
+      assert.ok(r.texto.includes('<a href="/novedades/una-sola" class="'))
+      const seccion = r.texto.slice(r.texto.indexOf('<section aria-labelledby="novedades-titulo"'))
+      assert.equal(cuantas(seccion.slice(0, seccion.indexOf('</section>')), '<button'), 0)
+      // Seis, en el orden del lector; la tercera sin portada (sin foto), las demás con la suya.
+      publicadas = [1, 2, 3, 4, 5, 6].map((n) => ({
+        titulo: `Novedad ${n}`,
+        slug: `novedad-${n}`,
+        resumen: n === 4 ? null : `Resumen ${n}`,
+        portada: n === 3 ? null : foto(n),
+      }))
+      r = await pedir(puerto, 'GET', '/')
+      const { novedades } = estadoDe(r.texto).datos
+      assert.deepEqual(novedades.map((n) => n.url), [1, 2, 3, 4, 5, 6].map((n) => `/novedades/novedad-${n}`))
+      const articulos = r.texto.split('<article').slice(1).map((a) => a.slice(0, a.indexOf('</article>')))
+      assert.equal(articulos.length, 6)
+      assert.deepEqual(articulos.map((a) => cuantas(a, '<img')), [1, 1, 0, 1, 1, 1])
+      // Sin resumen, sin su párrafo (y nunca "null").
+      assert.equal(cuantas(articulos[3], 'Resumen'), 0)
+      assert.equal(cuantas(r.texto, '>null<'), 0)
+      // El contador, como lo dibuja el servidor (el navegador hidrata con lo mismo).
+      assert.match(r.texto, /<p aria-hidden="true" class="[^"]*">1<!-- -->\/<!-- -->6<\/p>/)
+      assert.equal(cuantas(r.texto, '<h1'), 1)
+    } finally {
+      await new Promise((r) => servidor.close(r))
+    }
+  })
+
+  test('la Home con la base colgada (no contesta): 200 a los ~2 s (TOPE_HOME_MS), sin novedades; nunca la 503', async () => {
+    // La dirección de la base no se usa (el lector y el museo son los de la prueba): producción la exige.
+    const config = leerConfig({ NODE_ENV: 'production', URL_PUBLICA: 'https://mupa.ar/', DATABASE_URL: 'postgres://nadie:nada@127.0.0.1:1/no_existe' })
+    // Una base que nunca contesta: cada consulta queda esperando. El lector de verdad corta a los TOPE_HOME_MS y el museo
+    // (el de verdad, con su tope) sale con el vacío.
+    const colgada = { query: () => new Promise(() => {}) }
+    const ssr = crearSsr({
+      config,
+      obtener,
+      museoPublico: crearMuseoPublico(config, { leer: () => new Promise(() => {}) }),
+      lector: crearLectorPublico(colgada),
+    })
+    const app = crearApp({ config, ssr, estaticos: () => {} })
+    const servidor = app.listen(0, '127.0.0.1')
+    await new Promise((r) => servidor.once('listening', r))
+    const puerto = servidor.address().port
+    const logs = []
+    const original = console.log
+    console.log = (linea) => logs.push(linea)
+    try {
+      const desde = performance.now()
+      const r = await pedir(puerto, 'GET', '/')
+      const ms = performance.now() - desde
+      assert.equal(r.status, 200)
+      assert.ok(ms >= TOPE_HOME_MS - 50 && ms < TOPE_HOME_MS + 1500, `${Math.round(ms)} ms`)
+      assert.deepEqual(estadoDe(r.texto).datos, { novedades: [] })
+      assert.equal(cuantas(r.texto, 'novedades-titulo'), 0)
+      assert.ok(logs.some((l) => /"evento":"home_sin_novedades"/.test(l) && /"codigo":"TOPE"/.test(l)), logs.join('\n'))
+    } finally {
+      console.log = original
+      await new Promise((r) => servidor.close(r))
+    }
+  })
+
+  test('la Home con una falla de la base sin código ("timeout expired"): sale sin novedades y el aviso lleva el mensaje (PAN-05)', async () => {
+    const config = leerConfig({ NODE_ENV: 'production', URL_PUBLICA: 'https://mupa.ar/', DATABASE_URL: 'postgres://nadie:nada@127.0.0.1:1/no_existe' })
+    // Como pg al conectar con la base muda: un Error sin code.
+    const muda = { query: () => Promise.reject(new Error('timeout expired')) }
+    const ssr = crearSsr({ config, obtener, museoPublico: async () => MUSEO_VACIO, lector: crearLectorPublico(muda) })
+    const app = crearApp({ config, ssr, estaticos: () => {} })
+    const servidor = app.listen(0, '127.0.0.1')
+    await new Promise((r) => servidor.once('listening', r))
+    const puerto = servidor.address().port
+    const logs = []
+    const original = console.log
+    console.log = (linea) => logs.push(linea)
+    try {
+      const r = await pedir(puerto, 'GET', '/')
+      assert.equal(r.status, 200)
+      assert.deepEqual(estadoDe(r.texto).datos, { novedades: [] })
+      const linea = logs.map((l) => JSON.parse(l)).find((l) => l.evento === 'home_sin_novedades')
+      assert.ok(linea, logs.join('\n'))
+      assert.equal(linea.nivel, 'aviso')
+      assert.equal(linea.mensaje, 'timeout expired')
+      assert.equal(linea.codigo, undefined)
+      // Las páginas internas con la misma falla: la 503 simple, y el aviso también con el mensaje.
+      logs.length = 0
+      assert.equal((await pedir(puerto, 'GET', '/novedades')).status, 503)
+      const pagina = logs.map((l) => JSON.parse(l)).find((l) => l.evento === 'pagina_sin_base')
+      assert.equal(pagina?.mensaje, 'timeout expired')
+      assert.equal(pagina?.pagina, 'novedades')
+    } finally {
+      console.log = original
+      await new Promise((r) => servidor.close(r))
+    }
+  })
+
+  test('cargarVisitas (V1): solo el texto de accesibilidad del museo de ahora; con el último bueno, BASE_NO_DISPONIBLE', async () => {
+    const museo = (estado) => async () => estado
+    assert.deepEqual(await cargarVisitas({ museo: museo({ museo: MUSEO_MAXIMO, alDia: true }) }), {
+      accesibilidad: MUSEO_MAXIMO.accesibilidad,
+    })
+    assert.deepEqual(await cargarVisitas({ museo: museo({ museo: MUSEO_VACIO, alDia: true }) }), { accesibilidad: null })
+    await assert.rejects(cargarVisitas({ museo: museo({ museo: MUSEO_MAXIMO, alDia: false }) }), { code: 'BASE_NO_DISPONIBLE' })
+  })
+
+  test('horarioDeLaSemana (sin uso desde la Visitas del tablero, se decide al cierre): "Hoy" con la fecha de San Juan', () => {
+    const filas = horarioDeLaSemana(MUSEO_MAXIMO.horarios, '2026-11-03')
+    assert.equal(filas.length, 7)
+    assert.deepEqual(filas[0], { dia: 'Lunes', hoy: false, horas: null, nota: null })
+    assert.deepEqual(filas[1], { dia: 'Hoy (martes)', hoy: true, horas: '9:00 a 13:00 y 17:00 a 21:00', nota: null })
+    assert.equal(filas[6].nota, 'EJEMPLO · Visitas guiadas a las 11')
+    assert.deepEqual(horarioDeLaSemana(MUSEO_MAXIMO.horarios.map((d) => ({ ...d, abierto: false })), '2026-11-03'), [])
+  })
+
+  test('/visitas con un museo falso: el máximo (con el mapa) y el vacío (sin "Información práctica"); sin el de ahora, la 503 simple', async () => {
+    // La dirección de la base no se usa (el museo es el de la prueba): producción la exige.
+    const config = leerConfig({ NODE_ENV: 'production', URL_PUBLICA: 'https://mupa.ar/', DATABASE_URL: 'postgres://nadie:nada@127.0.0.1:1/no_existe' })
+    let ahora = { museo: MUSEO_MAXIMO, alDia: true }
+    const museoPublico = Object.assign(async () => ahora.museo, { conEstado: async () => ahora })
+    const ssr = crearSsr({ config, obtener, museoPublico, lector: LECTOR_VACIO })
+    const app = crearApp({ config, ssr, estaticos: () => {} })
+    const servidor = app.listen(0, '127.0.0.1')
+    await new Promise((r) => servidor.once('listening', r))
+    const puerto = servidor.address().port
+    const dibujado = (html) => html.slice(html.indexOf('<div id="root">'), html.indexOf('<script id="estado"'))
+    const original = console.log
+    console.log = () => {}
+    try {
+      let r = await pedir(puerto, 'GET', '/visitas')
+      assert.equal(r.status, 200)
+      assert.deepEqual(estadoDe(r.texto).datos, { accesibilidad: MUSEO_MAXIMO.accesibilidad })
+      let app = dibujado(r.texto)
+      assert.equal(cuantas(app, '<h1'), 1)
+      assert.match(app, /<section aria-labelledby="visitas-practica"/)
+      assert.match(app, /<iframe src="https:\/\/www\.google\.com\/maps\/embed\?pb=EJEMPLO" title="[^"]+" loading="lazy"/)
+      assert.equal(cuantas(app, MUSEO_MAXIMO.aviso.texto), 0)
+      assert.equal(cuantas(app, MUSEO_MAXIMO.notaTarifas), 0)
+      // React precarga la foto del hero (el LCP), con prioridad: al principio de lo dibujado, antes del header (con los
+      // logos del header, que tampoco son lazy). La de "Museo accesible" (lazy), no.
+      const precargas = r.texto.match(/<link rel="preload" as="image"[^>]*>/g) ?? []
+      const delHero = precargas.filter((l) => l.includes('hero-visitas-'))
+      assert.equal(delHero.length, 1, precargas.join('\n'))
+      assert.match(delHero[0], /fetchpriority="high"/i)
+      assert.ok(r.texto.indexOf(delHero[0]) < r.texto.indexOf('<header'))
+      assert.equal(precargas.filter((l) => l.includes('visitas-accesibilidad')).length, 0)
+      // El vacío: sin la sección (ni su rótulo) y con los párrafos del tablero.
+      ahora = { museo: MUSEO_VACIO, alDia: true }
+      r = await pedir(puerto, 'GET', '/visitas')
+      assert.equal(r.status, 200)
+      assert.deepEqual(estadoDe(r.texto).datos, { accesibilidad: null })
+      app = dibujado(r.texto)
+      assert.equal(cuantas(app, 'visitas-practica'), 0)
+      assert.match(app, /<section aria-labelledby="visitas-accesible"/)
+      assert.match(app, /El MuPa cuenta con recursos de accesibilidad autónoma/)
+      // Sin el museo de ahora (la base no respondió: el último bueno), la 503 simple, como antes del tablero.
+      ahora = { museo: MUSEO_MAXIMO, alDia: false }
+      r = await pedir(puerto, 'GET', '/visitas')
+      assert.equal(r.status, 503)
+      assert.equal(r.h['cache-control'], 'no-store')
+      assert.doesNotMatch(r.texto, /<script/)
+    } finally {
+      console.log = original
+      await new Promise((r) => servidor.close(r))
+    }
+  })
+
+  test('sitemap: la Home lleva la fecha más nueva entre el build y la última novedad publicada (COD-03/PAN-04)', () => {
+    const urlPublica = 'https://mupa.ar/'
+    const fijas = ['/', '/exposiciones', '/novedades', '/visitas']
+    const lastmod = (contenidos, fechaHome) =>
+      Object.fromEntries(entradasDelSitemap({ urlPublica, fijas, contenidos, fechaHome }).map((e) => [e.loc, e.lastmod]))
+    const build = new Date('2026-10-30T15:00:00Z')
+    // Sin novedades: la del build.
+    assert.equal(lastmod([], build)['https://mupa.ar/'], '2026-10-30')
+    // Una novedad cambiada después del build: la suya (el día en San Juan: 02:30 UTC del 3 es el 2 allá).
+    const novedad = { tipo: 'novedades', slug: 'una', actualizadoEn: new Date('2026-11-03T02:30:00Z') }
+    const muestra = { tipo: 'muestras', slug: 'otra', actualizadoEn: new Date('2026-11-05T15:00:00Z') }
+    const conNovedad = lastmod([novedad, muestra], build)
+    assert.equal(conNovedad['https://mupa.ar/'], '2026-11-02')
+    assert.equal(conNovedad['https://mupa.ar/novedades'], '2026-11-02')
+    // Una muestra no cambia la Home (la Home no muestra muestras).
+    assert.equal(conNovedad['https://mupa.ar/exposiciones'], '2026-11-05')
+    // Un build más nuevo que la novedad: la del build.
+    assert.equal(lastmod([novedad], new Date('2026-11-10T15:00:00Z'))['https://mupa.ar/'], '2026-11-10')
+    // Sin fecha del build válida y sin novedades: sin lastmod.
+    assert.equal(lastmod([], new Date('x'))['https://mupa.ar/'], undefined)
+    assert.equal(lastmod([novedad], undefined)['https://mupa.ar/'], '2026-11-02')
   })
 
   test('cada página de la tabla de rutas tiene su archivo (src/Raiz.jsx) y se dibuja con un solo h1', async () => {

@@ -1,6 +1,12 @@
-import { esEnlacePermitido } from '../../compartido/enlaces.js'
 import { contacto as t } from '../content.js'
-import { correoPublico, enlaceTelefono, redesConocidas, renglonesDireccion } from './datosMuseo.js'
+import {
+  correoPublico,
+  enlaceDelMapa,
+  enlaceTelefono,
+  mapaInsertado,
+  redesConocidas,
+  renglonesDireccion,
+} from './datosMuseo.js'
 import { ENLACE_SUELTO, ROTULO, SUBTITULO } from './estilos.js'
 
 // Aspecto provisorio hasta el diseño de las páginas internas (E6.3): solo clases y orden; los datos y la lógica no
@@ -8,29 +14,24 @@ import { ENLACE_SUELTO, ROTULO, SUBTITULO } from './estilos.js'
 //
 // Los datos de contacto del museo en /contacto (E4.5, plan 6.1): dirección, teléfono (tel: si es un solo número),
 // correo público (mailto:), redes (con su nombre como texto del enlace) y el mapa: el <iframe> de "Insertar mapa" de
-// Google Maps (con title y loading="lazy"; la CSP pública deja www.google.com en frame-src y nada más) y "Abrir en
+// Google Maps (con title y loading="lazy"; la CSP pública deja www.google.com en frame-src) y "Abrir en
 // Google Maps". Todo sale de estado.museo (server/museo.js, lo que carga el museo en Datos del museo) y se vuelve a
 // mirar acá (datosMuseo.js). Lo que no está cargado no se dibuja, ni su rótulo; sin nada, la sección entera no se
 // dibuja (plan 6.1). Lenis le saca el puntero al mapa mientras la página se desliza (lenis.css): la rueda sobre el mapa
 // sigue moviendo la página.
 
-// El src del mapa: solo el de "Insertar mapa" de Google Maps (lo mismo que acepta la base, museo_mapa_embed_google).
-const MAPA = /^https:\/\/www\.google\.com\/maps\/embed\?[^\s"'<>\\`]*$/
-
-/** Lo que dibuja la sección, ya mirado (vacío: nada cargado). */
+/**
+ * Lo que dibuja la sección, ya mirado (vacío: nada cargado). El mapa, solo el de "Insertar mapa" de Google Maps
+ * (mapaInsertado y enlaceDelMapa de datosMuseo.js, que usa también Visitas desde el 03/11/2026).
+ */
 export function datosDeContacto(museo) {
-  const mapa = typeof museo?.mapaEmbedUrl === 'string' && MAPA.test(museo.mapaEmbedUrl) ? museo.mapaEmbedUrl : null
-  const abrirMapa =
-    typeof museo?.mapaUrl === 'string' && museo.mapaUrl.startsWith('https://') && esEnlacePermitido(museo.mapaUrl)
-      ? museo.mapaUrl
-      : null
   return {
     direccion: renglonesDireccion(museo),
     telefono: enlaceTelefono(museo?.telefono),
     correo: correoPublico(museo?.emailPublico),
     redes: redesConocidas(museo?.redes),
-    mapa,
-    abrirMapa,
+    mapa: mapaInsertado(museo),
+    abrirMapa: enlaceDelMapa(museo),
   }
 }
 

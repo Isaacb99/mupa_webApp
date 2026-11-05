@@ -1,9 +1,12 @@
-// Un formulario chico de Visitas que guarda campos del museo (PUT /museo, parcial: solo los suyos): la nota de las
-// tarifas, el aviso general y la compra externa. Valida con el mismo esquema del servidor, guarda, muestra "Guardado"
-// (role="status") y avisa a la pantalla si tiene cambios sin guardar (la pantalla tiene una sola pregunta para todos
-// sus formularios). Lo de adentro lo dibuja quien lo usa (children como función), con los ids prefijo + campo, que
-// son los que enlaza ResumenErrores. "Guardado." se ve hasta el primer cambio después de guardar (si no, parecía que lo
-// último ya estaba guardado); si se vuelve a lo guardado, no reaparece (se anunciaba sin haber guardado nada).
+// Un formulario chico de Visitas que guarda campos del museo (PUT /museo, parcial: solo los suyos): desde la Visitas del
+// tablero "Web" de la diseñadora (03/11/2026), la compra externa (activa y su dirección: visitas/partes.js); hasta
+// entonces también la nota de las tarifas, el aviso general y el texto del botón de compra, que el sitio ya no muestra y
+// por eso la pantalla ya no pide (lo cargado queda como estaba: no se manda). Valida con el mismo esquema del servidor,
+// guarda, muestra "Guardado" (role="status") y avisa a la pantalla si tiene cambios sin guardar (la pantalla tiene una
+// sola pregunta para todos sus formularios). Lo de adentro lo dibuja quien lo usa (children como función), con los ids
+// prefijo + campo, que son los que enlaza ResumenErrores. "Guardado." se ve hasta el primer cambio después de guardar
+// (si no, parecía que lo último ya estaba guardado); si se vuelve a lo guardado, no reaparece (se anunciaba sin haber
+// guardado nada).
 // direcciones: los campos que son una dirección (la de la compra): si se pegó sin https://, se lo agrega antes de
 // guardar (al salir del campo lo hace quien dibuja el campo).
 import { useEffect, useState } from 'react'
@@ -27,7 +30,7 @@ const valoresDe = (campos, museo) =>
  *     errores: Record<string, string>, guardado: Record<string, any>,
  *     guardar: (valores: Record<string, any>, ok?: string) => Promise<void>, enviando: boolean }) => import('react').ReactNode,
  * }} props
- *   guardar(valores): guarda otros valores (p. ej. "Quitar el aviso": todo vacío) sin pasar por el botón
+ *   guardar(valores): guarda otros valores sin pasar por el botón (lo usaba "Quitar el aviso": todo vacío)
  */
 export function FormularioMuseo({
   prefijo,

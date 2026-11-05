@@ -80,7 +80,8 @@ export function estaticosDelBuild(dirBuild) {
  * @param {ReturnType<import('./ssr.js').crearSsr>} opciones.ssr
  * @param {import('sequelize').Sequelize | null} [opciones.sequelize]  null: sin base
  * @param {(app: import('express').Express) => void} opciones.estaticos  estaticosDelBuild() o los middlewares de Vite
- * @param {Date} [opciones.fechaHome]  última modificación de la Home para el sitemap (la fecha del build)
+ * @param {Date} [opciones.fechaHome]  la fecha del build, para el lastmod de la Home en el sitemap (si la última
+ *   novedad publicada es más nueva, va la de ella: entradasDelSitemap, server/seo.js)
  * @param {boolean} [opciones.desarrollo]  CSP con lo que necesita Vite en desarrollo
  * @param {ReturnType<import('./tareas.js').crearRegistroDeTareas> | null} [opciones.registroTareas]  cómo salieron
  *   las tareas diarias, para el Inicio del panel (null: ninguna falló)
@@ -177,7 +178,7 @@ export function crearApp({
       entradas = await ssr.sitemap(fechaHome)
     } catch (err) {
       if (!esBaseNoDisponible(err)) throw err
-      log('aviso', 'sitemap_sin_base', { codigo: err.causa ?? codigoDeError(err) })
+      log('aviso', 'sitemap_sin_base', { mensaje: err.mensajeCausa, codigo: err.causa ?? codigoDeError(err) })
       return res.status(503).set({ 'Cache-Control': 'no-store', 'Retry-After': '60' }).type('text').send('No disponible.')
     }
     res.set('Cache-Control', 'no-cache').type('application/xml').send(sitemapXml(entradas))

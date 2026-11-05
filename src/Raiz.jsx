@@ -1,42 +1,17 @@
 import Layout from './components/Layout.jsx'
 import NoEncontrada from './paginas/NoEncontrada.jsx'
+import { ARCHIVOS_DE_PAGINAS, PAGINAS, existePagina } from './tablaDePaginas.js'
 
-// Las páginas del sitio por estado.pagina (las nombra la tabla de rutas del servidor, server/rutas-publicas.js).
-//
-// Cada página va en su propio archivo JS (plan 6.2: con las páginas internas de E4 el JS de la Home pasaba de 337 kB y
-// el tope es 342): import() dinámico, y el servidor y el navegador esperan la página ANTES de dibujar o hidratar
-// (cargarPagina, en src/entry-server.jsx y src/main.jsx). Nunca React.lazy: con lazy, el render del servidor saldría
-// con el "cargando" en vez de la página y se perdería el contenido. Así la Home no baja el código de las internas ni
-// las internas el de la Home; el servidor pide de antemano el archivo de la página con <link rel="modulepreload">
-// (server/ssr.js, con el manifiesto del build). La 404 va en el bundle principal: es chica y es la de respaldo.
-// Contacto (E4.5) también: una página nueva va acá y en ARCHIVOS_DE_PAGINAS (y en la tabla de rutas del servidor).
-const PAGINAS = {
-  home: () => import('./paginas/Home.jsx'),
-  exposiciones: () => import('./paginas/Exposiciones.jsx'),
-  muestra: () => import('./paginas/Muestra.jsx'),
-  visitas: () => import('./paginas/Visitas.jsx'),
-  novedades: () => import('./paginas/Novedades.jsx'),
-  novedad: () => import('./paginas/Novedad.jsx'),
-  contacto: () => import('./paginas/Contacto.jsx'),
-}
+// Las páginas del sitio por estado.pagina: la tabla (PAGINAS y ARCHIVOS_DE_PAGINAS) está en src/tablaDePaginas.js desde
+// el diseño del tablero "Web" (02/11/2026), porque también la lee el menú (qué secciones existen). La 404 va en el
+// bundle principal: es chica y es la de respaldo; las demás, Contacto incluida, van cada una en su archivo.
 
-/**
- * El archivo de cada página, como lo nombra el manifiesto del build (dist/client/.vite/manifest.json): con él el
- * servidor sabe qué precargar (server/ssr.js). Las claves son las mismas que las de PAGINAS (lo comprueba ssr.test.js).
- */
-export const ARCHIVOS_DE_PAGINAS = {
-  home: 'src/paginas/Home.jsx',
-  exposiciones: 'src/paginas/Exposiciones.jsx',
-  muestra: 'src/paginas/Muestra.jsx',
-  visitas: 'src/paginas/Visitas.jsx',
-  novedades: 'src/paginas/Novedades.jsx',
-  novedad: 'src/paginas/Novedad.jsx',
-  contacto: 'src/paginas/Contacto.jsx',
-}
+/** Para que el servidor sepa qué archivo precargar de cada página (src/entry-server.jsx, server/ssr.js). */
+export { ARCHIVOS_DE_PAGINAS }
 
 /** El componente de la página (lo baja si hace falta); una que no está en la tabla, la 404. */
 export async function cargarPagina(nombre) {
-  if (!Object.hasOwn(PAGINAS, nombre)) return NoEncontrada
+  if (!existePagina(nombre)) return NoEncontrada
   return (await PAGINAS[nombre]()).default
 }
 
@@ -45,9 +20,13 @@ export async function cargarPagina(nombre) {
 // el servidor.
 // Desde E4.1 toda página va dentro de Layout (header con el menú, <main id="main">, pie y la única instancia de Lenis):
 // una página dibuja solo lo de adentro del <main>.
+// sobreFoto: la página empieza con una foto debajo del header (la declara la página: Home.sobreFoto = true, y desde el
+// 03/11/2026 Visitas, con el hero de las páginas internas, HeroPagina.jsx). El header va siempre absolute arriba
+// (tablero "Web", 02/11/2026); sobre una foto, el logo no se invierte con colores forzados en un tema claro (Logo.jsx,
+// A11Y-08).
 export default function Raiz({ estado, Pagina = NoEncontrada }) {
   return (
-    <Layout estado={estado}>
+    <Layout estado={estado} sobreFoto={Pagina.sobreFoto === true}>
       <Pagina estado={estado} />
     </Layout>
   )

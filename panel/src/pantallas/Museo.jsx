@@ -1,7 +1,11 @@
 // Datos del museo (plan 4.3, 5.2 y 5.3), para cualquier rol: dirección, contacto, redes y mapa (GET y PUT /museo).
 // - El correo de destino del formulario de contacto solo lo ven y lo cambian los admins: a un editor la API no se lo
 //   manda (y si lo mandara en el PUT, 403), así que esta pantalla solo lo muestra si vino en el GET.
-// - El PUT es parcial: acá se mandan solo los campos de esta pantalla (las notas, el aviso y la compra son de Visitas).
+// - El PUT es parcial: acá se mandan solo los campos de esta pantalla (el texto de accesibilidad y la compra son de
+//   Visitas).
+// - Dónde se ve cada dato (los textos de esta pantalla lo dicen): desde la Visitas del tablero "Web" de la diseñadora
+//   (03/11/2026), la dirección, el teléfono, el correo público y el mapa van en las páginas de Visitas (sus tarjetas y
+//   el mapa) y de Contacto; las redes, en Contacto y en el pie de todas las páginas.
 // - Se valida con el mismo esquema del servidor (compartido/esquemas/museo.js) antes de mandar.
 // - Redes: agregar y quitar con botones; cada cambio se anuncia (role="status") y el foco va a donde corresponde.
 // - El mapa: se puede pegar el código entero de "Insertar un mapa" de Google Maps; al salir del campo queda solo la
@@ -139,8 +143,8 @@ export default function Museo() {
       <Encabezado titulo="Datos del museo" />
       <UltimaEdicion edicion={ultimaEdicion} />
       <p className="mt-2 max-w-3xl">
-        Lo que el sitio muestra para encontrar y contactar al museo: en el pie de todas las páginas y en Contacto. Lo
-        que dejes vacío no se muestra.
+        Lo que el sitio muestra para encontrar y contactar al museo, en las páginas de Visitas y de Contacto (las redes,
+        en Contacto y en el pie de todas las páginas). Lo que dejes vacío no se muestra.
       </p>
 
       <form onSubmit={alEnviar} noValidate className="mt-8 grid max-w-3xl gap-10">
@@ -324,9 +328,9 @@ export default function Museo() {
             etiqueta="Insertar mapa"
             ayuda={
               <>
-                El mapa que se ve en la página de Contacto. En Google Maps, buscá el museo, tocá «Compartir», elegí
-                «Insertar un mapa» y después «Copiar HTML». Pegalo acá: sirve el código entero (empieza con &lt;iframe)
-                o solo la dirección que empieza con https://www.google.com/maps/embed?
+                El mapa que se ve en las páginas de Visitas y de Contacto. En Google Maps, buscá el museo, tocá
+                «Compartir», elegí «Insertar un mapa» y después «Copiar HTML». Pegalo acá: sirve el código entero
+                (empieza con &lt;iframe) o solo la dirección que empieza con https://www.google.com/maps/embed?
               </>
             }
             error={envio.errores.mapaEmbedUrl}
@@ -362,7 +366,7 @@ export default function Museo() {
           <Campo
             id="mapaUrl"
             etiqueta="Abrir en Google Maps"
-            ayuda="El enlace «Abrir en Google Maps» de la página de Contacto, que en el celular abre la aplicación de mapas. En Google Maps, buscá el museo, tocá «Compartir» y después «Copiar vínculo»."
+            ayuda="El enlace «Abrir en Google Maps» de las páginas de Visitas y de Contacto, que en el celular abre la aplicación de mapas. En Google Maps, buscá el museo, tocá «Compartir» y después «Copiar vínculo»."
             type="url"
             inputMode="url"
             autoComplete="off"

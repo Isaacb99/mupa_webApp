@@ -2,13 +2,16 @@ import { useEffect, useRef, useState } from 'react'
 import { navegacion } from '../content.js'
 import { detenerScrollSuave } from '../hooks/useScrollSuave.js'
 import Logo from './Logo.jsx'
-import { marcaActual, textoCompra } from './Menu.jsx'
+import { marcaActual, seccionesDelMenu } from './navegacion.js'
+import { BOTON_NARANJA } from './tablero.js'
 
-// Aspecto provisorio hasta el diseño del menú del celular (E6.3): solo clases y orden; los datos y la lógica no cambian.
+// Aspecto provisorio: el tablero "Web" de la diseñadora (02/11/2026) es solo de escritorio y la versión de celular la va
+// a hacer ella (decisión D2); mientras tanto, este menú funciona igual que desde E4.1 con los ítems y la tipografía del
+// tablero.
 //
-// El menú debajo de xl (plan 6.7): el botón "Menú" abre un <dialog> modal a pantalla completa con las secciones y
-// "Comprar entradas" (si la compra externa está activa). Arriba, el logo y "Cerrar" en el mismo lugar que el logo y
-// "Menú" del header.
+// El menú debajo de xl (plan 6.7): el botón "Menú" abre un <dialog> modal a pantalla completa con las mismas secciones
+// que el menú ancho (las que existen: navegacion.js) y el botón naranja de entradas (si la compra externa está activa).
+// Arriba, el logo y "Cerrar" en el mismo lugar que el logo y "Menú" del header (las mismas clases de fila).
 // - showModal(): el resto de la página queda inerte (ni el foco ni el lector salen del menú). Esc lo cierra (es del
 //   navegador) y el foco vuelve al botón, sin mover el scroll.
 // - Mientras está abierto, la página de atrás no se mueve: Lenis parado (detenerScrollSuave: si no, la rueda la seguía
@@ -21,26 +24,31 @@ import { marcaActual, textoCompra } from './Menu.jsx'
 // - Si la ventana se agranda hasta xl con el menú abierto, se cierra: ahí ya está el menú del header. También al volver
 //   atrás a la página desde otra (bfcache).
 // - Sin animación de apertura (diseño provisorio, sin efectos nuevos).
+// - Si no hay nada que mostrar (ninguna sección y sin compra), no se dibuja el botón.
 
-const ANCHO_MENU_COMPLETO = '(width >= 80rem)' // xl, el de Menu.jsx
+const ANCHO_MENU_COMPLETO = '(width >= 80rem)' // xl, el de Header.jsx
 
-// Las secciones, grandes (como los títulos de la Home, en Light); la de la página, subrayada en naranja como en Menu.jsx.
-// Con la letra del navegador al 200 % en el celular, "Exposiciones" no entraba en el ancho y el menú se desplazaba a
-// lo ancho: se parte (con guion si el navegador sabe partir en castellano) en vez de desbordar (A11Y-06 de E4).
+// La fila de arriba del menú: la misma del header (Header.jsx), así el logo y "Cerrar" quedan donde estaban el logo y
+// "Menú".
+const FILA = 'flex items-center justify-between gap-2 px-6 py-6 sm:gap-4 md:px-10 md:py-8 lg:h-32 lg:px-16 lg:py-0'
+
+// Las secciones, grandes, en Roboto Mono blanca como el menú ancho; la de la página, subrayada en naranja. Con la letra
+// del navegador al 200 % en el celular, una palabra larga no entraba en el ancho y el menú se desplazaba a lo ancho: se
+// parte (con guion si el navegador sabe partir en castellano) en vez de desbordar (A11Y-06 de E4).
 const ENLACE =
-  'inline-block max-w-full rounded-sm py-2 font-display text-[length:clamp(2rem,8vw,3rem)] leading-tight font-light ' +
-  'hyphens-auto wrap-anywhere ' +
-  'underline-offset-[0.2em] decoration-1 hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 ' +
-  'focus-visible:outline-paper'
+  'inline-block max-w-full rounded-sm py-2 font-mono text-[length:clamp(1.5rem,6vw,2.25rem)] leading-tight ' +
+  'text-blanco hyphens-auto wrap-anywhere decoration-1 underline-offset-[0.2em] hover:underline ' +
+  'focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-blanco'
 const ACTUAL = 'underline decoration-naranja decoration-2'
 
 // El botón del header y el de cerrar: mismo tamaño y lugar (44 px de alto, el mínimo para el dedo).
 const BOTON =
-  'inline-flex h-11 items-center rounded-md border-[1.5px] border-paper/60 px-2 text-[0.9375rem] leading-none text-paper ' +
-  'transition-colors hover:border-paper focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-paper'
+  'inline-flex h-11 items-center rounded-[0.25rem] border border-blanco/60 px-3 font-mono text-base leading-none ' +
+  'text-blanco transition-colors hover:border-blanco focus-visible:outline-2 focus-visible:outline-offset-4 ' +
+  'focus-visible:outline-blanco'
 
 /**
- * @param {{ ruta: string | null, compra: { url: string, texto: string | null } | null, className?: string }} props
+ * @param {{ ruta: string | null, compra: { url: string } | null, className?: string }} props
  *   ruta: la de la página (estado.ruta; null en la 404); compra: estado.museo.compra (solo viene si está activa)
  */
 export default function MenuMovil({ ruta, compra, className = '' }) {
@@ -50,6 +58,8 @@ export default function MenuMovil({ ruta, compra, className = '' }) {
   // Deshace el bloqueo del scroll del abrir (null si el menú está cerrado).
   const desbloquear = useRef(null)
   const [abierto, setAbierto] = useState(false)
+  const secciones = seccionesDelMenu()
+  const conAlgo = secciones.length > 0 || Boolean(compra)
 
   const abrir = () => {
     const d = dialogo.current
@@ -69,6 +79,7 @@ export default function MenuMovil({ ruta, compra, className = '' }) {
 
   useEffect(() => {
     const d = dialogo.current
+    if (!d) return undefined
     const liberar = () => {
       desbloquear.current?.()
       desbloquear.current = null
@@ -98,7 +109,9 @@ export default function MenuMovil({ ruta, compra, className = '' }) {
       if (d.open) d.close()
       liberar()
     }
-  }, [])
+  }, [conAlgo])
+
+  if (!conAlgo) return null
 
   return (
     <div className={className}>
@@ -109,7 +122,7 @@ export default function MenuMovil({ ruta, compra, className = '' }) {
         aria-expanded={abierto}
         aria-controls="menu-movil"
         onClick={abrir}
-        className={`${BOTON} [text-shadow:0_0_0.75rem_rgb(14_16_13/0.85)]`}
+        className={BOTON}
       >
         {navegacion.abrir}
       </button>
@@ -122,21 +135,17 @@ export default function MenuMovil({ ruta, compra, className = '' }) {
         data-lenis-prevent=""
         className="m-0 h-svh max-h-none w-full max-w-none overflow-y-auto overscroll-contain border-0 bg-ink p-0 text-paper backdrop:bg-ink"
       >
-        <div className="flex min-h-full flex-col px-6 pt-6 pb-12 md:px-10 md:pt-8 lg:px-[5.15625rem] lg:pt-[4.4375rem]">
-          {/* El logo no se achica desde 360 px: así queda igual que el del header aunque "Cerrar" sea más ancho que
-              "Menú" (a 375 px el botón se mete unos px en el margen). Más angosto sí, para que el botón no se salga. */}
-          <div className="flex items-start justify-between gap-2">
-            <Logo className="min-[22.5rem]:shrink-0" />
-            <div className="flex h-0 shrink-0 items-center self-center">
-              <button ref={botonCerrar} type="button" onClick={() => dialogo.current?.close()} className={BOTON}>
-                {navegacion.cerrar}
-              </button>
-            </div>
+        <div className="mx-auto flex min-h-full max-w-tablero flex-col">
+          <div className={FILA}>
+            <Logo />
+            <button ref={botonCerrar} type="button" onClick={() => dialogo.current?.close()} className={`shrink-0 ${BOTON}`}>
+              {navegacion.cerrar}
+            </button>
           </div>
 
-          <nav aria-label={navegacion.etiqueta} className="mt-14 md:mt-20">
+          <nav aria-label={navegacion.etiqueta} className="px-6 pt-8 pb-12 md:px-10 md:pt-12 lg:px-16">
             <ul className="flex flex-col gap-1">
-              {navegacion.secciones.map((s) => {
+              {secciones.map((s) => {
                 const actual = marcaActual(ruta, s.ruta)
                 return (
                   <li key={s.ruta}>
@@ -152,12 +161,8 @@ export default function MenuMovil({ ruta, compra, className = '' }) {
               })}
             </ul>
             {compra ? (
-              <a
-                href={compra.url}
-                data-entradas=""
-                className="mt-10 inline-block max-w-full rounded-md border-[1.5px] border-naranja px-5 py-3 text-lg leading-6 text-paper transition-colors hover:bg-naranja hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-paper"
-              >
-                {textoCompra(compra)}
+              <a href={compra.url} data-entradas="" className={`mt-10 ${BOTON_NARANJA}`}>
+                {navegacion.entradas}
               </a>
             ) : null}
           </nav>

@@ -10,6 +10,7 @@ import {
   armarMuseoPublico,
   crearMuseoPublico,
   leerMuseo,
+  museoComun,
   MUSEO_MAXIMO,
   MUSEO_VACIO,
   vecesQueSeValidaronLosTextos,
@@ -310,6 +311,106 @@ describe('el museo público (sin base)', () => {
     assert.deepEqual(Object.keys(MUSEO_MAXIMO).sort(), Object.keys(MUSEO_VACIO).sort())
   })
 
+  test('museoComun: el estado de las páginas lleva solo lo que el sitio usa (COD-01 y PAN-01 de la verificación de Visitas)', () => {
+    const comun = museoComun(MUSEO_MAXIMO)
+    // La lista exacta: lo que no está acá no sale en el HTML de ninguna página.
+    assert.deepEqual(Object.keys(comun).sort(), [
+      'codigoPostal',
+      'compra',
+      'direccion',
+      'emailPublico',
+      'horarios',
+      'localidad',
+      'mapaEmbedUrl',
+      'mapaUrl',
+      'provincia',
+      'redes',
+      'telefono',
+    ])
+    for (const campo of ['direccion', 'localidad', 'provincia', 'codigoPostal', 'telefono', 'emailPublico', 'mapaEmbedUrl', 'mapaUrl']) {
+      assert.equal(comun[campo], MUSEO_MAXIMO[campo], campo)
+    }
+    assert.deepEqual(comun.redes, MUSEO_MAXIMO.redes)
+    // La compra, solo su dirección (el botón "Tickets" tiene el texto fijo, D4); sin compra activa, null.
+    assert.deepEqual(comun.compra, { url: MUSEO_MAXIMO.compra.url })
+    assert.equal(museoComun(MUSEO_VACIO).compra, null)
+    // El horario, cada día con sus franjas y sin su nota.
+    assert.deepEqual(
+      comun.horarios,
+      MUSEO_MAXIMO.horarios.map(({ dia, abierto, franjas }) => ({ dia, abierto, franjas })),
+    )
+    // Nada de lo que el sitio ya no muestra (ni el panel deja cambiar), aunque esté cargado.
+    const json = JSON.stringify(comun)
+    for (const fuera of [
+      MUSEO_MAXIMO.aviso.texto,
+      MUSEO_MAXIMO.notaHorarios,
+      MUSEO_MAXIMO.notaTarifas,
+      MUSEO_MAXIMO.compra.texto,
+      ...MUSEO_MAXIMO.tarifas.map((t) => t.nombre),
+      'Visitas guiadas',
+      'Las líneas de ejemplo',
+      'No se pueden tocar',
+      'rampa en la entrada',
+    ]) {
+      assert.ok(!json.includes(fuera), fuera)
+    }
+    // El vacío y un museo a medias (como el de una prueba) no fallan.
+    assert.deepEqual(museoComun(MUSEO_VACIO), {
+      direccion: null,
+      localidad: null,
+      provincia: null,
+      codigoPostal: null,
+      telefono: null,
+      emailPublico: null,
+      redes: [],
+      mapaEmbedUrl: null,
+      mapaUrl: null,
+      compra: null,
+      horarios: [],
+    })
+    assert.equal(museoComun({ direccion: 'Calle 1' }).direccion, 'Calle 1')
+    assert.deepEqual(museoComun({ horarios: [null, { dia: 2, abierto: false, franjas: [], nota: 'x' }] }).horarios, [
+      { dia: 2, abierto: false, franjas: [] },
+    ])
+    assert.equal(museoComun(null), null)
+  })
+
+  test('una dirección larga que el panel deja guardar (hasta URL_MAX) la publica el servidor y la enlaza el sitio (PAN-02)', async () => {
+    // El sitio (src/components/datosMuseo.js: código puro, sin JSX ni zod) mira las direcciones antes de enlazarlas.
+    const { enlaceDelMapa, redesConocidas } = await import('../../src/components/datosMuseo.js')
+    const { ENLACE_MAX, URL_MAX: URL_MAX_SITIO, esEnlacePermitido } = await import('../../compartido/enlaces.js')
+    const { URL_MAX } = await import('../../compartido/esquemas/campos.js')
+    assert.equal(URL_MAX, URL_MAX_SITIO, 'un solo tope para el panel y el sitio')
+    // Como la que se copia de la barra después de buscar el museo en Google Maps (580 caracteres en la verificación).
+    const larga = (prefijo, n) => prefijo + 'x'.repeat(n - prefijo.length)
+    for (const n of [ENLACE_MAX + 1, 580, URL_MAX]) {
+      const mapaUrl = larga('https://www.google.com/maps/place/Museo+Paleontol%C3%B3gico/@-31.53,-68.52,17z/data=', n)
+      const redes = [{ red: 'instagram', url: larga('https://www.instagram.com/mupa.sj/?igsh=', n) }]
+      // El panel la deja guardar...
+      assert.deepEqual(validar({ mapaUrl, redes }).datos, { mapaUrl, redes }, String(n))
+      // ...el servidor la publica en el estado de las páginas...
+      const comun = museoComun(armarMuseoPublico({ museo: { mapaUrl, redes } }, '2026-11-03'))
+      assert.equal(comun.mapaUrl, mapaUrl)
+      assert.deepEqual(comun.redes, redes)
+      // ...y el sitio la enlaza ("Abrir en Google Maps" en Visitas y Contacto, la red en Contacto y en el pie).
+      assert.equal(enlaceDelMapa(comun), mapaUrl, String(n))
+      assert.deepEqual(redesConocidas(comun.redes), [{ ...redes[0], nombre: 'Instagram' }], String(n))
+    }
+    // Más larga que URL_MAX: el panel la rechaza en su campo y el sitio tampoco la enlaza.
+    const demasiado = larga('https://www.google.com/maps/place/', URL_MAX + 1)
+    assert.ok(validar({ mapaUrl: demasiado }).campos?.mapaUrl)
+    assert.equal(enlaceDelMapa({ mapaUrl: demasiado }), null)
+    assert.deepEqual(redesConocidas([{ red: 'instagram', url: demasiado }]), [])
+    // Lo demás de esas reglas sigue igual: solo https, sin espacios ni invisibles; y los enlaces de los textos con
+    // formato siguen con su tope de 500 (el del esquema de los textos).
+    for (const mala of ['http://maps.example.com/x', 'https://maps.example.com/a b', 'https://exa​mple.com/x', 'javascript:alert(1)']) {
+      assert.equal(enlaceDelMapa({ mapaUrl: mala }), null, mala)
+      assert.deepEqual(redesConocidas([{ red: 'instagram', url: mala }]), [], mala)
+    }
+    assert.equal(esEnlacePermitido(larga('https://example.com/', ENLACE_MAX)), true)
+    assert.equal(esEnlacePermitido(larga('https://example.com/', ENLACE_MAX + 1)), false)
+  })
+
   test('museoPublico(): el último bueno si la base falla; el vacío si nunca respondió; el de ejemplo con SIN_BASE', async () => {
     const logs = escucharLogs()
     try {
@@ -565,18 +666,20 @@ describe('GET y PUT /museo, y el museo en las páginas', { skip: base.motivo ?? 
     assert.equal(museo.emailPublico, 'museo@example.com')
     assert.ok(!('emailDestinoContacto' in museo))
     assert.equal(museo.mapaEmbedUrl, EMBED)
-    assert.deepEqual(museo.compra, { url: 'https://entradas.example.com/mupa', texto: 'Comprá tu entrada' })
-    // Vencido (hasta el 01/01/2000): no sale.
-    assert.equal(museo.aviso, null)
+    // La compra, solo su dirección: el botón "Tickets" tiene el texto fijo (D4) y el texto cargado no sale.
+    assert.deepEqual(museo.compra, { url: 'https://entradas.example.com/mupa' })
+    assert.ok(!r.texto.includes('Comprá tu entrada'))
     assert.equal(museo.horarios.length, 7)
-    assert.deepEqual(museo.horarios[2], {
-      dia: 3,
-      abierto: true,
-      franjas: [{ abre: '10:00', cierra: '18:00' }],
-      nota: null,
-    })
+    assert.deepEqual(museo.horarios[2], { dia: 3, abierto: true, franjas: [{ abre: '10:00', cierra: '18:00' }] })
+    // Lo que el sitio ya no muestra (la Visitas del tablero, V1) no va en el estado (COD-01 y PAN-01).
+    for (const campo of ['aviso', 'tarifas', 'notaTarifas', 'notaHorarios']) assert.ok(!(campo in museo), campo)
+    assert.ok(!r.texto.includes('Cerrado por feriado') && !r.texto.includes('>General<') && !r.texto.includes('"General"'))
+    // leerMuseo lo sigue leyendo (lo usan los componentes que quedaron sin uso, hasta el cierre: D1): el aviso solo
+    // vigente (vencido el 01/01/2000: null) y las tarifas visibles en su orden.
+    const leido = await leerMuseo(base.sequelize)
+    assert.equal(leido.aviso, null)
     assert.deepEqual(
-      museo.tarifas.map((t) => [t.nombre, t.precio]),
+      leido.tarifas.map((t) => [t.nombre, t.precio]),
       [
         ['General', 3000],
         ['Menores', null],
@@ -587,12 +690,12 @@ describe('GET y PUT /museo, y el museo en las páginas', { skip: base.motivo ?? 
     assert.equal(noEsta.status, 404)
     assert.ok(!/destino\.secreto/i.test(noEsta.texto))
     assert.equal(estadoDe(noEsta.texto).museo.direccion, 'Avenida de prueba 1234')
-    // Lo que se guarda se ve en el pedido siguiente (sin caché).
+    // Lo que se guarda se lee en el pedido siguiente (sin caché), y un aviso vigente tampoco va en el estado.
     await put(editor, { avisoHasta: null })
-    assert.deepEqual(estadoDe((await s.pedir('GET', '/')).texto).museo.aviso, {
-      texto: 'Cerrado por feriado',
-      hasta: null,
-    })
+    assert.deepEqual((await leerMuseo(base.sequelize)).aviso, { texto: 'Cerrado por feriado', hasta: null })
+    const otra = await s.pedir('GET', '/')
+    assert.ok(!('aviso' in estadoDe(otra.texto).museo))
+    assert.ok(!otra.texto.includes('Cerrado por feriado'))
   })
   // Los textos de Visitas (E3.2): lo que da el editor (editor.getJSON()), con lo que TipTap agrega y el servidor saca.
   const TEXTO_EDITOR = {
@@ -720,7 +823,7 @@ describe('GET y PUT /museo, y el museo en las páginas', { skip: base.motivo ?? 
     assert.equal((await fila()).accesibilidad, null)
   })
 
-  test('los textos van solo en los datos de /visitas, no en el museo común (COD-04); con </script> el HTML sigue entero', async () => {
+  test('los textos no van en el museo común (COD-04): solo "Accesibilidad", en los datos de /visitas (V1); con </script> el HTML sigue entero', async () => {
     const malicioso = '</script><script>alert(1)</script><!--'
     assert.equal((await put(editor, { accesibilidad: unParrafo(malicioso) })).status, 200)
     // La Home (y cualquier otra página) no los lleva.
@@ -728,20 +831,20 @@ describe('GET y PUT /museo, y el museo en las páginas', { skip: base.motivo ?? 
     assert.equal(home.status, 200)
     for (const campo of ['comoLlegar', 'normas', 'accesibilidad']) assert.ok(!(campo in estadoDe(home.texto).museo), campo)
     assert.ok(!home.texto.includes('No se come en las salas'))
-    // /visitas sí, en sus datos.
+    // /visitas sí, en sus datos: desde la Visitas del tablero "Web" (03/11/2026, V1), solo "Accesibilidad", el único
+    // que muestra ("Cómo llegar" y las normas siguen en la base y en el panel, pero el sitio ya no los lleva).
     const r = await s.pedir('GET', '/visitas')
     assert.equal(r.status, 200)
     assert.ok(!r.texto.includes('<script>alert(1)'), 'el texto no sale como HTML')
     const { datos, museo } = estadoDe(r.texto)
     assert.ok(!('comoLlegar' in museo))
-    assert.deepEqual(datos.comoLlegar, TEXTO_CANONICO)
-    assert.deepEqual(datos.normas, unParrafo('No se come en las salas.'))
-    assert.deepEqual(datos.accesibilidad, unParrafo(malicioso))
+    assert.deepEqual(datos, { accesibilidad: unParrafo(malicioso) })
+    assert.ok(!r.texto.includes('No se come en las salas'))
     // Lo que alguien escribió a mano en la base y el esquema no admite no se publica.
     await sql(
-      `UPDATE museo SET normas = '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"x","marks":[{"type":"link","attrs":{"href":"javascript:alert(1)"}}]}]}]}' WHERE id = 1`,
+      `UPDATE museo SET accesibilidad = '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"x","marks":[{"type":"link","attrs":{"href":"javascript:alert(1)"}}]}]}]}' WHERE id = 1`,
     )
-    assert.equal(estadoDe((await s.pedir('GET', '/visitas')).texto).datos.normas, null)
+    assert.equal(estadoDe((await s.pedir('GET', '/visitas')).texto).datos.accesibilidad, null)
     await sql('UPDATE museo SET normas = NULL, accesibilidad = NULL WHERE id = 1')
   })
 

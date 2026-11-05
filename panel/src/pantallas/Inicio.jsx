@@ -6,7 +6,8 @@
 // E4.9, el aviso del correo (plan 8, punto 4: los mensajes del formulario que no salen por correo, desde cuándo y
 // cuántos, para los dos roles; el enlace a Mensajes, solo para un admin) y, en "Formulario de contacto", si está en el
 // sitio. Los que no salieron por algo que no es la casilla (la base tardó en dar el destino, se guardaron tarde: CON-08
-// de la verificación de E4) van en un aviso aparte, que no habla de la casilla.
+// de la verificación de E4) van en un aviso aparte, que no habla de la casilla. Desde la Visitas del tablero "Web" de la
+// diseñadora (03/11/2026; V2 del desarrollador) "Para completar" ya no pide las tarifas: el sitio no las muestra.
 import { useEffect, useState } from 'react'
 import { Link, useLoaderData } from 'react-router'
 import { api } from '../api.js'
@@ -28,7 +29,6 @@ const PARA_COMPLETAR = {
     donde: 'Datos del museo',
   },
   horario: { texto: 'El horario de visita: todavía no hay ningún día abierto', a: '/visitas', donde: 'Visitas' },
-  tarifas: { texto: 'Las tarifas: todavía no hay ninguna visible', a: '/visitas', donde: 'Visitas' },
 }
 
 // Las tareas diarias (server/tareas.js, NOMBRES).
@@ -55,7 +55,7 @@ function espacioPorLlenarse(espacio) {
 const ACCESOS = [
   { a: '/novedades', titulo: 'Novedades', texto: 'Noticias y actividades: talleres, charlas, visitas especiales.' },
   { a: '/exposiciones', titulo: 'Exposiciones', texto: 'Las muestras y las salas del museo, y su orden.' },
-  { a: '/visitas', titulo: 'Visitas', texto: 'Horarios, tarifas, avisos de cierre y compra de entradas.' },
+  { a: '/visitas', titulo: 'Visitas', texto: 'El horario, el texto de accesibilidad y la compra de entradas.' },
   { a: '/museo', titulo: 'Datos del museo', texto: 'Dirección, teléfono, correos, mapa y redes.' },
   { a: '/mensajes', titulo: 'Mensajes', texto: 'Los mensajes del formulario de contacto del sitio.', rol: 'admin' },
   { a: '/usuarios', titulo: 'Usuarios', texto: 'Cuentas del panel, roles y contraseñas temporales.', rol: 'admin' },
@@ -192,7 +192,7 @@ export default function Inicio() {
             </ul>
           </>
         ) : (
-          <p className="mt-2">Están cargados los datos básicos del museo, el horario y las tarifas.</p>
+          <p className="mt-2">Están cargados los datos básicos del museo y el horario.</p>
         )}
       </section>
 

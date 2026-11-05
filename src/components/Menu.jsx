@@ -1,62 +1,61 @@
 import { navegacion } from '../content.js'
+import { marcaActual, seccionesDelMenu } from './navegacion.js'
+import { BOTON_NARANJA } from './tablero.js'
 
-// Aspecto provisorio hasta el diseño del header y el menú (E6.3): solo clases y orden; los datos y la lógica no cambian.
-//
-// El menú del sitio en pantallas anchas (plan 6.7): Exposiciones, Visitas, Novedades, Contacto y "Comprar entradas" si
-// la compra externa está activa. Va a la derecha del logo, en el header (Header.jsx); debajo de xl va el botón "Menú"
-// (MenuMovil.jsx), porque los cinco no entran al lado del logo de 458 px: medido el 19/10/2026 en Chrome con la fuente
-// del sitio, los cuatro enlaces y "Comprar entradas" ocupan 595,5 px, y entre el logo y el margen derecho quedan 401 a
-// 1024 de ancho (lg) y 657 a 1280 (xl: 62 px libres entre el logo y el menú). Un texto de compra largo (el panel admite
-// 40 caracteres) corta en dos renglones dentro de su recuadro (max-w de 13rem): el menú mide como mucho 629 px y entra
-// igual a 1280. Con la letra del navegador agrandada, el que se achica es el logo (Logo.jsx, min-w-0).
+// El menú del sitio en pantallas anchas (plan 6.7; el del tablero "Web" de la diseñadora, Figma, 02/11/2026): El Museo,
+// Visitas, Divulgación, Educación y Circuitos, en ese orden, cada una solo si su página existe (navegacion.js: hoy solo
+// Visitas; las demás aparecen solas cuando se construya su página), y el botón naranja de entradas si la compra externa
+// está activa (estado.museo.compra), con el texto fijo de content.js ("Tickets"). Sin el selector de idioma del tablero
+// (fuera del alcance).
+// - Roboto Mono Regular 16/28,8 en blanco, 24 px entre ítems; el botón, Roboto Mono 14/28 sobre el naranja (texto
+//   #010101 y no blanco: tablero.js, BOTON_NARANJA). Cada enlace mide 44 px de alto (el tablero los dibuja de 65 con 18
+//   de padding: el texto queda en el mismo lugar porque el header centra la fila en sus 128).
+// - El tablero no dibuja ni la sección actual, ni el paso del puntero, ni el foco: aria-current lleva un subrayado
+//   naranja de 2 px (marca sutil que no cambia nada de lugar), el puntero un subrayado de 1 px y el foco un contorno
+//   blanco.
+// - El subrayado naranja lleva un borde de 1 px en #010101 arriba y abajo (A11Y-01 de la verificación de Visitas,
+//   03/11/2026): sobre una foto (el header va encima del hero en Visitas y en las páginas internas que vengan) el naranja
+//   quedaba con poco contraste donde la foto es clara (la mano: bajo 3:1 desde ~2200 px en la verificación y, con el
+//   encuadre de FID-01, en 6 de sus 134 píxeles a 1920). Con el borde, lo que está pegado al naranja es siempre #010101
+//   (6,3:1); sobre el fondo oscuro no se ve. Son dos subrayados anidados: el del enlace, de 4 px en #010101 y 1 px más
+//   arriba, y el del texto (un <span>), el naranja de 2 px en su lugar de siempre, que se pinta encima (desvío a
+//   confirmar con la diseñadora, como el halo del h1). El menú del celular no lo necesita: va sobre su fondo (#010101).
+// - Va desde xl (Header.jsx): con las cinco secciones y el botón el menú mide ~643 px y, con el logo de 272 y los
+//   márgenes de 64, necesita ~1060 de pantalla (a 1024 no entra; a 1280 sobran ~220). Debajo de xl, MenuMovil.jsx.
 
-// Cuándo un enlace del menú es el de la página: aria-current="page" en la página misma y "true" dentro de su sección
-// (la ficha de una muestra está dentro de Exposiciones). Con la ruta del estado: igual en el servidor y en el navegador.
-export function marcaActual(ruta, destino) {
-  if (ruta === destino) return 'page'
-  if (typeof ruta === 'string' && ruta.startsWith(`${destino}/`)) return 'true'
-  return undefined
-}
-
-// El texto del enlace de compra: el que cargó el museo o el de content.js.
-export const textoCompra = (compra) => compra?.texto || navegacion.comprar
-
-// Sombra detrás del texto: en la Home el menú va sobre la foto del hero, arriba del degradé (Hero.jsx), y con ella se
-// lee también donde el cielo es claro. En las otras páginas va sobre el fondo y no se ve.
-const SOBRE_FOTO = '[text-shadow:0_0_0.75rem_rgb(14_16_13/0.85),0_1px_2px_rgb(14_16_13/0.7)]'
-
-const ENLACE =
-  'block rounded-sm py-2 text-[1.0625rem] leading-6 text-paper underline-offset-[0.4em] decoration-1 transition-colors ' +
-  'hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-paper'
-const ACTUAL = 'underline decoration-naranja decoration-2'
+const ENLACE_BASE =
+  'flex min-h-11 items-center rounded-sm font-mono text-base leading-[1.8] text-blanco focus-visible:outline-2 ' +
+  'focus-visible:outline-offset-2 focus-visible:outline-blanco'
+const ENLACE = ENLACE_BASE + ' decoration-1 underline-offset-[0.4em] hover:underline'
+// La sección actual: el borde oscuro (el subrayado del enlace) y el naranja (el del texto, ACTUAL_TEXTO).
+const ACTUAL = ENLACE_BASE + ' underline decoration-ink decoration-4 underline-offset-[calc(0.4em-1px)]'
+const ACTUAL_TEXTO = 'underline decoration-naranja decoration-2 underline-offset-[0.4em]'
 
 /**
- * @param {{ ruta: string | null, compra: { url: string, texto: string | null } | null, className?: string }} props
+ * @param {{ ruta: string | null, compra: { url: string } | null, className?: string }} props
  *   ruta: la de la página (estado.ruta; null en la 404); compra: estado.museo.compra (solo viene si está activa)
  */
 export default function Menu({ ruta, compra, className = '' }) {
+  const secciones = seccionesDelMenu()
+  if (secciones.length === 0 && !compra) return null
   return (
-    <nav aria-label={navegacion.etiqueta} className={`${SOBRE_FOTO} ${className}`}>
-      <ul className="flex items-center gap-x-7">
-        {navegacion.secciones.map((s) => {
+    <nav aria-label={navegacion.etiqueta} className={className}>
+      <ul className="flex items-center gap-x-6">
+        {secciones.map((s) => {
           const actual = marcaActual(ruta, s.ruta)
           return (
             <li key={s.ruta} className="shrink-0">
-              <a href={s.ruta} aria-current={actual} className={actual ? `${ENLACE} ${ACTUAL}` : ENLACE}>
-                {s.texto}
+              <a href={s.ruta} aria-current={actual} className={actual ? ACTUAL : ENLACE}>
+                {actual ? <span className={ACTUAL_TEXTO}>{s.texto}</span> : s.texto}
               </a>
             </li>
           )
         })}
         {compra ? (
-          <li>
+          <li className="shrink-0">
             {/* data-entradas: el clic lo mide la analítica (clic_entradas, plan 6.6). */}
-            <a
-              href={compra.url}
-              data-entradas=""
-              className="block max-w-[13rem] rounded-md border-[1.5px] border-naranja px-4 py-2 text-center text-[1.0625rem] leading-6 text-balance text-paper transition-colors hover:bg-naranja hover:text-ink hover:[text-shadow:none] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-paper"
-            >
-              {textoCompra(compra)}
+            <a href={compra.url} data-entradas="" className={BOTON_NARANJA}>
+              {navegacion.entradas}
             </a>
           </li>
         ) : null}

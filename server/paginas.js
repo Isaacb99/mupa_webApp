@@ -1,7 +1,7 @@
 // Los datos de cada página interna del sitio (E4.2 a E4.5; plan 6.1 y 6.2): lo que devuelve el cargar() de cada ruta de
-// server/rutas-publicas.js, que va a estado.datos. Objetos planos y con todo lo que se muestra ya como texto (fechas,
-// situaciones, precios, "Hoy (jueves)"): el navegador no calcula nada que pueda cambiar entre el servidor y él (la
-// fecha, la zona horaria), así la hidratación dibuja lo mismo.
+// server/rutas-publicas.js, que va a estado.datos. Objetos planos y con todo lo que se muestra ya como texto (fechas y
+// situaciones): el navegador no calcula nada que pueda cambiar entre el servidor y él (la fecha, la zona horaria), así
+// la hidratación dibuja lo mismo.
 //
 // Cada cargar(ctx) recibe { params, consulta, hoy, ahora, lector, museo }: params de la ruta (el slug), consulta
 // (req.query), hoy ("AAAA-MM-DD" en San Juan) y ahora (Date), los dos del pedido; lector: los contenidos publicados
@@ -16,9 +16,9 @@ import { urlPublica } from '../compartido/contenidos.js'
 import { actividadRealizada, situacionDeMuestra, SITUACIONES_MUESTRA } from '../compartido/estados.js'
 import { cuandoEs, diaDeLaSemana, fechaLarga, hoyEnSanJuan, localDeInstante, nombreDelDia, periodo } from '../compartido/fechas.js'
 import { DIAS, textoFranjas } from '../compartido/horarios.js'
-import { textoPrecio } from '../compartido/precios.js'
 import { esMarcaDeEnviado } from './contacto.js'
 import { NOVEDADES_POR_PAGINA } from './contenido-publico.js'
+import { log } from './log.js'
 
 /** Lo que devuelve un cargar() para mandar a otra dirección (301). */
 export class Redireccion {
@@ -53,6 +53,34 @@ function fechasDeMuestra(situacion, { fechaInicio, fechaFin }, enSuPagina) {
 }
 
 const salaDe = (sala) => (sala ? { nombre: sala.nombre, url: urlPublica('salas', sala.slug) } : null)
+
+// --- La Home (tablero "Web" de la diseñadora, 02/11/2026) ---
+
+/**
+ * /: las últimas novedades publicadas para el carrusel (server/contenido-publico.js, ultimasNovedades: 6, sin las
+ * actividades realizadas), como tarjetas { titulo, url, resumen, portada }. Lo demás de la Home está en src/content.js
+ * y el museo (la compra externa, para "Tickets") va aparte en el estado.
+ * La Home sale siempre (plan 6.3): si la base falla o no contesta en TOPE_HOME_MS, sin novedades, y la sección no se
+ * dibuja; nunca la 503. Cualquier otra falla al leerlas, igual (queda en el log).
+ */
+export async function cargarHome({ ahora, lector }) {
+  try {
+    const novedades = await lector.ultimasNovedades({ ahora })
+    return {
+      novedades: novedades.map((n) => ({
+        titulo: n.titulo,
+        url: urlPublica('novedades', n.slug),
+        resumen: n.resumen,
+        portada: n.portada,
+      })),
+    }
+  } catch (err) {
+    // Con el mensaje de la causa: hay fallas de la base sin código ("timeout expired" con la base muda).
+    if (err?.code === 'BASE_NO_DISPONIBLE') log('aviso', 'home_sin_novedades', { mensaje: err.mensajeCausa, codigo: err.causa })
+    else log('error', 'home_sin_novedades', err)
+    return { novedades: [] }
+  }
+}
 
 /**
  * /exposiciones: las muestras actuales, próximas y permanentes publicadas (como tarjetas: { titulo, url, resumen,
@@ -106,12 +134,14 @@ export async function cargarMuestra({ params, hoy, lector }) {
   }
 }
 
-// --- Visitas (E4.3) ---
+// --- Visitas (E4.3; desde el 03/11/2026, la del tablero "Web" de la diseñadora) ---
 
 /**
  * El horario de la semana para la tabla: un renglón por día, con "Hoy (jueves)" en el de hoy y las franjas como texto
  * (null: cerrado). Si ningún día abre (lo que deja la migración con el horario sin cargar), vacío: no se dibuja (como
- * el pie, compartido/horarios.js).
+ * el resumen de compartido/horarios.js).
+ * Sin uso desde la Visitas del tablero (03/11/2026, decisión V3: la tarjeta Horarios muestra solo el resumen, sin la
+ * tabla ni "Hoy"): queda, como TablaHorarios.jsx, hasta que se decida al cierre (D1).
  */
 export function horarioDeLaSemana(horarios, hoy) {
   const dias = (Array.isArray(horarios) ? horarios : []).filter((h) => Number.isInteger(h?.dia) && h.dia >= 1 && h.dia <= 7)
@@ -128,29 +158,18 @@ export function horarioDeLaSemana(horarios, hoy) {
 }
 
 /**
- * /visitas: el horario, las tarifas visibles, sus notas, el aviso vigente, la compra externa y los tres textos con
- * formato del museo (que van solo acá: COD-04 de E3). Sale del museo del pedido: si la base no respondió (el último
- * bueno), la 503 simple (plan 6.3).
+ * /visitas (tablero "Web", decisión V1): el texto con formato "Accesibilidad" del museo (los textos con formato van
+ * solo en los datos de esta página: COD-04 de E3), que la página dibuja en "Museo accesible" (null: los párrafos del
+ * tablero, src/content.js). Las tarjetas Dirección, Horarios y Contacto y el mapa salen de estado.museo, que ya lleva
+ * todo eso (server/museo.js, museoComun). Lo que la página dejó de mostrar ya no se carga: el horario de la semana con
+ * "Hoy", las notas de horario, las tarifas y su nota, el aviso, la compra (sigue en el header, desde estado.museo),
+ * "Cómo llegar" y las normas. Sale del museo del pedido: si la base no respondió (el último bueno), la 503 simple
+ * (plan 6.3), como siempre.
  */
-export async function cargarVisitas({ hoy, museo: leerMuseo }) {
+export async function cargarVisitas({ museo: leerMuseo }) {
   const { museo, alDia } = await leerMuseo()
   if (!alDia) throw sinDatosAlDia()
-  return {
-    horario: horarioDeLaSemana(museo.horarios, hoy),
-    notaHorarios: museo.notaHorarios ?? null,
-    aviso: museo.aviso?.texto ?? null,
-    tarifas: (museo.tarifas ?? []).map((t) => ({
-      nombre: t.nombre,
-      // null: gratuita (el sitio dice "Gratis", content.js).
-      precio: t.gratuita || !Number.isInteger(t.precio) ? null : textoPrecio(t.precio),
-      condicion: t.condicion ?? null,
-    })),
-    notaTarifas: museo.notaTarifas ?? null,
-    compra: museo.compra ?? null,
-    comoLlegar: museo.comoLlegar ?? null,
-    normas: museo.normas ?? null,
-    accesibilidad: museo.accesibilidad ?? null,
-  }
+  return { accesibilidad: museo.accesibilidad ?? null }
 }
 
 // --- Novedades (E4.4) ---

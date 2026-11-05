@@ -1,3 +1,7 @@
+// Sin uso desde la Visitas del tablero "Web" (03/11/2026, V1 y V2): el sitio ya no muestra las tarifas y solo lo
+// importan panel/src/pantallas/visitas/Tarifas.jsx, que la pantalla Visitas ya no usa, y su prueba
+// (server/pruebas/visitas.test.js). Queda hasta que se decida al cierre (D1).
+//
 // Precios de las tarifas (plan 3.2: pesos, sin centavos). Código puro, sin zod: lo puede usar también el sitio
 // público (E4.3), que no importa compartido/esquemas/ (plan 6.2).
 

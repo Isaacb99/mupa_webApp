@@ -29,8 +29,8 @@
 //   también "Salir") y el navegador avisa antes de cerrar o recargar la pestaña (beforeunload). Para guardar e irse
 //   en el mismo clic: liberar() y después navigate(), porque el estado "ya no está sucio" llega recién en el próximo
 //   dibujo. Una sola pantalla a la vez puede usarlo (React Router admite un bloqueo por vez). Con detalle (un texto),
-//   la pregunta dice además qué falta guardar: Visitas, con cuatro formularios en una pantalla larga, pasa "Falta
-//   guardar: Horario semanal y Aviso general.".
+//   la pregunta dice además qué falta guardar: Visitas, con tres formularios en una pantalla larga, pasa "Falta
+//   guardar: Horario semanal y Accesibilidad.".
 // - descartarCambiosSinGuardar(): ya no hay nada que guardar (la contraseña temporal venció): ni la pregunta ni el
 //   aviso del navegador, en ninguna pantalla, hasta que se recargue la página.
 import { useCallback, useEffect, useRef, useState } from 'react'

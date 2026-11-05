@@ -1,70 +1,62 @@
-import { resumirHorario } from '../../compartido/horarios.js'
-import { navegacion, pie, site, ui } from '../content.js'
-import { correoPublico, enlaceTelefono, redesConocidas, renglonesDireccion } from './datosMuseo.js'
-import { marcaActual } from './Menu.jsx'
+import { pie, site, ui } from '../content.js'
+import { redesConocidas } from './datosMuseo.js'
+import { marcaActual, seccionesDelSitio } from './navegacion.js'
 
-// Aspecto provisorio hasta el diseño del pie (E6.3): solo clases y orden; los datos y la lógica no cambian.
-//
-// Pie de todas las páginas (plan 6.7). Arriba, como hasta E4.1: el nombre del museo a la izquierda y los logos de la
-// UNSJ y de Gobierno a la derecha. Debajo, las secciones del sitio (las del menú, con aria-current como en el header):
-// andan sin JavaScript y antes de que cargue, cuando el botón "Menú" del celular todavía no abre nada (A11Y-03 de la
-// verificación de E4). Después, los datos que el museo carga en el panel (estado.museo, server/museo.js):
-// dirección, horario resumido (compartido/horarios.js), teléfono (tel:), correo público (mailto:) y redes, con su
-// nombre como texto del enlace (datosMuseo.js). Al final, el © y la línea de privacidad (content.js, solo si existe).
-// Lo que no está cargado no se dibuja, ni su rótulo (plan 6.1: nunca "Contenido pendiente"): con el museo vacío queda
-// el pie de la landing. Probado con el museo máximo y con el vacío (SIN_BASE=maximo / vacio).
-// Es el único <footer> de la página: lo buscan la analítica (ver_pie, solo en la Home) y el acordeón de Áreas en el
-// iPhone (deslizarAparicion.js), y su alto es el final de la página del acordeón (plan 6.7: cada cambio del pie,
-// acordeon-dedo y areas-check otra vez). Sin fondo propio: deslizarAparicion le pone el del sitio mientras baja.
-// Los enlaces miden 44 px de alto (el mínimo para el dedo, como en el panel: A11Y-01) y de ancho ("Visitas" medía 43:
-// A11Y-07), y lo largo (una dirección, una nota) se parte en vez de ensanchar la página (PAG-01). La navegación de las
-// secciones se llama distinto que la del header y la de la 404 (pie.secciones de content.js). Los logos blancos llevan data-logo-blanco: con colores
-// forzados en un tema claro, index.css los invierte (A11Y-04).
+// Pie de todas las páginas (plan 6.7; el del tablero "Web" de la diseñadora, Figma, 02/11/2026, decisión D5).
+// - Arriba, la fila del tablero: a la izquierda la marca MuPa de 120x40 y, 16 px debajo, "© <año> MUPA - Museo
+//   Paleontológico de San Juan" (Google Sans Flex 12/16 en gris); a la derecha, los logos de la UNSJ y de Gobierno con su
+//   texto, de 42 px de alto y 24 entre sí. Borde de 1 px #2c2c2c arriba, 40 de padding arriba y abajo y 80 a los
+//   costados (contenido de 1280 a 1440, como las secciones). El año lo pone el servidor en el estado (estado.anio, la
+//   fecha de San Juan): nunca se calcula en el navegador (la hidratación compararía dos años distintos el 31/12).
+// - Debajo, una fila discreta que el tablero no tiene (desvío a confirmar con la diseñadora): la navegación "Secciones
+//   del sitio (pie de página)" con todas las páginas que existen (navegacion.js: hoy Visitas, Exposiciones, Novedades y
+//   Contacto; las nuevas se suman solas) y las redes que cargó el museo (estado.museo.redes; si no hay, nada), en Roboto
+//   Mono 14 gris. Andan sin JavaScript y antes de que cargue, cuando el botón "Menú" del celular todavía no abre nada
+//   (A11Y-03 de la verificación de E4). Sin dirección, horario, teléfono ni correo: los muestran Visitas y Contacto.
+// - La línea de privacidad (content.js), solo cuando el museo mande el texto.
+// - La marca va sin alt (alt=""): repite el nombre que dice el © de al lado. Los logos sí lo llevan (son información).
+// Es el único <footer> de la página: lo busca la analítica (ver_pie, en la Home). Sin fondo propio: va sobre el del
+// sitio. En la rama landing lo buscaba también el acordeón de Áreas en el iPhone (deslizarAparicion.js, que le ponía
+// el fondo mientras bajaba) y su alto era el final de la página del acordeón; master ya no los usa.
+// Los enlaces miden 44 px de alto y de ancho, el mínimo para el dedo (A11Y-01 y A11Y-07); lo largo se parte en vez de
+// ensanchar la página (PAG-01). La navegación de las secciones se llama distinto que la del header y la de la 404
+// (A11Y-07). Las imágenes blancas llevan data-logo-blanco: con colores forzados en un tema claro, index.css las
+// invierte (A11Y-04).
 
 const ENLACE_BASE =
-  'inline-flex min-h-11 min-w-11 max-w-full items-center rounded-sm underline underline-offset-4 transition-colors ' +
-  'hover:decoration-paper focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-paper'
-const ENLACE = `${ENLACE_BASE} decoration-paper/40`
-// La sección de la página, subrayada en naranja como en el menú.
-const ENLACE_ACTUAL = `${ENLACE_BASE} decoration-naranja decoration-2`
-
-// "9:00 a 13:00" no se parte en dos renglones (sí entre una franja y otra).
-const sinCortes = (horas) => horas.replace(/(\d+:\d\d) a (\d+:\d\d)/g, '$1\u00a0a\u00a0$2')
-
-function Bloque({ titulo, children }) {
-  return (
-    <div className="min-w-0">
-      <h2 className="font-mono text-xs font-medium tracking-[0.14em] text-muted uppercase">{titulo}</h2>
-      <div className="mt-3 text-[0.9375rem] leading-relaxed font-light text-paper wrap-anywhere">{children}</div>
-    </div>
-  )
-}
+  'inline-flex min-h-11 min-w-11 max-w-full items-center rounded-sm font-mono text-sm leading-5 wrap-anywhere ' +
+  'decoration-1 underline-offset-4 transition-colors hover:text-paper hover:underline focus-visible:outline-2 ' +
+  'focus-visible:outline-offset-2 focus-visible:outline-paper'
+const ENLACE = `${ENLACE_BASE} text-muted`
+// La sección de la página: en crema y subrayada en naranja, como en el menú.
+const ENLACE_ACTUAL = `${ENLACE_BASE} text-paper underline decoration-naranja decoration-2`
 
 /**
- * @param {{ museo: object | null | undefined, ruta?: string | null }} props  museo: estado.museo, con la forma de
- *   MUSEO_VACIO; ruta: la de la página, para aria-current (null en la 404, como en el header)
+ * @param {{ museo: object | null | undefined, ruta?: string | null, anio?: number | null }} props  museo: estado.museo
+ *   (museoComun, server/museo.js: el pie usa solo las redes); ruta: la de la página, para aria-current (null en la 404,
+ *   como en el header); anio: estado.anio (el año en San Juan, del servidor)
  */
-export default function Pie({ museo, ruta = null }) {
-  const direccion = renglonesDireccion(museo)
-  const horario = resumirHorario(museo?.horarios)
-  const telefono = enlaceTelefono(museo?.telefono)
-  const correo = correoPublico(museo?.emailPublico)
+export default function Pie({ museo, ruta = null, anio = null }) {
   const redes = redesConocidas(museo?.redes)
   const instituciones = (pie.instituciones ?? []).filter((i) => i.logo)
-  const hayDatos = direccion.length > 0 || horario.lineas.length > 0 || telefono || correo || redes.length > 0
+  const secciones = seccionesDelSitio()
+  const legal = Number.isInteger(anio) ? `© ${anio} ${pie.legal}` : `© ${pie.legal}`
 
   return (
     <footer className="border-t border-line">
-      <div className="mx-auto w-full max-w-sitio px-6 py-10 md:px-10">
-        {/* lg:items-center: los logos miden 32 px y el bloque de la izquierda 76, así que alineados arriba se veían
-            más altos (lo notó el desarrollador el 25/09/2026); centrados quedan a la altura del bloque. */}
+      <div className="mx-auto w-full max-w-tablero px-6 py-10 md:px-10 lg:px-20">
         <div className="flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <p className="font-display text-2xl tracking-tight text-paper">{site.nombre}</p>
-            <p className="mt-1 text-sm text-muted">
-              <span className="block">{site.nombreCompleto}</span>
-              <span className="block">{site.lugar}</span>
-            </p>
+          <div className="flex flex-col items-start gap-4">
+            <img
+              src={site.logo.marca}
+              alt=""
+              width={120}
+              height={40}
+              loading="lazy"
+              data-logo-blanco=""
+              className="block h-10 w-30"
+            />
+            <p className="text-xs leading-4 text-muted">{legal}</p>
           </div>
 
           {instituciones.length > 0 ? (
@@ -78,7 +70,7 @@ export default function Pie({ museo, ruta = null }) {
                     height={alto}
                     loading="lazy"
                     data-logo-blanco=""
-                    className="h-8 w-auto"
+                    className="h-[2.625rem] w-auto"
                   />
                 </li>
               ))}
@@ -86,105 +78,40 @@ export default function Pie({ museo, ruta = null }) {
           ) : null}
         </div>
 
-        <nav aria-label={pie.secciones} className="mt-8">
-          {/* gap-x de 23 px y no 24 (LIM-04 de la verificación de la limpieza, 27/10/2026): con el min-w-11 de los
-              enlaces, "Visitas" pasó de 43 a 44 px y a 390 de ancho (el iPhone 12 a 16) "Contacto" bajaba a un segundo
-              renglón y el pie crecía 44 px. Con 23, las cuatro entran en un renglón desde 388 px, como antes desde
-              390, y el pie mide lo mismo que antes en los anchos de las recetas. */}
-          <ul className="flex flex-wrap gap-x-[1.4375rem] text-[0.9375rem] font-light">
-            {navegacion.secciones.map((s) => {
-              const actual = marcaActual(ruta, s.ruta)
-              return (
-                <li key={s.ruta}>
-                  <a href={s.ruta} aria-current={actual} className={actual ? ENLACE_ACTUAL : ENLACE}>
-                    {s.texto}
-                  </a>
-                </li>
-              )
-            })}
-          </ul>
-        </nav>
-
-        {hayDatos ? (
-          <div className="mt-10 grid gap-x-12 gap-y-8 sm:grid-cols-2 lg:grid-cols-4">
-            {direccion.length > 0 ? (
-              <Bloque titulo={pie.direccion}>
-                <address className="not-italic">
-                  {direccion.map((renglon, i) => (
-                    <span key={i} className="block">
-                      {renglon}
-                    </span>
-                  ))}
-                </address>
-              </Bloque>
-            ) : null}
-
-            {horario.lineas.length > 0 ? (
-              <Bloque titulo={pie.horario}>
-                <ul>
-                  {horario.lineas.map((l, i) => (
-                    <li key={i}>
-                      {l.dias}: {l.horas ? sinCortes(l.horas) : pie.cerrado}
-                    </li>
-                  ))}
-                </ul>
-                {horario.notas.length > 0 ? (
-                  <ul className="mt-2 text-sm text-muted">
-                    {horario.notas.map((n, i) => (
-                      <li key={i}>
-                        {n.dias}: {n.texto}
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
-              </Bloque>
-            ) : null}
-
-            {telefono || correo ? (
-              <Bloque titulo={pie.contacto}>
-                <ul>
-                  {telefono ? (
-                    <li>
-                      {telefono.href ? (
-                        <a href={telefono.href} className={ENLACE}>
-                          {telefono.texto}
+        {secciones.length > 0 || redes.length > 0 ? (
+          <div className="mt-8 flex flex-col gap-x-12 gap-y-2 lg:flex-row lg:items-start lg:justify-between">
+            {secciones.length > 0 ? (
+              <nav aria-label={pie.secciones} className="min-w-0">
+                <ul className="flex flex-wrap gap-x-6">
+                  {secciones.map((s) => {
+                    const actual = marcaActual(ruta, s.ruta)
+                    return (
+                      <li key={s.ruta}>
+                        <a href={s.ruta} aria-current={actual} className={actual ? ENLACE_ACTUAL : ENLACE}>
+                          {s.texto}
                         </a>
-                      ) : (
-                        telefono.texto
-                      )}
-                    </li>
-                  ) : null}
-                  {correo ? (
-                    <li>
-                      <a href={`mailto:${correo}`} className={ENLACE}>
-                        {correo}
-                      </a>
-                    </li>
-                  ) : null}
+                      </li>
+                    )
+                  })}
                 </ul>
-              </Bloque>
+              </nav>
             ) : null}
 
             {redes.length > 0 ? (
-              <Bloque titulo={pie.redes}>
-                <ul className="flex flex-wrap gap-x-5">
-                  {redes.map((r, i) => (
-                    <li key={i}>
-                      <a href={r.url} className={ENLACE}>
-                        {r.nombre}
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              </Bloque>
+              <ul aria-label={pie.redes} className="flex min-w-0 flex-wrap gap-x-6">
+                {redes.map((r, i) => (
+                  <li key={i}>
+                    <a href={r.url} className={ENLACE}>
+                      {r.nombre}
+                    </a>
+                  </li>
+                ))}
+              </ul>
             ) : null}
           </div>
         ) : null}
 
-        <div className="mt-10 flex flex-col gap-2 text-xs text-muted md:flex-row md:justify-between md:gap-8">
-          <p>{pie.legal}</p>
-          {pie.privacidad ? <p>{pie.privacidad}</p> : null}
-        </div>
+        {pie.privacidad ? <p className="mt-6 text-xs leading-4 text-muted">{pie.privacidad}</p> : null}
       </div>
     </footer>
   )

@@ -1,7 +1,7 @@
 import { paginas } from '../content.js'
 
-// Aspecto provisorio hasta el diseño de las páginas internas (E6.3): solo clases y orden; los datos y la lógica no
-// cambian.
+// Sin uso desde la Visitas del tablero "Web" de la diseñadora (03/11/2026, decisión V3: la tarjeta Horarios muestra
+// solo el resumen): queda hasta que se decida al cierre (D1).
 //
 // El horario de la semana en Visitas: un renglón por día (de lunes a domingo), con el de hoy marcado ("Hoy (jueves)",
 // aria-current="date") y "Cerrado" en los días que no abre. Los textos llegan hechos del servidor (server/paginas.js,

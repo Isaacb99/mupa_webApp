@@ -1,5 +1,7 @@
 // Datos del museo (plan 3.2, 4.3 y 5.3): PUT /administracion/api/museo, desde las pantallas Datos del museo y
-// Visitas (las notas de horarios y tarifas, el aviso general y la compra externa). Solo servidor y panel.
+// Visitas (desde el 03/11/2026, el texto "Accesibilidad" y la compra externa: activa y su dirección; hasta entonces
+// también las notas de horarios y tarifas, el aviso general, el texto del botón, "Cómo llegar" y las normas). Solo
+// servidor y panel.
 //
 // El PUT es PARCIAL: cambia solo los campos que trae (cada pantalla manda los suyos, así una no pisa lo que guardó la
 // otra) y tiene que traer al menos uno. Lo que no está en el esquema se descarta (z.object quita las claves de más): a

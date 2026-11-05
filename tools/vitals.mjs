@@ -5,6 +5,7 @@
 // (1,6 Mbps de bajada, 150 ms de latencia, CPU x4). Son medidas de laboratorio: sirven para comparar un build con otro
 // en la misma máquina, no como valor absoluto.
 // Uso: node tools/vitals.mjs [--url http://127.0.0.1:5181/] [--perfil movil|escritorio] [--veces 3] [--consola]
+//   [--con-externos]
 //   --consola agrega:
 //   - consola: los errores y avisos de la consola (p. ej. los de hidratación de React) y los del navegador que no
 //     pasan por console (dominio Log de CDP: los de seguridad, como las violaciones de CSP, y los de JavaScript);
@@ -13,6 +14,14 @@
 //     la página).
 //   Las dos listas tienen que venir vacías. Si el documento respondió 500 o más, sale con código 1: no se hidrató
 //   nada y una consola vacía no prueba nada. documento: el estado HTTP de la página (una 404 a propósito da 404).
+// Con una URL local (127.0.0.1, localhost o [::1]) nada sale de esta máquina, como en measure.mjs: Chrome no
+// resuelve ningún otro nombre (el <iframe> del mapa de Visitas y Contacto, que con un museo de prueba pedía
+// www.google.com y daba un 400 en fallidos: COD-02 de la verificación de Visitas, 03/11/2026; UserWay; Google
+// Analytics, que igual no mide con --enable-automation). Lo de afuera falla sin respuesta: no cuenta en fallidos ni en
+// lo transferido. --con-externos lo deja salir (para medir en local el costo real del mapa, con una dirección de
+// verdad). Contra mupa.ar o Render, todo sale siempre. La regla se aplica también a las direcciones IP: [::1] va
+// excluida como ::1, sin corchetes (sin excluirla, una URL [::1] no cargaba: 04/11/2026, corrección 2 de Visitas).
+// acordeon-dedo.mjs (rama landing) lo hace solo con 127.0.0.1 y localhost: con [::1], sale todo.
 import { spawn } from 'node:child_process'
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -32,6 +41,8 @@ const url = opt('--url', 'http://127.0.0.1:5181/')
 const perfil = opt('--perfil', 'movil')
 const veces = Number(opt('--veces', 3))
 const conConsola = bandera('--consola')
+const conExternos = bandera('--con-externos')
+const soloLocal = !conExternos && ['127.0.0.1', 'localhost', '[::1]'].includes(new URL(url).hostname)
 
 const PERFILES = {
   // Moto G Power de Lighthouse: 412x823 a 2,625x; red "Slow 4G" y CPU x4.
@@ -74,7 +85,17 @@ async function medir() {
   // Puerto 0: Chrome elige uno libre y lo anota en DevToolsActivePort (un puerto al azar podía chocar con otra corrida).
   const chrome = spawn(
     process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe',
-    ['--headless=new', '--enable-automation', '--disable-gpu', '--hide-scrollbars', '--remote-debugging-port=0', `--user-data-dir=${profile}`, '--window-size=1280,900', 'about:blank'],
+    [
+      '--headless=new',
+      '--enable-automation',
+      ...(soloLocal ? ['--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1, EXCLUDE ::1, EXCLUDE localhost'] : []),
+      '--disable-gpu',
+      '--hide-scrollbars',
+      '--remote-debugging-port=0',
+      `--user-data-dir=${profile}`,
+      '--window-size=1280,900',
+      'about:blank',
+    ],
     { stdio: 'ignore' },
   )
   try {
@@ -212,6 +233,7 @@ const ultima = corridas.at(-1)
 const salida = {
   url,
   perfil,
+  externos: soloLocal ? 'bloqueados (URL local)' : 'permitidos',
   documento: ultima.documento,
   corridas: corridas.length,
   ttfb: mediana(corridas.map((c) => c.ttfb)),

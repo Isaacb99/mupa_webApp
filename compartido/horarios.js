@@ -1,14 +1,18 @@
-// El horario semanal del museo como lo lee una persona (E4.1): el resumen del pie ("Martes a domingo: 9:00 a 13:00 y
-// 17:00 a 21:00", "Lunes: cerrado") y los nombres de los días. Código puro, SIN zod: lo usa el sitio público, que no
-// importa compartido/esquemas/ (plan 6.2); el esquema del PUT (compartido/esquemas/horarios.js) toma de acá los días.
+// El horario semanal del museo como lo lee una persona (E4.1): el resumen ("Martes a domingo: 9:00 a 13:00 y 17:00 a
+// 21:00", "Lunes: cerrado") y los nombres de los días. Código puro, SIN zod: lo usa el sitio público, que no importa
+// compartido/esquemas/ (plan 6.2); el esquema del PUT (compartido/esquemas/horarios.js) toma de acá los días.
+// Hasta el pie del tablero "Web" de la diseñadora (02/11/2026) el resumen iba en el pie; el pie nuevo no lleva el
+// horario y el resumen queda para la tarjeta "Horarios" de Visitas del mismo tablero.
 //
-// La entrada es estado.museo.horarios (server/museo.js): [{ dia, abierto, franjas: [{ abre, cierra }], nota }], con
-// dia ISO (1 = lunes) y las horas "HH:MM". Lo que no es un día del 1 al 7 se ignora, y un día que falta no se da por
-// cerrado: no se sabe.
+// La entrada es estado.museo.horarios (server/museo.js): [{ dia, abierto, franjas: [{ abre, cierra }] }] (desde la
+// Visitas del tablero, museoComun no publica la nota de cada día; si viene, resumirHorario la da aparte, en notas),
+// con dia ISO (1 = lunes) y las horas "HH:MM". Lo que no es un día del 1 al 7 se ignora, y un día que falta no se da
+// por cerrado: no se sabe.
 //
-// Si no hay ningún día abierto, el resumen está vacío y el pie no dibuja el horario. Es lo que deja la migración
+// Si no hay ningún día abierto, el resumen está vacío y no se dibuja el horario. Es lo que deja la migración
 // (los 7 días cerrados: el horario sin cargar, que el Inicio del panel pide en "Para completar"), así que decir
-// "cerrado todos los días" sería inventar un dato; un cierre temporal va en el aviso general (Visitas).
+// "cerrado todos los días" sería inventar un dato. Un cierre temporal iba en el aviso general de Visitas, que desde la
+// Visitas del tablero "Web" (03/11/2026, V1) el sitio ya no muestra: el manual del panel recomienda una noticia.
 
 /** Los días de la semana, ISO: DIAS[0] es el lunes (dia 1). */
 export const DIAS = Object.freeze(['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'])

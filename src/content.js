@@ -1,4 +1,7 @@
-// Contenido de la landing, centralizado para que los componentes no tengan texto suelto.
+// Contenido del sitio, centralizado para que los componentes no tengan texto suelto. Desde el 02/11/2026 la Home es la
+// del tablero "Web" de la diseñadora (`home`, más abajo); lo de la landing (intro, identidad, obra, areas) queda para
+// sus componentes, que la Home ya no importa (identidad.collage e identidad.instituciones siguen en uso: "El MuPa en
+// imágenes" y el pie).
 //
 // FUENTE: texto extraído del archivo de diseño "Landing Page - V01.ai" (15/09/2026); los destacados en negrita, del
 // mockup V02 (Figma, 21/09/2026). El texto de las cuatro bandas de Áreas es el contenido oficial que mandó el museo el
@@ -13,7 +16,8 @@
 // Obra) y las del museo para los otros paneles. Todas en WebP; los originales no se versionan. Ver src/assets/README.md.
 
 import logoMarca from './assets/logo-mupa-marca.svg'
-import logoTexto from './assets/logo-mupa-texto.svg'
+import isotipoUnsj from './assets/isotipo-unsj.svg'
+import isotipoGobierno from './assets/isotipo-gobierno-san-juan.svg'
 import logoFormalab from './assets/logo-formalab.svg'
 import hero768 from './assets/hero-fachada-768.webp'
 import hero1280 from './assets/hero-fachada-1280.webp'
@@ -56,6 +60,20 @@ import obraSoldador390 from './assets/obra-soldador-390.webp'
 import obraSoldador780 from './assets/obra-soldador-780.webp'
 import logoGobierno from './assets/logo-gobierno-san-juan.svg'
 import logoUnsj from './assets/logo-unsj.svg'
+import heroEsqueletos800 from './assets/hero-esqueletos-800.webp'
+import heroEsqueletos1280 from './assets/hero-esqueletos-1280.webp'
+import heroEsqueletos1440 from './assets/hero-esqueletos-1440.webp'
+import heroEsqueletos1920 from './assets/hero-esqueletos-1920.webp'
+import heroEsqueletos2394 from './assets/hero-esqueletos-2394.webp'
+import mapaMuseo from './assets/mapa-museo.svg'
+import patronGaleria from './assets/patron-galeria.svg'
+import heroVisitas960 from './assets/hero-visitas-960.webp'
+import heroVisitas1440 from './assets/hero-visitas-1440.webp'
+import heroVisitas1920 from './assets/hero-visitas-1920.webp'
+import heroVisitas2880 from './assets/hero-visitas-2880.webp'
+import visitasAccesibilidad600 from './assets/visitas-accesibilidad-600.webp'
+import visitasAccesibilidad900 from './assets/visitas-accesibilidad-900.webp'
+import visitasAccesibilidad1200 from './assets/visitas-accesibilidad-1200.webp'
 
 // srcSet de las fotos del carrusel, con versión de 700 y de 1400 px.
 const doble = (chica, grande) => `${chica} 700w, ${grande} 1400w`
@@ -64,8 +82,17 @@ export const site = {
   nombre: 'MuPa',
   nombreCompleto: 'Museo Paleontológico',
   lugar: 'San Juan · Argentina',
-  // Logo del Figma en dos SVG blancos: la marca MuPa y el texto "Museo Paleontológico / San Juan · Argentina".
-  logo: { marca: logoMarca, texto: logoTexto, textoAlt: 'Museo Paleontológico, San Juan, Argentina' },
+  // El logo del header (tablero "Web" de la diseñadora, 02/11/2026): la marca MuPa (SVG blanco del Figma) y, separados
+  // por una línea, los isotipos de la UNSJ (el sello) y de Gobierno de San Juan (la flor), también blancos y de 40x40,
+  // sacados del header del tablero (src/assets/README.md). La marca lleva al inicio: su alt es el nombre del sitio.
+  logo: {
+    marca: logoMarca,
+    alt: 'MuPa - Museo Paleontológico de San Juan',
+    isotipos: [
+      { nombre: 'Universidad Nacional de San Juan', src: isotipoUnsj },
+      { nombre: 'Gobierno de San Juan', src: isotipoGobierno },
+    ],
+  },
 }
 
 export const ui = {
@@ -75,17 +102,33 @@ export const ui = {
   portada: 'Portada',
 }
 
-// Menú del sitio (E4.1, plan 6.7): textos de interfaz, no del museo. El menú es provisorio hasta que la diseñadora
-// entregue el header (E6.3). Las secciones van en este orden en el menú, en el menú del celular y en la 404. "Comprar
-// entradas" sale solo con la compra externa activa (Visitas en el panel), con el texto que cargó el museo o este.
+// Menú del sitio (plan 6.7; desde el 02/11/2026, el del tablero "Web" de la diseñadora): textos de interfaz, no del
+// museo. Cada sección nombra su página (la clave de src/tablaDePaginas.js) y su dirección: el menú, el menú del celular,
+// el pie y la 404 dibujan solo las secciones cuya página existe (src/components/navegacion.js), así El Museo,
+// Divulgación, Educación y Circuitos aparecen solos el día que se construya su página (la dirección de cada una tiene
+// que ser la de su ruta en server/rutas-publicas.js: lo comprueba layout.test.js).
+// - menu: las del header, en el orden del tablero. El tercer ítem dice "Divulgación" (el tablero dice "Producción" en
+//   cuatro páginas y "Divulgación" en dos: a confirmar con la diseñadora). Sin el selector de idioma "Es (Arg)" del
+//   tablero (fuera del alcance: un control que no hace nada no puede quedar).
+// - otras: las páginas que existen y el tablero no pone en el menú; van en el pie y en la 404.
+// - entradas: el botón naranja del header (la compra externa que carga el panel, solo si está activa). Texto fijo y
+//   corto (el tablero dice "Tikets": errata). comprar: el texto de "Comprar entradas" de BotonCompra.jsx si el museo
+//   no cargó uno; desde la Visitas del tablero (03/11/2026, V1) ninguna página dibuja ese botón (se decide al cierre).
 export const navegacion = {
   etiqueta: 'Principal',
-  secciones: [
-    { ruta: '/exposiciones', texto: 'Exposiciones' },
-    { ruta: '/visitas', texto: 'Visitas' },
-    { ruta: '/novedades', texto: 'Novedades' },
-    { ruta: '/contacto', texto: 'Contacto' },
+  menu: [
+    { pagina: 'el-museo', ruta: '/el-museo', texto: 'El Museo' },
+    { pagina: 'visitas', ruta: '/visitas', texto: 'Visitas' },
+    { pagina: 'divulgacion', ruta: '/divulgacion', texto: 'Divulgación' },
+    { pagina: 'educacion', ruta: '/educacion', texto: 'Educación' },
+    { pagina: 'circuitos', ruta: '/circuitos', texto: 'Circuitos' },
   ],
+  otras: [
+    { pagina: 'exposiciones', ruta: '/exposiciones', texto: 'Exposiciones' },
+    { pagina: 'novedades', ruta: '/novedades', texto: 'Novedades' },
+    { pagina: 'contacto', ruta: '/contacto', texto: 'Contacto' },
+  ],
+  entradas: 'Tickets',
   comprar: 'Comprar entradas',
   abrir: 'Menú',
   cerrar: 'Cerrar',
@@ -103,12 +146,14 @@ export const noEncontrada = {
 // Páginas internas (E4.2 a E4.4: Exposiciones, una muestra, Visitas, Novedades y una novedad): solo textos de interfaz
 // (títulos de sección, rótulos, botones), neutros y mínimos. Todo lo demás es lo que carga el museo en el panel y llega
 // en estado.datos; lo que no está cargado no se dibuja, ni su título (plan 6.1). Las fechas ("Del 1 de octubre al 30 de
-// noviembre de 2026"), las situaciones ("Actual", "Finalizó el …") y los precios ("$ 3.000") ya vienen como texto del
-// servidor (server/paginas.js, plan 6.2). Los títulos de las páginas son los del menú; el servidor repite los mismos en
-// el <title> (server/seo.js).
+// noviembre de 2026") y las situaciones ("Actual", "Finalizó el …") ya vienen como texto del servidor
+// (server/paginas.js, plan 6.2). Los títulos de las páginas son los del menú; el servidor repite los mismos en el
+// <title> (server/seo.js).
 export const paginas = {
   exposiciones: { titulo: 'Exposiciones', muestras: 'Muestras', salas: 'Salas', enLaSala: 'En esta sala' },
   muestra: { sala: 'Sala' },
+  // Los de la página Visitas de E4. Desde la Visitas del tablero "Web" (03/11/2026, `visitas`, más abajo) la página ya
+  // no los usa: los leen TablaHorarios.jsx y ListaTarifas.jsx, que quedan sin usar hasta que se decida al cierre (D1).
   visitas: {
     titulo: 'Visitas',
     horario: 'Horario',
@@ -205,6 +250,184 @@ export const contacto = {
   // Texto de privacidad debajo del formulario (plan 8: que el mensaje se guarda 180 días). Lo escribe el museo y todavía
   // no lo mandó: vacío, no se dibuja. No inventarlo.
   privacidad: '',
+}
+
+// La Home (src/paginas/Home.jsx): la portada del tablero "Web" de la diseñadora (Figma, nodo 2627:1165, 02/11/2026), que
+// en master reemplaza a la landing (decisión D1 del desarrollador; la landing publicada sigue en la rama landing). Los
+// textos son los del tablero, tal cual (decisión D13: solo se corrigen las erratas evidentes; no hay ninguna en estos).
+// Lo que no es texto del tablero son textos de interfaz para el lector de pantalla (las etiquetas de la franja y del
+// carrusel, el contador, el alt de las fotos y del plano), neutros y mínimos.
+export const home = {
+  hero: {
+    // \n: el corte de línea del tablero (whitespace-pre-line). Así el título va en dos renglones también con la fuente
+    // de respaldo, antes de que cargue Google Sans Flex: si no, entraba en uno y al cargar la fuente pasaba a dos y la
+    // bajada bajaba 72 px (corrimiento de 0,01 a 1440, medido el 02/11/2026).
+    titulo: 'Un viaje a nuestros\norígenes',
+    bajada: 'Explorá el Triásico desde una de las regiones paleontológicas más importantes de Argentina',
+    // La foto del tablero (nodo 2627:1169): el original que tiene el archivo, 2394x1346 (no está en la "Seleccion
+    // Fotográfica" del V04: pedir el original al museo). Va entera, sin recorte: el encuadre del tablero lo hace el CSS
+    // (HeroHome.jsx). sizes: desde lg el hero mide 655 de alto y la foto lo cubre, así que nunca es más angosta que
+    // 1165 px (655 × 1,7786); debajo de lg (sin diseño) el hero es más bajo pero la foto lo sigue cubriendo.
+    imagen: {
+      src: heroEsqueletos1440,
+      srcSet:
+        `${heroEsqueletos800} 800w, ${heroEsqueletos1280} 1280w, ${heroEsqueletos1440} 1440w, ` +
+        `${heroEsqueletos1920} 1920w, ${heroEsqueletos2394} 2394w`,
+      sizes: '(min-width: 64rem) max(100vw, 1165px), max(100vw, 50rem)',
+      ancho: 2394,
+      alto: 1346,
+      alt: 'Esqueleto montado de un dinosaurio carnívoro en una sala del museo, con el cráneo de fauces abiertas en primer plano',
+    },
+  },
+  // La franja de accesos debajo del título (decisión D11): "Planificá tu visita" lleva a Visitas; "Tickets", a la compra
+  // externa que carga el panel (sin la compra activa no se dibuja; su texto es el del botón del header,
+  // navegacion.entradas); "Recursos educativos" va a Educación y se dibuja recién cuando exista esa página. La "Tienda
+  // virtual" del tablero no va (fuera del alcance: "a futuro" en la nota de la diseñadora).
+  accesos: {
+    etiqueta: 'Accesos directos',
+    visita: 'Planificá tu visita',
+    recursos: 'Recursos educativos',
+  },
+  // El carrusel de Novedades (decisión D12): las últimas novedades publicadas que carga el panel (server/paginas.js,
+  // cargarHome). El título, la bajada, "Ver todas las novedades" y "leer más" son del tablero; lo demás, para el lector.
+  novedades: {
+    titulo: 'Novedades',
+    bajada: 'Enterate de los últimos hallazgos, talleres y novedades de la comunidad',
+    verTodas: 'Ver todas las novedades',
+    leerMas: 'leer más',
+    lista: 'Últimas novedades',
+    anterior: 'Anterior',
+    siguiente: 'Siguiente',
+    contador: (n, total) => `Novedad ${n} de ${total}`,
+  },
+  // "El MuPa en imágenes" (decisión D9): el carrusel de fotos de la landing (identidad.collage, Collage.jsx) con el
+  // título y las piedritas del tablero (el mismo trazado a los dos lados, el de abajo girado; exportado del Figma).
+  galeria: {
+    titulo: 'El MuPa en imágenes',
+    patron: patronGaleria,
+  },
+  // "Mapa del Museo" (decisión D10): la versión bordó con los nombres del tablero (el grupo "Group 4", exportado en SVG),
+  // como imagen fija. Los nombres del dibujo son trazados: van además como texto para el lector de pantalla, en el
+  // orden en que se recorre el plano (de arriba a la izquierda hacia abajo y a la derecha). Sin interacción: el plano
+  // interactivo es el módulo opcional del plano.
+  mapa: {
+    titulo: 'Mapa del Museo',
+    // El SVG mide 882,765x811,848 (los atributos width y height de la imagen van en enteros).
+    imagen: { src: mapaMuseo, ancho: 883, alto: 812, alt: 'Plano de la planta del museo, con sus salas y espacios' },
+    etiqueta: 'Espacios del plano',
+    espacios: [
+      'Confitería',
+      'Sala Inmersiva',
+      'Tienda',
+      'Sala 8',
+      'Microcine',
+      'Sala 1',
+      'Sala Educativa',
+      'Sala 2',
+      'Sala 3',
+      'Sala 4',
+      'Sala 5',
+      'Jardín Triásico',
+      'Sala 6',
+      'Sala 7',
+    ],
+  },
+}
+
+// Visitas (src/paginas/Visitas.jsx): la página del tablero "Web" de la diseñadora (Figma, nodo 2846:997; decisiones V1 a
+// V9 del desarrollador, 03/11/2026). Los textos son los del tablero, tal cual (D13). El título dice "Visitá el MuPa": así
+// está hoy en el tablero (el relevamiento del 02/11 decía "al"). Lo demás son textos de interfaz, neutros y mínimos, o
+// el alt de las fotos (nuestros, a validar con el museo). Los datos de las tarjetas (dirección, horario, teléfono,
+// correo y el mapa) son los que carga el museo en el panel (estado.museo); los párrafos de "Museo accesible", el texto
+// "Accesibilidad" del panel, y si está vacío, los dos del tablero (parrafos).
+export const visitas = {
+  // Las fotos van sin deformar (el tablero estira la del hero un tercio a lo ancho) y con el encuadre del tablero
+  // (tools/convertir-fotos.mjs, desde los originales de la "Seleccion Fotográfica"). sizes del hero: desde lg mide 480
+  // de alto (HeroPagina.jsx) y la foto, 3:1, lo cubre, así que nunca es más angosta que 1440 px; debajo, el hero mide
+  // 20rem (320) como mínimo: 960 px o más.
+  // posicion: el punto de interés (HeroPagina.jsx): la punta del pincel sobre el fósil está al 80 % del alto de la
+  // foto (a 1440, a 385 de los 480); con "50% 80%" queda ahí también a 1920 y a 2560, donde la foto se recorta arriba
+  // y abajo (centrada, a 1920 quedaba contra el borde de abajo y a 2560 afuera: FID-01 de la verificación, 03/11/2026).
+  hero: {
+    titulo: 'Visitá el MuPa',
+    imagen: {
+      src: heroVisitas1440,
+      srcSet:
+        `${heroVisitas960} 960w, ${heroVisitas1440} 1440w, ${heroVisitas1920} 1920w, ${heroVisitas2880} 2880w`,
+      sizes: '(min-width: 64rem) max(100vw, 1440px), max(100vw, 960px)',
+      ancho: 2880,
+      alto: 960,
+      posicion: '50% 80%',
+      alt: 'Manos de un restaurador pasando un pincel sobre un fósil',
+    },
+  },
+  // "Información práctica": las tarjetas Dirección, Horarios y Contacto (cada una solo con sus datos) y el mapa de
+  // "Insertar mapa" (el title del <iframe> y "Abrir en Google Maps" son los de Contacto: contacto.mapa y
+  // contacto.abrirMapa). cerrado: el horario de los días que no abre ("Lunes: cerrado"). irAContacto: el enlace de la
+  // tarjeta Contacto a /contacto (el tablero no lo trae: desvío a confirmar con la diseñadora).
+  practica: {
+    rotulo: 'Información práctica',
+    titulo: 'Cómo llegar y cuándo',
+    direccion: 'Dirección',
+    horarios: 'Horarios',
+    contacto: 'Contacto',
+    cerrado: 'cerrado',
+    irAContacto: 'Ir a Contacto',
+  },
+  // "Museo accesible". parrafos: los del tablero, para cuando el museo no cargó el texto "Accesibilidad" (el segundo va
+  // en gris, como en el tablero). tarjetas: las cuatro del tablero, con un ícono que corresponde a cada tema (los del
+  // tablero son de relleno: IconosTarjetas.jsx; desvío a confirmar con la diseñadora).
+  accesible: {
+    rotulo: 'Museo accesible',
+    titulo: 'Un museo para descubrir todos los días',
+    parrafos: [
+      {
+        texto:
+          'El MuPa cuenta con recursos de accesibilidad autónoma disponibles a diario: rampas y ascensores para sillas ' +
+          'de ruedas, kits táctiles para visitantes con discapacidad visual, mochilas sensoriales para personas ' +
+          'neurodivergentes o con sobrecarga sensorial, y códigos QR con audiodescripciones y videos en Lengua de Señas ' +
+          'Argentina (LSA).',
+        secundario: false,
+      },
+      {
+        texto:
+          'El sistema de accesibilidad del MuPa ha sido co-creado por un equipo multidisciplinario integrado por ' +
+          'especialistas en materia de discapacidad.',
+        secundario: true,
+      },
+    ],
+    // 600x360 a 1440 (5:3); sizes: la mitad del contenido desde lg (600 a 1440 y más), todo el ancho debajo.
+    imagen: {
+      src: visitasAccesibilidad600,
+      srcSet: `${visitasAccesibilidad600} 600w, ${visitasAccesibilidad900} 900w, ${visitasAccesibilidad1200} 1200w`,
+      sizes: '(min-width: 90rem) 600px, (min-width: 64rem) calc((100vw - 15rem) / 2), calc(100vw - 3rem)',
+      ancho: 1200,
+      alto: 720,
+      alt: 'Manos de un técnico puliendo con una herramienta rotativa la réplica de una garra de dinosaurio',
+    },
+    tarjetas: [
+      {
+        icono: 'fisica',
+        titulo: 'Accesibilidad física',
+        texto: 'Rampas, ascensor y sanitarios accesibles en todo el recorrido del museo.',
+      },
+      {
+        icono: 'visual',
+        titulo: 'Accesibilidad visual',
+        texto: 'Planos hápticos, maquetas táctiles y audiodescripciones de las piezas principales.',
+      },
+      {
+        icono: 'auditiva',
+        titulo: 'Accesibilidad auditiva',
+        texto: 'Videos y guías digitales interpretados en Lengua de Señas Argentina (LSA).',
+      },
+      {
+        icono: 'neurodivergencia',
+        titulo: 'Neurodivergencia',
+        texto: 'Mochilas con elementos intuitivos y sábados distendidos, disponibles de forma permanente.',
+      },
+    ],
+  },
 }
 
 export const hero = {
@@ -513,12 +736,14 @@ export const areas = {
   ],
 }
 
-// Pie de todas las páginas (src/components/Pie.jsx, E4.1). Los datos del museo (dirección, horario, teléfono, correo
-// y redes) no están acá: salen de estado.museo, lo que se carga en el panel, y lo que no está cargado no se dibuja.
-// Acá van solo los rótulos.
+// Pie de todas las páginas (src/components/Pie.jsx; desde el 02/11/2026, el del tablero "Web" de la diseñadora). Las
+// redes no están acá: salen de estado.museo, lo que se carga en el panel, y si no hay ninguna no se dibujan. La
+// dirección, el horario, el teléfono y el correo ya no van en el pie: los muestran Visitas y Contacto.
 export const pie = {
   instituciones: identidad.instituciones,
-  legal: '© Museo Paleontológico de San Juan',
+  // El © como en el tablero ("© 2026 MUPA - Museo Paleontológico de San Juan"): el año lo pone el servidor en el
+  // estado (estado.anio); sin año (npm run dev:vite), sin año.
+  legal: 'MUPA - Museo Paleontológico de San Juan',
   // Las secciones del sitio también en el pie: andan sin JavaScript y antes de que cargue (el botón Menú del celular
   // necesita JavaScript), y en la 404 (A11Y-03 de la verificación de E4). El nombre de su navegación es distinto del
   // de la del header ("Principal") y del de la 404 ("Secciones del sitio"), así en la lista de regiones de un lector de
@@ -527,9 +752,5 @@ export const pie = {
   // Línea de privacidad (plan 6.7 y 9, Ley 25.326: la medición de visitas y los mensajes del formulario). La escribe
   // el museo y todavía no la mandó: vacía, no se dibuja. No inventarla.
   privacidad: '',
-  direccion: 'Dirección',
-  horario: 'Horario',
-  cerrado: 'cerrado',
-  contacto: 'Contacto',
   redes: 'Redes',
 }

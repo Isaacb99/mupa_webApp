@@ -29,6 +29,9 @@ const ms = Number(opt('--ms', 1400))
 const veces = Number(opt('--veces', 3))
 const porScroll = bandera('--por-scroll')
 const nada = bandera('--nada')
+// Con una URL local (127.0.0.1, localhost o [::1]) Chrome no resuelve ningún otro nombre, como en measure.mjs: nada sale
+// de esta máquina (VR1-01 de la re-verificación de Visitas, 04/11/2026).
+const soloLocal = ['127.0.0.1', 'localhost', '[::1]'].includes(new URL(url).hostname)
 const sleep = (t) => new Promise((r) => setTimeout(r, t))
 const mediana = (xs) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)]
 
@@ -38,7 +41,16 @@ async function medir() {
   const profile = mkdtempSync(join(tmpdir(), 'cdp-'))
   const chrome = spawn(
     process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe',
-    ['--headless=new', '--enable-automation', '--disable-gpu', '--hide-scrollbars', '--remote-debugging-port=0', `--user-data-dir=${profile}`, 'about:blank'],
+    [
+      '--headless=new',
+      '--enable-automation',
+      ...(soloLocal ? ['--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1, EXCLUDE ::1, EXCLUDE localhost'] : []),
+      '--disable-gpu',
+      '--hide-scrollbars',
+      '--remote-debugging-port=0',
+      `--user-data-dir=${profile}`,
+      'about:blank',
+    ],
     { stdio: 'ignore' },
   )
   try {

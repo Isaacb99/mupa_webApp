@@ -1,7 +1,15 @@
 // Uso: node measure.mjs <ancho> <alto> "<expresión JS>" | <archivo.js> [--shot salida.png] [--url http://127.0.0.1:5300/] [--reduce]
+//   [--con-externos]
 // La expresión puede ir como texto o como la ruta de un archivo .js (p. ej. tools/parallax-ejes.js): así anda igual desde
 // PowerShell, donde "$(cat archivo)" pierde los saltos de línea y las comillas internas.
 // Emula el viewport por CDP (sirve para <500px), espera fonts.ready, evalúa la expresión y opcionalmente captura página completa.
+// Con una URL local (127.0.0.1, localhost o [::1]) nada sale de esta máquina, como en vitals.mjs y apertura-perf.mjs:
+// Chrome no resuelve ningún otro nombre (--host-resolver-rules) y lo de afuera falla sin respuesta. Es el <iframe> del
+// mapa de Visitas y Contacto: con cualquier museo con "Insertar mapa", también SIN_BASE=maximo, cae dentro del margen de
+// la carga diferida y pedía www.google.com al cargar la página (VR1-01 de la re-verificación de Visitas, 04/11/2026);
+// también UserWay, con su ID. --con-externos lo deja salir. Contra mupa.ar o Render, sale todo. La regla se aplica
+// también a las direcciones IP: [::1] va excluida como ::1, sin corchetes (con ellos, o sin excluirla, no cargaba).
+// acordeon-dedo.mjs (rama landing) lo hace solo con 127.0.0.1 y localhost: con [::1], sale todo.
 import { spawn } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -10,12 +18,14 @@ const argv = process.argv.slice(2);
 const opt = (k, d) => { const i = argv.indexOf(k); return i >= 0 ? argv.splice(i, 2)[1] : d; };
 const shot = opt('--shot', null), url = opt('--url', 'http://127.0.0.1:5300/');
 const reduceIdx = argv.indexOf('--reduce'); const reduce = reduceIdx >= 0; if (reduce) argv.splice(reduceIdx, 1);
+const externosIdx = argv.indexOf('--con-externos'); const conExternos = externosIdx >= 0; if (conExternos) argv.splice(externosIdx, 1);
+const soloLocal = !conExternos && ['127.0.0.1', 'localhost', '[::1]'].includes(new URL(url).hostname);
 const [w, h] = [Number(argv[0]), Number(argv[1])];
 const expr = argv[2] && /\.m?js$/.test(argv[2]) && existsSync(argv[2]) ? readFileSync(argv[2], 'utf8') : (argv[2] ?? '1');
 const profile = mkdtempSync(join(tmpdir(), 'cdp-'));
 // Puerto 0: Chrome elige uno libre y lo anota en DevToolsActivePort, dentro de su perfil. Con un puerto calculado, dos
 // corridas en paralelo podían chocar (una no levantaba y la otra respondía por las dos).
-const chrome = spawn(process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe', ['--headless=new', '--enable-automation', '--disable-gpu', '--hide-scrollbars', '--remote-debugging-port=0', `--user-data-dir=${profile}`, '--window-size=1280,900', 'about:blank'], { stdio: 'ignore' });
+const chrome = spawn(process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe', ['--headless=new', '--enable-automation', ...(soloLocal ? ['--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1, EXCLUDE ::1, EXCLUDE localhost'] : []), '--disable-gpu', '--hide-scrollbars', '--remote-debugging-port=0', `--user-data-dir=${profile}`, '--window-size=1280,900', 'about:blank'], { stdio: 'ignore' });
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let wsUrl;
 for (let i = 0; i < 50 && !wsUrl; i++) { try { const port = readFileSync(join(profile, 'DevToolsActivePort'), 'utf8').split('\n')[0].trim(); const l = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json(); wsUrl = l.find(t => t.type === 'page')?.webSocketDebuggerUrl; } catch { await sleep(200); } }

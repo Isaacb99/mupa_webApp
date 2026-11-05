@@ -133,7 +133,7 @@ describe('GET /estado', { skip: base.motivo ?? false }, () => {
   test('con la base recién migrada: falta todo; el correo de destino solo se le cuenta a un admin', async () => {
     const { espacio, ...deEditor } = await estadoDe(editor)
     assert.deepEqual(deEditor, {
-      paraCompletar: ['direccion', 'telefono', 'emailPublico', 'horario', 'tarifas'],
+      paraCompletar: ['direccion', 'telefono', 'emailPublico', 'horario'],
       unSoloAdmin: true,
       correo: { estado: 'sin_configurar', formulario: false, desde: null, codigo: null, sinEnviar: 0, otraCausa: 0 },
       tareasFallidas: [],
@@ -142,7 +142,7 @@ describe('GET /estado', { skip: base.motivo ?? false }, () => {
     assert.equal(espacio.totalMb, 1024)
     assert.ok(Number.isInteger(espacio.usadoMb) && espacio.usadoMb > 0 && espacio.usadoMb < 1024, JSON.stringify(espacio))
     const deAdmin = await estadoDe(admin)
-    assert.deepEqual(deAdmin.paraCompletar, ['direccion', 'telefono', 'emailPublico', 'emailDestinoContacto', 'horario', 'tarifas'])
+    assert.deepEqual(deAdmin.paraCompletar, ['direccion', 'telefono', 'emailPublico', 'emailDestinoContacto', 'horario'])
     assert.equal(deAdmin.unSoloAdmin, true)
   })
 
@@ -153,7 +153,9 @@ describe('GET /estado', { skip: base.motivo ?? false }, () => {
       { direccion: 'Avenida de ejemplo 1234' },
     )
     await sql(`UPDATE horario_semanal SET abierto = true, franjas = '[{"abre":"09:00","cierra":"13:00"}]' WHERE dia = 2`)
-    await sql(`INSERT INTO tarifas (nombre, gratuita, precio, created_at, updated_at) VALUES ('General', false, 1000, now(), now())`)
+    // Sin ninguna tarifa: desde la Visitas del tablero "Web" (03/11/2026, V2) el sitio no las muestra y el Inicio ya no
+    // las pide (hasta entonces, 'tarifas' estaba en la lista).
+    assert.equal((await sql('SELECT count(*)::int AS n FROM tarifas'))[0].n, 0)
     for (const quien of [editor, admin]) {
       const datos = await estadoDe(quien)
       assert.deepEqual(datos.paraCompletar, [])
@@ -162,9 +164,19 @@ describe('GET /estado', { skip: base.motivo ?? false }, () => {
     }
 
     await sql(`UPDATE museo SET direccion = '   ', email_destino_contacto = '' WHERE id = 1`)
-    await sql(`UPDATE tarifas SET visible = false`)
-    assert.deepEqual((await estadoDe(editor)).paraCompletar, ['direccion', 'tarifas'])
-    assert.deepEqual((await estadoDe(admin)).paraCompletar, ['direccion', 'emailDestinoContacto', 'tarifas'])
+    assert.deepEqual((await estadoDe(editor)).paraCompletar, ['direccion'])
+    assert.deepEqual((await estadoDe(admin)).paraCompletar, ['direccion', 'emailDestinoContacto'])
+    // Con una tarifa oculta, o una visible, da lo mismo.
+    await sql(
+      `INSERT INTO tarifas (nombre, gratuita, precio, visible, created_at, updated_at)
+       VALUES ('General', false, 1000, false, now(), now())`,
+    )
+    assert.deepEqual((await estadoDe(editor)).paraCompletar, ['direccion'])
+    await sql(`UPDATE tarifas SET visible = true`)
+    assert.deepEqual((await estadoDe(editor)).paraCompletar, ['direccion'])
+    // El horario sí: sin ningún día abierto, vuelve a pedirlo.
+    await sql(`UPDATE horario_semanal SET abierto = false, franjas = '[]'`)
+    assert.deepEqual((await estadoDe(editor)).paraCompletar, ['direccion', 'horario'])
   })
 
   test('un solo admin activo: true; con dos, false; si el segundo se desactiva, otra vez true', async () => {

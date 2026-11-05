@@ -1,62 +1,44 @@
-// Visitas (plan 4.3, 5.2 y 5.3), para cualquier rol: el horario semanal, las tarifas, los textos (cómo llegar, normas
-// y accesibilidad), el aviso general y la compra de entradas. Cada parte se guarda por su lado (con su botón y su
-// "Guardado"; las tarifas, en el momento, cada una al guardarla en su diálogo, moverla, ocultarla o eliminarla); la
-// pantalla junta si alguna tiene cambios sin guardar, para preguntar una sola vez antes de irse (React Router admite un
-// bloqueo por vez), y la pregunta dice cuáles ("Falta guardar: Horario semanal y Cómo llegar.": la pantalla es larga
-// y tiene cinco botones de guardar).
-// - Horario: GET y PUT /horarios, más la nota general (nota_horarios del museo).
-// - Tarifas: GET, POST, PUT y DELETE /tarifas y PUT /tarifas/orden, más la nota de las tarifas.
-// - Textos (E3.2): tres textos con formato del museo, con el editor de texto (visitas/Textos.jsx). El código del
-//   editor se carga aparte (EditorTexto): el loader lo pide junto con los datos.
-// - Aviso general (texto y "Mostrar hasta") y compra externa (activa, dirección y texto del botón): campos del museo.
-// - El diálogo de una tarifa también cuenta: con algo escrito ahí, irse pregunta como con los demás.
-// El texto del aviso es de una línea, pero va en un cuadro de dos renglones para que se lea entero en el celular: Enter
-// no hace nada y un salto de línea pegado pasa a espacio.
+// Visitas (plan 4.3, 5.2 y 5.3), para cualquier rol. Desde la Visitas del tablero "Web" de la diseñadora (03/11/2026;
+// V1 y V2 del desarrollador) la pantalla pide solo lo que el sitio muestra, en tres partes, cada una con su botón y su
+// "Guardado":
+// - Horario semanal (visitas/Horario.jsx): GET y PUT /horarios, los días y sus franjas. En el sitio, resumido en la
+//   tarjeta "Horarios" de la página de Visitas.
+// - Museo accesible (visitas/Textos.jsx): el texto con formato "Accesibilidad" del museo (PUT /museo), con el editor de
+//   texto (su código se carga aparte, EditorTexto: el loader lo pide junto con los datos). En el sitio, junto a la foto
+//   de "Museo accesible"; vacío, los párrafos del diseño.
+// - Compra de entradas (visitas/FormularioMuseo.jsx): si está activa y su dirección (PUT /museo). En el sitio, el botón
+//   "Tickets" del menú y de la página principal.
+// La dirección, el teléfono, el correo y el mapa de la página de Visitas son de Datos del museo (Museo.jsx): el texto de
+// arriba lleva ahí.
+// La pantalla junta si alguna parte tiene cambios sin guardar, para preguntar una sola vez antes de irse (React Router
+// admite un bloqueo por vez), y la pregunta dice cuáles (visitas/partes.js: "Falta guardar: Horario semanal y
+// Accesibilidad.").
+// Lo que el sitio dejó de mostrar ya no se pide acá: las tarifas y su nota, el aviso general, la nota general de los
+// horarios y la de cada día, "Cómo llegar", las normas y el texto del botón de compra. La API, las columnas y los
+// componentes (visitas/Tarifas.jsx) siguen (se decide al cierre, como D1) y lo que el museo cargó no se pierde: PUT
+// /museo es parcial y cada parte manda solo lo suyo, y el horario manda la nota de cada día como vino
+// (visitas/cuerpoHorario.js).
 import { useCallback, useState } from 'react'
-import { useLoaderData } from 'react-router'
+import { Link, useLoaderData } from 'react-router'
 import { completarHttps, esUrlHttps } from '../../../compartido/esquemas/campos.js'
 import { api } from '../api.js'
-import { Aviso } from '../componentes/Aviso.jsx'
-import { Boton } from '../componentes/Boton.jsx'
-import { Campo, clasesControl } from '../componentes/Campo.jsx'
+import { Campo } from '../componentes/Campo.jsx'
 import { Casilla } from '../componentes/Casilla.jsx'
 import { precargarEditor } from '../componentes/EditorTexto.jsx'
 import { Encabezado } from '../componentes/Encabezado.jsx'
 import { useCambiosSinGuardar } from '../componentes/formulario.jsx'
-import { fechaLarga, hoyEnSanJuan } from '../formato.js'
 import { FormularioMuseo } from './visitas/FormularioMuseo.jsx'
 import { Horario } from './visitas/Horario.jsx'
-import { Tarifas } from './visitas/Tarifas.jsx'
-import { PREFIJO_TEXTOS, Textos, TEXTOS } from './visitas/Textos.jsx'
+import { CAMPOS_COMPRA, faltaGuardar, PREFIJO_COMPRA } from './visitas/partes.js'
+import { Textos } from './visitas/Textos.jsx'
 
-/** El loader (rutas.jsx lo envuelve con la sesión): las tres cosas a la vez, y el código del editor de texto. */
+/** El loader (rutas.jsx lo envuelve con la sesión): el horario y el museo a la vez, y el código del editor de texto. */
 export async function cargarVisitas({ request }) {
   const opciones = { signal: request.signal }
-  // Sin esperarlo: si no llega, el lugar de cada texto lo dice (EditorTexto) y lo demás de la pantalla anda igual.
+  // Sin esperarlo: si no llega, el lugar del texto lo dice (EditorTexto) y lo demás de la pantalla anda igual.
   precargarEditor().catch(() => {})
-  const [horarios, tarifas, museo] = await Promise.all([
-    api.get('/horarios', opciones),
-    api.get('/tarifas', opciones),
-    api.get('/museo', opciones),
-  ])
-  return { dias: horarios.dias, tarifas, museo }
-}
-
-/** Lo que avisa cada formulario con alCambiarSucio (su clave) y cómo se llama en la pregunta, en el orden de la pantalla. */
-const PARTES = [
-  ['horario', 'Horario semanal'],
-  ['tarifa', 'la tarifa que estás escribiendo'],
-  ['nt-', 'Nota de las tarifas'],
-  ...TEXTOS.map(({ campo, etiqueta }) => [`${PREFIJO_TEXTOS}${campo}`, etiqueta]),
-  ['av-', 'Aviso general'],
-  ['co-', 'Compra de entradas'],
-]
-const lista = new Intl.ListFormat('es', { type: 'conjunction' })
-
-/** "Falta guardar: Horario semanal y Aviso general." (null si no falta nada) */
-function faltaGuardar(sucios) {
-  const nombres = PARTES.filter(([clave]) => sucios[clave]).map(([, nombre]) => nombre)
-  return nombres.length ? `Falta guardar: ${lista.format(nombres)}.` : null
+  const [horarios, museo] = await Promise.all([api.get('/horarios', opciones), api.get('/museo', opciones)])
+  return { dias: horarios.dias, museo }
 }
 
 function Seccion({ id, titulo, children }) {
@@ -71,148 +53,53 @@ function Seccion({ id, titulo, children }) {
 }
 
 export default function Visitas() {
-  const { dias, tarifas, museo } = useLoaderData()
+  const { dias, museo } = useLoaderData()
   const [sucios, setSucios] = useState({})
   const marcar = useCallback(
     (clave, sucio) => setSucios((s) => (Boolean(s[clave]) === sucio ? s : { ...s, [clave]: sucio })),
     [],
   )
   const { dialogo } = useCambiosSinGuardar(Object.values(sucios).some(Boolean), faltaGuardar(sucios))
-  const hoy = hoyEnSanJuan()
 
   return (
     <>
       <Encabezado titulo="Visitas" />
       <p className="max-w-3xl">
-        Lo que necesita saber quien quiere visitar el museo. El horario, la nota de las tarifas, los textos, el aviso y
-        la compra de entradas se guardan cada uno con su botón; las tarifas se guardan en el momento, sin otro botón.
-        Todo se ve en el sitio en cuanto se guarda.
+        Lo que se muestra en la página de Visitas del sitio: el horario y el texto de accesibilidad. La dirección, el
+        teléfono, el correo y el mapa de esa página se cargan en <Link to="/museo">Datos del museo</Link>. Acá está
+        también la compra de entradas. Cada parte se guarda con su botón y se ve en el sitio en cuanto se guarda.
       </p>
 
       <div className="mt-8 grid max-w-3xl gap-12">
         <Seccion id="visitas-horario" titulo="Horario semanal">
-          <Horario dias={dias} notaHorarios={museo.notaHorarios} alCambiarSucio={marcar} />
-        </Seccion>
-
-        <Seccion id="visitas-tarifas" titulo="Tarifas">
-          <Tarifas tarifas={tarifas} alCambiarSucio={marcar} />
-          <FormularioMuseo
-            prefijo="nt-"
-            campos={['notaTarifas']}
-            museo={museo}
-            etiquetas={{ notaTarifas: 'Nota de las tarifas' }}
-            textoBoton="Guardar la nota de las tarifas"
-            alCambiarSucio={marcar}
-          >
-            {({ valores, poner, errores }) => (
-              <Campo
-                id="nt-notaTarifas"
-                etiqueta="Nota de las tarifas"
-                ayuda={`Opcional: se muestra debajo de las tarifas, por ejemplo cómo se paga o quién no paga entrada. Hasta 300 caracteres (quedan ${300 - valores.notaTarifas.length}).`}
-                error={errores.notaTarifas}
-              >
-                {(accesible) => (
-                  <textarea
-                    {...accesible}
-                    rows={3}
-                    maxLength={300}
-                    value={valores.notaTarifas}
-                    onChange={(e) => poner('notaTarifas', e.target.value)}
-                    className={clasesControl}
-                  />
-                )}
-              </Campo>
-            )}
-          </FormularioMuseo>
-        </Seccion>
-
-        <Seccion id="visitas-textos" titulo="Textos">
           <p className="text-tenue">
-            Se muestran en la página de visitas del sitio, cada uno con su título. Se puede usar negrita, cursiva,
-            subtítulos, listas y enlaces; lo que se pega de Word o de una página queda solo con eso.
+            En la página de Visitas se muestra resumido: los días con el mismo horario van juntos, por ejemplo «Martes a
+            viernes: 9:00 a 13:00 y 16:00 a 20:00», y los cerrados al final. Si ningún día está marcado como abierto,
+            la página no muestra el horario.
+          </p>
+          <Horario dias={dias} alCambiarSucio={marcar} />
+        </Seccion>
+
+        <Seccion id="visitas-accesible" titulo="Museo accesible">
+          <p className="text-tenue">
+            El texto de «Museo accesible» en la página de Visitas, junto a la foto. Las cuatro tarjetas que van debajo
+            (accesibilidad física, visual y auditiva, y neurodivergencia) son fijas: no se cambian desde el panel. Se
+            puede usar negrita, cursiva, subtítulos, listas y enlaces; lo que se pega de Word o de una página queda solo
+            con eso.
           </p>
           <Textos museo={museo} alCambiarSucio={marcar} />
         </Seccion>
 
-        <Seccion id="visitas-aviso" titulo="Aviso general">
-          <p className="text-tenue">
-            Para feriados, cierres o cambios de horario: se muestra arriba de la página de visitas del sitio (no en
-            la portada). Con «Mostrar hasta», deja de verse después de ese día; sin fecha, queda hasta que lo quites.
-          </p>
-          <FormularioMuseo
-            prefijo="av-"
-            campos={['avisoTexto', 'avisoHasta']}
-            museo={museo}
-            etiquetas={{ avisoTexto: 'Texto del aviso', avisoHasta: 'Mostrar hasta' }}
-            textoBoton="Guardar el aviso"
-            alCambiarSucio={marcar}
-          >
-            {({ valores, poner, errores, guardado, guardar, enviando }) => (
-              <>
-                {guardado.avisoTexto && guardado.avisoHasta && guardado.avisoHasta < hoy ? (
-                  <Aviso tipo="atencion">
-                    {`El aviso guardado ya no se muestra: era hasta el ${fechaLarga(guardado.avisoHasta)}.`}
-                  </Aviso>
-                ) : null}
-                <Campo
-                  id="av-avisoTexto"
-                  etiqueta="Texto del aviso"
-                  ayuda={`Una oración, por ejemplo «El lunes 12 de octubre el museo permanece cerrado». Hasta 200 caracteres (quedan ${200 - valores.avisoTexto.length}).`}
-                  error={errores.avisoTexto}
-                >
-                  {(accesible) => (
-                    <textarea
-                      {...accesible}
-                      rows={2}
-                      maxLength={200}
-                      autoComplete="off"
-                      value={valores.avisoTexto}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') e.preventDefault()
-                      }}
-                      onChange={(e) => poner('avisoTexto', e.target.value.replace(/\s*[\r\n]+\s*/g, ' '))}
-                    />
-                  )}
-                </Campo>
-                <Campo
-                  id="av-avisoHasta"
-                  etiqueta="Mostrar hasta"
-                  ayuda="Opcional. Se muestra hasta ese día inclusive."
-                  type="date"
-                  className="max-w-60"
-                  value={valores.avisoHasta}
-                  onChange={(e) => poner('avisoHasta', e.target.value)}
-                  error={errores.avisoHasta}
-                />
-                {guardado.avisoTexto ? (
-                  <div>
-                    <Boton
-                      variante="secundario"
-                      ocupado={enviando}
-                      onClick={() => guardar({ avisoTexto: '', avisoHasta: '' }, 'Listo: el aviso ya no se muestra.')}
-                    >
-                      Quitar el aviso
-                    </Boton>
-                  </div>
-                ) : null}
-              </>
-            )}
-          </FormularioMuseo>
-        </Seccion>
-
         <Seccion id="visitas-compra" titulo="Compra de entradas">
           <p className="text-tenue">
-            Si las entradas se venden en otra página (una ticketera), el sitio muestra un botón que lleva ahí.
+            Si las entradas se venden en otra página (una ticketera), el sitio muestra un botón «Tickets» que lleva ahí,
+            en el menú de todas las páginas y en la página principal.
           </p>
           <FormularioMuseo
-            prefijo="co-"
-            campos={['compraActiva', 'compraUrl', 'compraTexto']}
+            prefijo={PREFIJO_COMPRA}
+            campos={CAMPOS_COMPRA}
             museo={museo}
-            etiquetas={{
-              compraActiva: 'Mostrar el botón',
-              compraUrl: 'Dirección de la página de venta',
-              compraTexto: 'Texto del botón',
-            }}
+            etiquetas={{ compraActiva: 'Mostrar el botón', compraUrl: 'Dirección de la página de venta' }}
             textoBoton="Guardar la compra de entradas"
             alCambiarSucio={marcar}
             direcciones={['compraUrl']}
@@ -257,16 +144,6 @@ export default function Visitas() {
                     </a>
                   </p>
                 ) : null}
-                <Campo
-                  id="co-compraTexto"
-                  etiqueta="Texto del botón"
-                  ayuda={`Opcional: si lo dejás vacío, dice «Comprar entradas». Hasta 40 caracteres (quedan ${40 - valores.compraTexto.length}).`}
-                  maxLength={40}
-                  autoComplete="off"
-                  value={valores.compraTexto}
-                  onChange={(e) => poner('compraTexto', e.target.value)}
-                  error={errores.compraTexto}
-                />
               </>
             )}
           </FormularioMuseo>

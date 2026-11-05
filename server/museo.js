@@ -3,29 +3,34 @@
 //
 // leerMuseo() (E2.3) lee la fila museo, los 7 días del horario y las tarifas visibles en su orden, en UNA consulta y
 // con la lista de columnas escrita a mano: NUNCA email_destino_contacto (plan 9, "Salida"), ni quién editó, ni las
-// tarifas ocultas. Desde E4.1 lo dibuja el pie de todas las páginas (src/components/Pie.jsx).
-// La forma (la de MUSEO_VACIO) es la que leen las páginas, en objetos planos:
+// tarifas ocultas. Desde E4.1 lo usa el pie de todas las páginas (src/components/Pie.jsx; desde el 02/11/2026, solo
+// las redes).
+// Lo que va al HTML de las páginas (estado.museo) es museoComun(museo): solo lo que el sitio usa, campo por campo (desde
+// la Visitas del tablero "Web", 03/11/2026, ni el aviso, ni las tarifas, ni las notas, ni el texto del botón de
+// compra, y desde E4.3, ni los textos con formato: ver museoComun, más abajo). leerMuseo da todo, en objetos planos,
+// con la forma de MUSEO_VACIO:
 //   { direccion, localidad, provincia, codigoPostal, telefono, emailPublico,   texto o null
 //     redes: [{ red, url }],
 //     mapaEmbedUrl, mapaUrl, notaHorarios, notaTarifas,                       texto o null
 //     comoLlegar, normas, accesibilidad,   texto con formato (el JSON del editor, forma canónica) o null
 //     aviso: { texto, hasta } | null,      solo si está vigente: sin fecha, o "Mostrar hasta" hoy o después
-//     compra: { url, texto } | null,       solo si la compra externa está activa (texto null: el sitio pone el suyo)
+//     compra: { url, texto } | null,       solo si la compra externa está activa (el sitio no usa el texto: D4 y V1)
 //     horarios: [{ dia, abierto, franjas: [{ abre, cierra }], nota }],      ISO: 1 = lunes, ordenados
 //     tarifas: [{ id, nombre, gratuita, precio, condicion }] }              las visibles, en su orden; precio en pesos
 // Lo que viene de la base se vuelve a mirar al armarlo (lo que el panel no deja guardar tampoco sale, aunque alguien
 // lo haya escrito a mano en la base): solo redes conocidas con https, el mapa de Google, la compra con https y los
-// textos con formato que pasan el esquema (compartido/esquemas/textoRico.js; si no, null). Los textos los dibuja
-// src/components/TextoRico.jsx en la página de Visitas (E4.3) y, desde E4.3 (COD-04 de E3), van SOLO en los datos de
-// /visitas: el estado común de las páginas lleva museoComun(museo), sin ellos (con los tres cerca de su tope la Home
-// pasaba de 73 a 357 kB). Validarlos cuesta unos 7 ms con textos grandes: leerMuseo los vuelve a validar solo si
-// cambiaron (la base da un md5 de los tres; si es el de la vez anterior, se usa lo validado entonces), así cada página
-// no paga ese tiempo.
+// textos con formato que pasan el esquema (compartido/esquemas/textoRico.js; si no, null). Desde la Visitas del
+// tablero (03/11/2026, V1) la página de Visitas dibuja solo "Accesibilidad" (src/components/TextoRico.jsx), que va
+// SOLO en los datos de /visitas (cargarVisitas, server/paginas.js), y "Cómo llegar" y las normas no salen en ninguna
+// página. El estado común de las páginas lleva museoComun(museo), sin ninguno de los tres (desde E4.3, COD-04 de E3:
+// con los tres cerca de su tope la Home pasaba de 73 a 357 kB). Validarlos cuesta unos 7 ms con textos grandes:
+// leerMuseo los vuelve a validar solo si cambiaron (la base da un md5 de los tres; si es el de la vez anterior, se usa
+// lo validado entonces), así cada página no paga ese tiempo.
 //
 // Si la base falla o tarda más de TOPE_MUSEO_MS, la página sale igual, con el último museo bueno (plan 6.3). Las
-// páginas que se arman con el museo (Visitas) necesitan saber si es el de ahora: museoPublico.conEstado() devuelve
-// { museo, alDia } (alDia: false si es el último bueno o el vacío porque la base no respondió) y, sin el de ahora,
-// Visitas responde la 503 simple (server/ssr.js).
+// páginas que se arman con el museo (Visitas y Contacto) necesitan saber si es el de ahora: museoPublico.conEstado()
+// devuelve { museo, alDia } (alDia: false si es el último bueno o el vacío porque la base no respondió) y, sin el de
+// ahora, responden la 503 simple (server/ssr.js).
 // Con SIN_BASE (solo para probar en local, plan 6.7) no se consulta nada y el museo es uno de ejemplo: "maximo" (todos
 // los campos llenos, 6 redes, dirección larga: así lo que el museo cargue después queda dentro de lo probado) o
 // "vacio". Las direcciones son de example.com (reservado para ejemplos).
@@ -189,15 +194,40 @@ SELECT
 const texto = (v) => (typeof v === 'string' && v.trim() !== '' ? v : null)
 const esHora = (v) => typeof v === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(v)
 
-/** Los tres textos con formato del museo, que van solo en los datos de /visitas (COD-04 de E3). */
-export const TEXTOS_DEL_MUSEO = Object.freeze(['comoLlegar', 'normas', 'accesibilidad'])
-
-/** El museo del estado común de las páginas (estado.museo): todo menos los tres textos con formato. */
+/**
+ * El museo del estado común de las páginas (estado.museo, en el HTML de cada página): SOLO lo que el sitio dibuja o pone
+ * en el <head>, campo por campo (lo que no está en esta lista no sale, aunque leerMuseo lo lea):
+ * - la dirección, el teléfono, el correo público, las redes y los dos del mapa: Visitas (las tarjetas y el mapa),
+ *   Contacto, el pie (las redes) y los datos estructurados (server/seo.js);
+ * - la compra externa, solo su dirección: el botón "Tickets" del header y de la Home (el texto es fijo, D4);
+ * - el horario, cada día con sus franjas y sin su nota: la tarjeta Horarios de Visitas (V3) y openingHoursSpecification.
+ * Desde la Visitas del tablero "Web" (03/11/2026, V1 y V2) el sitio ya no muestra, y el panel ya no deja ver ni cambiar,
+ * el aviso general, las tarifas y su nota, la nota de horarios, la nota de cada día ni el texto del botón de compra:
+ * no salen (COD-01 y PAN-01 de la verificación de Visitas: un precio viejo o un aviso sin "Mostrar hasta" seguían
+ * publicados en el código de cada página, sin que el museo pudiera verlos ni sacarlos). Siguen en la base y en
+ * leerMuseo, como Aviso.jsx, BotonCompra.jsx, ListaTarifas.jsx y TablaHorarios.jsx, que los dibujaban: se decide al
+ * cierre (D1) si se borran. Si una página vuelve a mostrar alguno, se suma acá. Ninguno de los tres textos con formato
+ * va acá: "Accesibilidad" va solo en los datos de /visitas (cargarVisitas, server/paginas.js; COD-04 de E3), y "Cómo
+ * llegar" y las normas no salen en ninguna página (V1). Hasta la lista blanca, museoComun copiaba el museo y les
+ * borraba esos tres (TEXTOS_DEL_MUSEO, que se fue con ella: VR1-02 de la re-verificación de Visitas, 04/11/2026).
+ */
 export function museoComun(museo) {
   if (!museo || typeof museo !== 'object') return museo
-  const comun = { ...museo }
-  for (const campo of TEXTOS_DEL_MUSEO) delete comun[campo]
-  return comun
+  return {
+    direccion: museo.direccion ?? null,
+    localidad: museo.localidad ?? null,
+    provincia: museo.provincia ?? null,
+    codigoPostal: museo.codigoPostal ?? null,
+    telefono: museo.telefono ?? null,
+    emailPublico: museo.emailPublico ?? null,
+    redes: Array.isArray(museo.redes) ? museo.redes : [],
+    mapaEmbedUrl: museo.mapaEmbedUrl ?? null,
+    mapaUrl: museo.mapaUrl ?? null,
+    compra: museo.compra?.url ? { url: museo.compra.url } : null,
+    horarios: (Array.isArray(museo.horarios) ? museo.horarios : [])
+      .filter((h) => h && typeof h === 'object')
+      .map(({ dia, abierto, franjas }) => ({ dia, abierto, franjas })),
+  }
 }
 
 /** Los tres textos con formato, validados (textoRicoPublicable). */

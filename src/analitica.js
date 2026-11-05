@@ -19,11 +19,10 @@ const activa = (estado) =>
   navigator.doNotTrack !== '1' &&
   !navigator.globalPrivacyControl
 
-// Secciones cuya llegada se registra, una vez por carga: cuentan hasta dónde baja la gente.
-const SECCIONES = { identidad: 'ver_identidad', obra: 'ver_obra', areas: 'ver_areas' }
+// Eventos propios (desde la Home del tablero "Web", 02/11/2026, decisión D14: se fueron ver_identidad, ver_obra,
+// ver_areas y los abrir_* de las bandas de Áreas, que eran de las secciones de la landing): ver_pie (en la Home),
+// clic_entradas y enviar_contacto. page_view lo manda GA4 solo, en todas las páginas.
 const PIE = 'ver_pie'
-// ms después de un clic en que la apertura de una banda se toma como hecha con ese clic (si no, la abrió el scroll).
-const VENTANA_CLIC = 1000
 // Los umbrales con que se mira el pie: de 5 en 5 % hasta la mitad (ver pieVisto).
 const UMBRALES_PIE = Array.from({ length: 10 }, (_, i) => (i + 1) / 20)
 
@@ -46,35 +45,15 @@ function gtag() {
   window.dataLayer.push(arguments)
 }
 
-// El nombre del evento ya dice qué pasó (ver_obra, abrir_ciencia): así aparece en los informes de GA4 sin tener que
+// El nombre del evento ya dice qué pasó (ver_pie, clic_entradas): así aparece en los informes de GA4 sin tener que
 // registrar dimensiones personalizadas. Los datos van igual, por si más adelante se registran.
 function registrar(evento, datos) {
   gtag('event', evento, datos)
 }
 
-function medirSecciones() {
-  const vistas = new Set()
-  // Cuenta cuando la sección cruza la franja central de la pantalla (del 40 % al 60 % del alto): pasar de largo con
-  // Fin o con un ancla no la da por vista.
-  const observador = new IntersectionObserver(
-    (entradas) => {
-      for (const { isIntersecting, target } of entradas) {
-        if (!isIntersecting) continue
-        const evento = SECCIONES[target.id]
-        observador.unobserve(target)
-        if (!evento || vistas.has(evento)) continue
-        vistas.add(evento)
-        registrar(evento, { seccion: target.id })
-      }
-    },
-    { rootMargin: '-40% 0px -40% 0px' },
-  )
-  for (const id of Object.keys(SECCIONES)) {
-    const seccion = document.getElementById(id)
-    if (seccion) observador.observe(seccion)
-  }
-  // El pie está al final y puede no llegar nunca al centro de la pantalla: cuenta cuando se ve la mitad de él (o media
-  // pantalla, si es más alto: pieVisto).
+// Hasta dónde baja la gente en la Home: el pie, una vez por carga. Está al final y puede no llegar nunca al centro de
+// la pantalla: cuenta cuando se ve la mitad de él (o media pantalla, si es más alto: pieVisto).
+function medirPie() {
   const pie = document.querySelector('footer')
   if (!pie) return
   const alFinal = new IntersectionObserver(
@@ -88,48 +67,30 @@ function medirSecciones() {
   alFinal.observe(pie)
 }
 
-// Bandas de Áreas: registra la primera vez que se abre cada una y si fue con un clic o porque el scroll llegó a ella
-// (useAcordeonScroll). Se lee del aria-expanded del botón, sin tocar los componentes.
-function medirAreas() {
-  const areas = document.getElementById('areas')
-  if (!areas) return
-  let clic = { boton: null, momento: 0 }
-  areas.addEventListener(
-    'click',
-    (e) => {
-      const boton = e.target.closest?.('button[aria-expanded]')
-      if (boton) clic = { boton, momento: performance.now() }
-    },
-    true,
-  )
-  const registradas = new Set()
-  const observador = new MutationObserver((cambios) => {
-    for (const { target: boton } of cambios) {
-      if (boton.getAttribute('aria-expanded') !== 'true') continue
-      const area = (boton.getAttribute('aria-controls') ?? '').replace('panel-', '')
-      const origen = clic.boton === boton && performance.now() - clic.momento < VENTANA_CLIC ? 'clic' : 'scroll'
-      const clave = `${area}:${origen}`
-      if (!area || registradas.has(clave)) continue
-      registradas.add(clave)
-      registrar(`abrir_${area}`, { area, origen })
-    }
-  })
-  for (const boton of areas.querySelectorAll('button[aria-expanded]')) {
-    observador.observe(boton, { attributes: true, attributeFilter: ['aria-expanded'] })
-  }
+/**
+ * De dónde viene un clic en un enlace de compra (data-entradas): "menu" si está en el header (el botón "Tickets" del
+ * menú y el del menú del celular), "home" si es "Tickets" de la franja de accesos de la Home y "pagina" si es el de
+ * adentro de otra página. Desde la Visitas del tablero "Web" (03/11/2026, decisión V9) ninguna página lleva uno adentro
+ * ("Comprar entradas" de Visitas ya no está): salen "menu" y "home"; "pagina" queda para cuando alguna lo vuelva a tener.
+ * @param {Element} enlace
+ * @param {string} pagina  estado.pagina
+ */
+export const origenDeEntradas = (enlace, pagina) => {
+  if (enlace.closest('header')) return 'menu'
+  return pagina === 'home' ? 'home' : 'pagina'
 }
 
-// "Comprar entradas" (E4.7, plan 6.6): el clic en cualquier enlace de compra (los que llevan data-entradas: el del
-// menú, el del menú del celular y el de Visitas), en todas las páginas. El enlace lleva a otro sitio y la página se va
-// enseguida: GA4 manda sus eventos con sendBeacon, que sale aunque la página se cierre (no hace falta pedirlo).
-// origen: menu (el del header) o pagina (el de adentro de la página).
+// "Comprar entradas" (E4.7, plan 6.6): el clic en cualquier enlace de compra (los que llevan data-entradas: "Tickets"
+// del menú, del menú del celular y de la franja de la Home; hasta el 03/11/2026, también "Comprar entradas" de
+// Visitas), en todas las páginas. El enlace lleva a otro sitio y la página se va enseguida: GA4 manda sus eventos con
+// sendBeacon, que sale aunque la página se cierre (no hace falta pedirlo). origen: origenDeEntradas.
 function medirEntradas(estado) {
   document.addEventListener(
     'click',
     (e) => {
       const enlace = e.target.closest?.('a[data-entradas]')
       if (!enlace) return
-      registrar('clic_entradas', { origen: enlace.closest('main') ? 'pagina' : 'menu', pagina: estado.pagina })
+      registrar('clic_entradas', { origen: origenDeEntradas(enlace, estado.pagina), pagina: estado.pagina })
     },
     true,
   )
@@ -159,14 +120,13 @@ function arrancar(estado) {
   script.async = true
   script.src = `https://www.googletagmanager.com/gtag/js?id=${GA4_ID}`
   document.head.append(script)
-  // En todas las páginas: el clic en "Comprar entradas" y, en /contacto, el mensaje enviado (E4.7, plan 6.6).
+  // En todas las páginas: el clic en "Tickets" y, en /contacto, el mensaje enviado (E4.7, plan 6.6).
   medirEntradas(estado)
   medirContacto(estado)
-  // Las secciones y las bandas son de la Home: en otra página (la 404, y desde E4 las internas, que son cortas)
-  // cualquier <footer> dispararía ver_pie (plan 6.6). page_view sale en todas.
+  // ver_pie es de la Home: en otra página (la 404 y las internas, que son cortas) el pie se ve enseguida y no diría
+  // nada (plan 6.6). page_view sale en todas.
   if (estado.pagina !== 'home') return
-  medirSecciones()
-  medirAreas()
+  medirPie()
 }
 
 // Arranca con la página ya cargada y el navegador en reposo: el script de Google (~150 kB) no compite con la foto del

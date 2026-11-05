@@ -1,8 +1,10 @@
 import sharp from 'sharp';
 import path from 'node:path';
 import { existsSync } from 'node:fs';
-const [orig, out] = process.argv.slice(2);
-if (!orig || !out) { console.error('Uso: node tools/convertir-fotos.mjs <carpeta-originales> <carpeta-salida>'); process.exit(1); }
+const [orig, out, filtro] = process.argv.slice(2);
+if (!orig || !out) { console.error('Uso: node tools/convertir-fotos.mjs <carpeta-originales> <carpeta-salida> [filtro]'); process.exit(1); }
+// filtro (opcional): solo los archivos de salida cuyo nombre lo contiene ("hero-visitas", "visitas-"). Sin él se
+// regeneran todos los que tengan su original en la carpeta, y sharp puede dar otros bytes (otro hash en el build).
 // x0/x1: franja horizontal a conservar (fracción del ancho) antes de recortar al aspecto final; y0/y1, lo mismo en
 // vertical (los recortes del V04 vienen de los rectángulos de recorte del PDF, medidos con pdf.js).
 const JOBS = [
@@ -68,10 +70,27 @@ const JOBS = [
   ['Acordeon - Ciencia.jpg',      'area-ciencia-570',            570,  567, 0.154, 0.846],
   ['Acordeon - Produccion.png',   'area-produccion-1140',       1140, 1134, 0.155, 0.792],
   ['Acordeon - Produccion.png',   'area-produccion-570',         570,  567, 0.155, 0.792],
+  // Visitas del tablero "Web" de la diseñadora (Figma, nodo 2846:997, 03/11/2026).
+  // Hero de la página (1440x480 a 1440, HeroPagina.jsx): el pincel sobre el fósil. El tablero estira la foto (la de
+  // 1400x933 del carrusel en un rectángulo de 1439x720, con la ventana del hero de y=148 a 628: un tercio más ancha de
+  // lo que es): acá va sin deformar, 3:1 a todo el ancho del original, con la punta del pincel sobre el fósil a la misma
+  // altura que en el tablero (a 385 de 480): filas del 33,9 al 83,9 % (con el mismo centro que la ventana del tablero,
+  // del 28,9 al 78,9 %, el fósil casi no se veía). 960 (el celular, donde el hero es más alto que 1/3 del ancho), 1440,
+  // 1920 y 2880 (1440 en pantallas 2x).
+  ['Carrusel - IMG_1862 (1).jpg', 'hero-visitas-2880',          2880,  960, 0, 1, 0.339, 0.839],
+  ['Carrusel - IMG_1862 (1).jpg', 'hero-visitas-1920',          1920,  640, 0, 1, 0.339, 0.839],
+  ['Carrusel - IMG_1862 (1).jpg', 'hero-visitas-1440',          1440,  480, 0, 1, 0.339, 0.839],
+  ['Carrusel - IMG_1862 (1).jpg', 'hero-visitas-960',            960,  320, 0, 1, 0.339, 0.839],
+  // "Museo accesible" (600x360 con esquinas de 16 a 1440): la mano con el torno, cubriendo la caja desde el centro como
+  // el FILL del tablero (5:3: sin el 5 % de arriba y de abajo).
+  ['Carrusel - IMG_1817.jpg',     'visitas-accesibilidad-1200', 1200,  720, 0, 1, 0.05, 0.95],
+  ['Carrusel - IMG_1817.jpg',     'visitas-accesibilidad-900',   900,  540, 0, 1, 0.05, 0.95],
+  ['Carrusel - IMG_1817.jpg',     'visitas-accesibilidad-600',   600,  360, 0, 1, 0.05, 0.95],
 ];
 (async () => {
   let total = 0;
   for (const [src, name, w, h, x0, x1, y0, y1] of JOBS) {
+    if (filtro && !name.includes(filtro)) continue;
     // Cada tanda de originales llega por separado: los que no están en la carpeta se saltean.
     if (!existsSync(path.join(orig, src))) { console.log(`(sin ${src}: salteado ${name})`); continue; }
     let img = sharp(path.join(orig, src)).rotate();

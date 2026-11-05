@@ -6,7 +6,9 @@
 // Desde la limpieza del 27/10/2026: el reintento de una subida ante el 503 de la cola (API-07) y lo que manda Visitas
 // al guardar los textos, en la forma canónica (panel/src/pantallas/visitas/cuerpoTextos.js, COD-09). Desde la corrección
 // del mismo día: las subidas de una página van de a una (LIM-02) y el panel corta la que tarda demasiado en subir
-// (LIM-01).
+// (LIM-01). Desde la Visitas del tablero "Web" (03/11/2026, V2): lo que la pantalla Visitas sabe sin React
+// (panel/src/pantallas/visitas/partes.js, cuerpoHorario.js y cuerpoTextos.js), que pide y manda solo lo que el sitio
+// muestra.
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 import {
@@ -25,7 +27,12 @@ import {
 import { MENSAJE_SUBIDA_LENTA, TOPE_RECEPCION_MS } from '../../compartido/fotos.js'
 import { TIPOS_NOVEDAD } from '../../compartido/esquemas/contenido.js'
 import { BYTES_MAX, bytesDe } from '../../compartido/esquemas/textoRico.js'
-import { cuerpoDeTextos } from '../../panel/src/pantallas/visitas/cuerpoTextos.js'
+import { esquemaHorarios } from '../../compartido/esquemas/horarios.js'
+import { esquemaCambioMuseo } from '../../compartido/esquemas/museo.js'
+import { validarCon } from '../../panel/src/formato.js'
+import { cuerpoDe as cuerpoDeHorario, estadoDe as estadoDeHorario } from '../../panel/src/pantallas/visitas/cuerpoHorario.js'
+import { cuerpoDeTextos, PREFIJO_TEXTOS, TEXTOS } from '../../panel/src/pantallas/visitas/cuerpoTextos.js'
+import { CAMPOS_COMPRA, faltaGuardar, PARTES, PREFIJO_COMPRA } from '../../panel/src/pantallas/visitas/partes.js'
 import {
   CONTENIDOS,
   consultaDe,
@@ -553,6 +560,84 @@ describe('los textos de Visitas: lo que se manda (COD-09)', () => {
     const grande = cuerpoDeTextos({ normas: conEnlaces(700, 'd') }, ['normas'])
     assert.equal(grande.ok, false)
     assert.match(grande.errores.normas, /demasiado formato/)
+  })
+})
+
+// Desde la Visitas del tablero "Web" (03/11/2026; V2 del desarrollador) la pantalla pide solo lo que el sitio muestra:
+// el horario (sin las notas), el texto de accesibilidad y la compra (sin el texto del botón). Lo que deja de pedir no se
+// manda vacío: queda como estaba (la prueba con la base, en visitas.test.js).
+describe('la pantalla Visitas: solo lo que el sitio muestra (V2)', () => {
+  test('las partes, en el orden de la pantalla; "Falta guardar" nombra solo esas', () => {
+    assert.deepEqual(PARTES, [
+      ['horario', 'Horario semanal'],
+      [`${PREFIJO_TEXTOS}accesibilidad`, 'Accesibilidad'],
+      [PREFIJO_COMPRA, 'Compra de entradas'],
+    ])
+    assert.equal(faltaGuardar({}), null)
+    assert.equal(faltaGuardar({ horario: false, 'co-': false }), null)
+    assert.equal(faltaGuardar({ 'co-': true }), 'Falta guardar: Compra de entradas.')
+    assert.equal(
+      faltaGuardar({ 'co-': true, horario: true, 'tx-accesibilidad': true }),
+      'Falta guardar: Horario semanal, Accesibilidad y Compra de entradas.',
+    )
+    // Las claves de lo que la pantalla ya no tiene (las tarifas, su nota, el aviso, los otros dos textos) no se nombran.
+    for (const vieja of ['tarifa', 'nt-', 'av-', 'tx-comoLlegar', 'tx-normas']) {
+      assert.equal(faltaGuardar({ [vieja]: true }), null, vieja)
+    }
+    assert.equal(faltaGuardar({ 'av-': true, horario: true }), 'Falta guardar: Horario semanal.')
+  })
+
+  test('un solo texto, el de accesibilidad, con la ayuda de lo que pasa si queda vacío; se manda solo ese', () => {
+    assert.deepEqual(
+      TEXTOS.map((t) => [t.campo, t.etiqueta]),
+      [['accesibilidad', 'Accesibilidad']],
+    )
+    assert.match(TEXTOS[0].ayuda, /si lo dejás vacío, el sitio muestra el texto que vino con el diseño/)
+    const doc = (texto) => ({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: texto }] }] })
+    // Aunque los valores traigan los otros dos (como los devuelve GET /museo), el cuerpo lleva solo el de la pantalla.
+    const v = cuerpoDeTextos(
+      { comoLlegar: doc('En colectivo.'), normas: doc('Sin comida.'), accesibilidad: doc('Rampas.') },
+      TEXTOS.map((t) => t.campo),
+    )
+    assert.equal(v.ok, true, JSON.stringify(v.errores))
+    assert.deepEqual(Object.keys(v.datos), ['accesibilidad'])
+  })
+
+  test('la compra: activa y su dirección; el texto del botón no se manda', () => {
+    assert.deepEqual(CAMPOS_COMPRA, ['compraActiva', 'compraUrl'])
+    // Lo que manda FormularioMuseo: los valores de sus campos, sacados del museo de GET /museo (que trae todo).
+    const museo = { compraActiva: true, compraUrl: 'https://example.com/entradas', compraTexto: 'Entradas' }
+    const v = validarCon(esquemaCambioMuseo, Object.fromEntries(CAMPOS_COMPRA.map((c) => [c, museo[c]])))
+    assert.equal(v.ok, true, JSON.stringify(v.errores))
+    assert.deepEqual(v.datos, { compraActiva: true, compraUrl: 'https://example.com/entradas' })
+  })
+
+  test('el horario: la nota de cada día no se ve pero viaja como vino, también la de un día cerrado', () => {
+    const dias = [
+      { dia: 1, abierto: false, franjas: [], nota: 'Cerrado por mantenimiento' },
+      { dia: 2, abierto: true, franjas: [{ abre: '09:00', cierra: '13:00' }], nota: 'Visitas guiadas a las 11' },
+      { dia: 3, abierto: true, franjas: [{ abre: '09:00', cierra: '13:00' }], nota: null },
+      ...[4, 5, 6, 7].map((dia) => ({ dia, abierto: false, franjas: [], nota: null })),
+    ]
+    const estado = estadoDeHorario(dias)
+    // Sin cambios, el cuerpo es lo que vino (así no hay "cambios sin guardar" por la nota).
+    assert.deepEqual(cuerpoDeHorario(estado), { dias })
+    // Se abre el jueves (con una franja para escribir) y se cambia el martes: las notas siguen.
+    estado[3] = { ...estado[3], abierto: true, franjas: [{ abre: '', cierra: '' }] }
+    assert.deepEqual(cuerpoDeHorario(estado).dias[3], { dia: 4, abierto: true, franjas: [], nota: null })
+    estado[3].franjas = [{ abre: '10:00', cierra: '12:00' }]
+    estado[1] = { ...estado[1], franjas: [{ abre: '10:00', cierra: '14:00' }] }
+    const v = validarCon(esquemaHorarios, cuerpoDeHorario(estado))
+    assert.equal(v.ok, true, JSON.stringify(v.errores))
+    assert.deepEqual(
+      v.datos.dias.map((d) => d.nota),
+      ['Cerrado por mantenimiento', 'Visitas guiadas a las 11', null, null, null, null, null],
+    )
+    assert.deepEqual(v.datos.dias[1].franjas, [{ abre: '10:00', cierra: '14:00' }])
+    // Un día abierto sin franjas en la pantalla arranca con una vacía, que no se manda.
+    const abiertoSinFranjas = estadoDeHorario([{ dia: 1, abierto: true, franjas: [], nota: 'x' }])
+    assert.deepEqual(abiertoSinFranjas[0].franjas, [{ abre: '', cierra: '' }])
+    assert.deepEqual(cuerpoDeHorario(abiertoSinFranjas).dias[0], { dia: 1, abierto: true, franjas: [], nota: 'x' })
   })
 })
 

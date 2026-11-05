@@ -1,18 +1,20 @@
-// Los textos de Visitas (plan 5.3): Cómo llegar, Normas del museo y Accesibilidad del edificio, tres textos con formato
-// (EditorTexto) que se guardan juntos con su botón (PUT /museo, parcial: solo los que cambiaron). Vacío = el sitio no
-// muestra esa parte.
+// Los textos con formato de Visitas (plan 5.3; EditorTexto), que se guardan juntos con su botón (PUT /museo, parcial:
+// solo los que cambiaron). Cuáles son, con su nombre y su ayuda, lo dice TEXTOS de cuerpoTextos.js: hasta el
+// 03/11/2026 eran tres (Cómo llegar, Normas del museo y Accesibilidad del edificio) y desde la Visitas del tablero "Web"
+// de la diseñadora es solo el de accesibilidad (V2 del desarrollador; vacío, el sitio muestra el texto del diseño). Lo
+// que se manda son solo los textos de esa lista: lo que el museo cargó en los otros dos queda como estaba.
 // - Lo que da el editor (su JSON) se compara en la forma canónica (compartido/esquemas/textoRico.js, la que guarda el
 //   servidor): si no, un párrafo vacío al final o las claves en otro orden (como las devuelve el jsonb) parecían
 //   cambios sin guardar.
 // - Antes de mandar, los enlaces pegados sin el esquema ("www.…") se completan (completarEnlaces) y se valida con el
 //   mismo esquema del servidor; un error va a su campo (el resumen lleva al texto) y a la región del resumen. Lo que
 //   se manda es la forma canónica que devuelve el esquema (cuerpoTextos.js: COD-09).
-// - Avisa a la pantalla qué texto tiene cambios sin guardar, cada uno con su clave (tx-comoLlegar…), así la pregunta
-//   al irse dice cuál ("Falta guardar: Cómo llegar.").
+// - Avisa a la pantalla qué texto tiene cambios sin guardar, cada uno con su clave (tx-accesibilidad), así la pregunta
+//   al irse dice cuál ("Falta guardar: Accesibilidad.").
 // - "Guardado." se ve hasta el primer cambio después de guardar (como en los otros formularios de Visitas).
 // - Después de guardar, cada texto que no se tocó mientras se guardaba pasa a verse como quedó guardado (reemplazo de
 //   Editor.jsx: sin las líneas en blanco, que no se guardan; corrección de E3, 16/10/2026).
-// - La cantidad de caracteres que quedan va en la ayuda de cada texto (hasta CARACTERES_MAX).
+// - La cantidad de caracteres que quedan va al final de la ayuda de cada texto (hasta CARACTERES_MAX).
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { CARACTERES_MAX, medirDocumento } from '../../../../compartido/esquemas/textoRico.js'
 import { api } from '../../api.js'
@@ -21,28 +23,8 @@ import { Boton } from '../../componentes/Boton.jsx'
 import { EditorTexto } from '../../componentes/EditorTexto.jsx'
 import { ResumenErrores, useEnvio } from '../../componentes/formulario.jsx'
 import { iguales } from '../../formato.js'
-import { canonico, cuerpoDeTextos } from './cuerpoTextos.js'
+import { canonico, cuerpoDeTextos, PREFIJO_TEXTOS, TEXTOS } from './cuerpoTextos.js'
 
-export const PREFIJO_TEXTOS = 'tx-'
-
-/** Los tres textos, en el orden de la pantalla: el campo de la API, su nombre y su ayuda. */
-export const TEXTOS = [
-  {
-    campo: 'comoLlegar',
-    etiqueta: 'Cómo llegar',
-    ayuda: 'Por ejemplo, qué colectivos pasan cerca, dónde estacionar o cómo llegar desde la terminal.',
-  },
-  {
-    campo: 'normas',
-    etiqueta: 'Normas del museo',
-    ayuda: 'Lo que hay que saber durante la visita: si se pueden sacar fotos, si se puede entrar con comida…',
-  },
-  {
-    campo: 'accesibilidad',
-    etiqueta: 'Accesibilidad del edificio',
-    ayuda: 'Rampas, ascensor, baños adaptados, lugares para descansar o sillas de ruedas para prestar.',
-  },
-]
 const CAMPOS = TEXTOS.map((t) => t.campo)
 const ETIQUETAS = Object.fromEntries(TEXTOS.map((t) => [t.campo, t.etiqueta]))
 const formatoNumero = new Intl.NumberFormat('es-AR')
@@ -82,7 +64,8 @@ export function Textos({ museo, alCambiarSucio }) {
   async function alEnviar(e) {
     e.preventDefault()
     setOk(null)
-    // Solo los que cambiaron (el pedido no crece de más); si no cambió ninguno, los tres (confirma lo guardado).
+    // Solo los que cambiaron (el pedido no crece de más); si no cambió ninguno, todos los de la pantalla (confirma lo
+    // guardado).
     const cambiados = CAMPOS.filter((c) => sucios[c])
     const v = cuerpoDeTextos(valores, cambiados.length ? cambiados : CAMPOS)
     if (!v.ok) {
@@ -115,7 +98,7 @@ export function Textos({ museo, alCambiarSucio }) {
             id={`${PREFIJO_TEXTOS}${campo}`}
             etiqueta={etiqueta}
             ayuda={
-              `${ayuda} Opcional: si queda vacío, no se muestra. Hasta ${formatoNumero.format(CARACTERES_MAX)} ` +
+              `${ayuda} Hasta ${formatoNumero.format(CARACTERES_MAX)} ` +
               `caracteres (${quedan >= 0 ? `quedan ${formatoNumero.format(quedan)}` : `sobran ${formatoNumero.format(-quedan)}`}).`
             }
             error={envio.errores[campo]}
@@ -127,7 +110,7 @@ export function Textos({ museo, alCambiarSucio }) {
       })}
       <div>
         <Boton type="submit" ocupado={envio.enviando}>
-          {envio.enviando ? 'Guardando…' : 'Guardar los textos'}
+          {envio.enviando ? 'Guardando…' : CAMPOS.length === 1 ? 'Guardar el texto' : 'Guardar los textos'}
         </Boton>
       </div>
       <Aviso tipo="ok">{sucio ? null : ok}</Aviso>

@@ -7,12 +7,13 @@
 //   node --env-file-if-exists=.env tools/manual.mjs            capturas y PDF (unos 2 minutos)
 //   node tools/manual.mjs --solo-pdf                           solo el PDF, con las capturas que ya están
 //   después: npm run build otra vez, para que el PDF nuevo quede en dist/panel.
-// Opciones: --build <carpeta> (el build que se sirve para las capturas: dist), --puerto <n> (5560), --salida <archivo>
-//   (panel/public/manual.pdf), --conservar (no borra el esquema ni las cuentas al terminar, para mirar algo a mano en
-//   el mismo puerto: el servidor queda andando hasta Ctrl+C).
+// Opciones: --build <carpeta> (el build que se sirve para las capturas: dist), --puerto <n> (5560), --esquema <nombre>
+//   (el esquema aislado: manual_capturas), --salida <archivo> (panel/public/manual.pdf), --conservar (no borra el
+//   esquema ni las cuentas al terminar, para mirar algo a mano en el mismo puerto: el servidor queda andando hasta
+//   Ctrl+C).
 //
 // Qué hace para las capturas, sin tocar nada de lo que ya hay:
-// - Arma un esquema aislado ("manual_capturas") dentro de la base de DATABASE_URL, que tiene que ser local
+// - Arma un esquema aislado ("manual_capturas", o el de --esquema) dentro de la base de DATABASE_URL, que tiene que ser local
 //   (localhost): lo migra, y al terminar lo borra entero (DROP SCHEMA … CASCADE), con las cuentas y las fotos.
 // - Levanta la producción local (server/servidor.js con NODE_ENV=production) en 127.0.0.1, con el correo contra el
 //   SMTP falso de las pruebas (server/pruebas/smtpFalso.js, en este mismo proceso): ningún mail sale de la máquina.
@@ -379,7 +380,11 @@ async function capturar(c, nombre, opciones = {}) {
 // Base aislada, servidor y correo falso
 // =====================================================================================================================
 
-const ESQUEMA = 'manual_capturas'
+// Solo letras minúsculas, cifras y guion bajo: va tal cual en el SQL (CREATE y DROP SCHEMA) y en el search_path.
+const ESQUEMA = opcion('--esquema', 'manual_capturas')
+if (!/^[a-z_][a-z0-9_]{0,62}$/.test(ESQUEMA) || ESQUEMA === 'public') {
+  throw new Error(`--esquema: "${ESQUEMA}" no sirve (letras minúsculas, cifras y guion bajo; nunca public).`)
+}
 
 function urlDeLaBase() {
   const url = process.env.DATABASE_URL
@@ -602,41 +607,31 @@ async function cargarEjemplos(api) {
     ],
     mapaEmbedUrl: 'https://www.google.com/maps/embed?pb=EJEMPLO',
     mapaUrl: 'https://example.com/mapa',
-    comoLlegar: {
+    // Lo de Visitas que pide el panel desde la Visitas del tablero "Web" (03/11/2026): el texto de accesibilidad y la
+    // compra (activa y su dirección). Las tarifas, sus notas, el aviso, los otros dos textos y el texto del botón ya no
+    // se ven en el panel ni en el sitio: no se cargan.
+    accesibilidad: {
       type: 'doc',
       content: [
-        { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: `${EJEMPLO}En colectivo` }] },
         {
           type: 'paragraph',
           content: [
             { type: 'text', text: `${EJEMPLO}Texto de prueba: ` },
-            { type: 'text', text: 'no son los recorridos del museo', marks: [{ type: 'bold' }] },
-            { type: 'text', text: '. Con un enlace a un ' },
-            { type: 'text', text: 'mapa de ejemplo', marks: [{ type: 'link', attrs: { href: 'https://example.com/mapa' } }] },
+            { type: 'text', text: 'no son los recursos del museo', marks: [{ type: 'bold' }] },
             { type: 'text', text: '.' },
           ],
         },
-      ],
-    },
-    normas: {
-      type: 'doc',
-      content: [
         {
           type: 'bulletList',
-          content: [`${EJEMPLO}Norma de prueba uno`, `${EJEMPLO}Norma de prueba dos`].map((text) => ({
+          content: [`${EJEMPLO}Recurso de prueba uno`, `${EJEMPLO}Recurso de prueba dos`].map((text) => ({
             type: 'listItem',
             content: [{ type: 'paragraph', content: [{ type: 'text', text }] }],
           })),
         },
       ],
     },
-    notaHorarios: `${EJEMPLO}Horarios de prueba: no son los del museo.`,
-    notaTarifas: `${EJEMPLO}Precios de prueba: no son los del museo.`,
-    avisoTexto: `${EJEMPLO}El lunes feriado el museo permanece cerrado.`,
-    avisoHasta: dia(10, hoy),
     compraActiva: true,
     compraUrl: 'https://example.com/entradas',
-    compraTexto: 'Comprar entradas',
   })
 
   const manianaYTarde = [
@@ -651,17 +646,9 @@ async function cargarEjemplos(api) {
       { dia: 4, abierto: true, franjas: manianaYTarde, nota: null },
       { dia: 5, abierto: true, franjas: manianaYTarde, nota: null },
       { dia: 6, abierto: true, franjas: [{ abre: '10:00', cierra: '19:00' }], nota: null },
-      { dia: 7, abierto: true, franjas: [{ abre: '10:00', cierra: '19:00' }], nota: `${EJEMPLO}Visitas guiadas a las 11` },
+      { dia: 7, abierto: true, franjas: [{ abre: '10:00', cierra: '19:00' }], nota: null },
     ],
   })
-  for (const t of [
-    { nombre: `${EJEMPLO}General`, gratuita: false, precio: 3000, condicion: null, visible: true },
-    { nombre: `${EJEMPLO}Estudiantes y jubilados`, gratuita: false, precio: 1500, condicion: `${EJEMPLO}Con credencial`, visible: true },
-    { nombre: `${EJEMPLO}Menores de 6 años`, gratuita: true, precio: null, condicion: null, visible: true },
-    { nombre: `${EJEMPLO}Tarifa de temporada`, gratuita: false, precio: 2500, condicion: null, visible: false },
-  ]) {
-    await api.post('/tarifas', t)
-  }
 
   // Fotos y contenidos.
   const id = {}
@@ -818,22 +805,15 @@ async function recorrido({ url, smtp }) {
     await clic(c, 'Seguir editando', 'dialog[open]')
     await poner(c, '#telefono', '+54 264 000-0000')
 
-    // --- Visitas ---
+    // --- Visitas (desde el 03/11/2026: el horario, el texto de accesibilidad y la compra) ---
     log('Visitas')
     await ir(c, '/visitas', 'Visitas')
-    await capturar(c, 'visitas-horario', { de: ['#visitas-horario'], desde: `${MAIN} h1`, hasta: '[id="h-dias.1.nota"]', margen: 32, x: [128, 960] })
-    await capturar(c, 'visitas-tarifas', { de: ['#visitas-tarifas', '#t-agregar'], desde: '#visitas-tarifas', x: [128, 960] })
-    await clic(c, 'Agregar una tarifa')
-    await c.esperar(`!!document.querySelector('dialog[open] #t-nombre')`)
-    await poner(c, '#t-nombre', `${EJEMPLO}Grupos escolares`)
-    await c.evaluar(`__m.el('#t-gratuita').click() || true`)
-    await poner(c, '#t-condicion', `${EJEMPLO}Con reserva previa`)
-    await sleep(200)
-    await capturar(c, 'visitas-tarifa-nueva', { vista: true, de: ['dialog[open]'], margen: 12, resaltar: ['texto:Guardar la tarifa'] })
-    await clic(c, 'Guardar la tarifa', 'dialog[open]')
-    await c.esperar(`!__m.dialogoAbierto() && document.body.innerText.includes('Grupos escolares')`)
-    await capturar(c, 'visitas-textos', { de: ['#visitas-textos'], hasta: '#tx-comoLlegar', x: [128, 960], margen: 24 })
-    await capturar(c, 'visitas-aviso', { de: ['section[aria-labelledby="visitas-aviso"]'], x: [128, 960] })
+    // Desde el título hasta las franjas del martes (el lunes cerrado y el martes de mañana y de tarde); con el margen,
+    // hasta el borde de su recuadro, sin la leyenda del miércoles.
+    await capturar(c, 'visitas-horario', { de: ['#visitas-horario'], desde: `${MAIN} h1`, hasta: '[id="h-dias.1.franjas"]', margen: 32, x: [128, 960] })
+    // El editor se carga aparte (EditorTexto): se espera a que muestre el texto de ejemplo.
+    await c.esperar(`!!document.querySelector('#tx-accesibilidad')?.textContent.includes('Recurso de prueba dos')`, { que: 'el editor del texto de accesibilidad' })
+    await capturar(c, 'visitas-accesibilidad', { de: ['#visitas-accesible'], hasta: 'section[aria-labelledby="visitas-accesible"] button[type=submit]', x: [128, 960], margen: 24 })
     await capturar(c, 'visitas-compra', { de: ['section[aria-labelledby="visitas-compra"]'], x: [128, 960] })
 
     // --- Novedades: la lista y una noticia de punta a punta ---

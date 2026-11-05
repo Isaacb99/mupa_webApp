@@ -1,7 +1,7 @@
 import { paginas } from '../content.js'
 
-// Aspecto provisorio hasta el diseño de las páginas internas (E6.3): solo clases y orden; los datos y la lógica no
-// cambian.
+// Sin uso desde la Visitas del tablero "Web" de la diseñadora (03/11/2026, decisión V1: el tablero no trae las
+// tarifas): queda hasta que se decida al cierre (D1).
 //
 // Las tarifas visibles de Visitas, en el orden del panel: el nombre y la condición a la izquierda, el precio a la
 // derecha ("$ 3.000", ya como texto del servidor; null es una tarifa gratuita: "Gratis").

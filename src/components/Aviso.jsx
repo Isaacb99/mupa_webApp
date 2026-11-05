@@ -1,5 +1,5 @@
-// Aspecto provisorio hasta el diseño de las páginas internas (E6.3): solo clases y orden; los datos y la lógica no
-// cambian.
+// Sin uso desde la Visitas del tablero "Web" de la diseñadora (03/11/2026, decisión V1: el tablero no trae el aviso):
+// queda hasta que se decida al cierre (D1).
 //
 // El aviso general de Visitas (un cierre, un feriado): el texto que carga el museo, en el recuadro naranja del sitio.
 // Solo llega si está vigente (server/museo.js). No es una alerta que interrumpa: es parte de la página.

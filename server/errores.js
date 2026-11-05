@@ -107,7 +107,7 @@ export function paginaDeError(status) {
     <title>MuPa - Museo Paleontológico de San Juan</title>
     <style>
       body { margin: 0; min-height: 100svh; display: grid; place-content: center; gap: 0.75rem; padding: 1.5rem;
-             background: #0e100d; color: #eae2df; font: 1rem/1.5 system-ui, sans-serif; text-align: center; }
+             background: #010101; color: #eae2df; font: 1rem/1.5 system-ui, sans-serif; text-align: center; }
       h1 { margin: 0; font-size: 1.5rem; font-weight: 600; }
       a { color: inherit; }
     </style>

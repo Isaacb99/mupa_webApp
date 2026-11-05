@@ -2,6 +2,11 @@ import { useMemo, useRef } from 'react'
 import { medirEnganche, progresoEnganche } from '../hooks/enganche.js'
 import useScrollPorPasos from '../hooks/useScrollPorPasos.js'
 
+// Desde la Home del tablero "Web" de la diseñadora (02/11/2026; decisión D9 del desarrollador) es "El MuPa en imágenes"
+// (GaleriaHome.jsx, con el título y las piedritas): las mismas cinco fotos con la composición del tablero (Figma
+// 2628:2246: una caja de 1006x628 a 1440, centrada, con las fotos en otras alturas) y el mismo efecto de scroll de
+// siempre, que el tablero (estático) no dibuja. Lo que sigue es la historia del efecto.
+//
 // Carrusel de fotos superpuestas entre la intro e Identidad (V04 de la diseñadora, 28/09/2026: cinco fotos nuevas en
 // abanico; hasta entonces era el collage del Figma, con otras cinco fotos, después de los ejes de Identidad). Al llegar,
 // el bloque se engancha en el centro de la pantalla y cada tramo de scroll saca una foto del montón, de adelante hacia
@@ -17,15 +22,16 @@ const DURACION_FOTO = 600
 // px de más que sube la foto una vez fuera de la pantalla.
 const MARGEN_SALIDA = 16
 
-// Posición de cada capa en % de la caja (1006,6x713 a 1440, medida sobre los recortes del PDF V04), en el mismo orden
-// que las fotos de content.js: la primera al fondo (las lamas, la que queda) y la última adelante (el patio, la primera
-// en salir). Dos tamaños: 667x445 (dremel y pincel) y 542x362 (las otras tres).
+// Posición de cada capa en % de la caja (1006x628 a 1440, la del tablero "Web", Figma 2628:2246; hasta el 02/11/2026
+// era la del V04, 1006,6x713, con las mismas x y otras alturas), en el mismo orden que las fotos de content.js: la
+// primera al fondo (las lamas, la que queda) y la última adelante (el patio, la primera en salir). Dos tamaños: 667x445
+// (dremel y pincel) y 542x362 (las otras tres).
 const CAPAS = [
-  'left-[7.65%] top-[5.89%] w-[53.76%] h-[50.6%]',
-  'left-[33.73%] top-0 w-[66.27%] h-[62.38%]',
-  'left-[41.05%] top-[49.26%] w-[53.93%] h-[50.74%]',
-  'left-0 top-[32.34%] w-[66.3%] h-[62.41%]',
-  'left-[23.57%] top-[24.42%] w-[53.89%] h-[50.74%]',
+  'left-[7.626%] top-[0.03%] w-[53.79%] h-[57.44%]',
+  'left-[33.72%] top-[29.17%] w-[66.31%] h-[70.82%]',
+  'left-[41.05%] top-[8.98%] w-[53.96%] h-[57.6%]',
+  'left-[-0.028%] top-[22.73%] w-[66.34%] h-[70.85%]',
+  'left-[23.56%] top-[29.67%] w-[53.92%] h-[57.6%]',
 ]
 
 // paso 0 cuando no está enganchado: así el motor pinta directo (sin fundidos) al pasar de apilado a enganchado o al revés.
@@ -60,6 +66,8 @@ function progreso(rect, alto, medida) {
 // adversarial, 21/09/2026).
 function aplicar({ caja, fijo }, fila, animar) {
   const fotos = [...caja.children]
+  // El efecto ya maneja las fotos: se apaga collage-espera (index.css), que hasta acá dejaba ver solo la del fondo.
+  caja.dataset.efecto = ''
   if (fila < 0) {
     for (const foto of fotos) {
       foto.getAnimations().forEach((a) => a.cancel())
@@ -132,14 +140,18 @@ export default function Collage({ fotos = [] }) {
           y 16 rem (256 px, ~2,5 muescas de rueda) en lg, donde 22 se sentían largos (pedido del desarrollador, 21/09/2026).
           Con el dedo eran 22 rem; el 22/09/2026 pasaron a 27,5 (+25 %, pedido suyo) y el mismo día a 24,2 (+10 %: un
           usuario de prueba lo sintió trabado). Más la cola con la última foto quieta antes de soltarse (ver progreso):
-          30 % de pantalla en lg y 45 % con el dedo, como en los ejes de Identidad (pedido del desarrollador, 28/09/2026). */}
+          30 % de pantalla en lg y 45 % con el dedo, como en los ejes de Identidad (pedido del desarrollador, 28/09/2026).
+          collage-cola (index.css) además sube el bloque para que, antes de engancharse, la caja quede 80 px debajo del
+          título de la sección (GaleriaHome.jsx), como en el tablero. Apilado (sin efecto: reduced-motion, impresión o
+          pantalla baja) va como el tablero, quieto: 80 px de aire arriba de la caja y nada abajo (lo pone la sección).
+          El id es el de siempre: lo busca tools/collage-check.js. */}
       <div
         ref={bloque}
         id="identidad-collage"
         className={
           activo
-            ? 'collage-cola relative h-[calc(145svh+(var(--fotos)-1)*24.2rem)] lg:h-[calc(130svh+(var(--fotos)-1)*16rem)] apilado:h-auto apilado:py-16 apilado:mb-0'
-            : 'relative py-16'
+            ? 'collage-cola relative h-[calc(145svh+(var(--fotos)-1)*24.2rem)] lg:h-[calc(130svh+(var(--fotos)-1)*16rem)] apilado:h-auto apilado:mt-0 apilado:mb-0 apilado:pt-20 apilado:pb-0'
+            : 'relative pt-20'
         }
         style={{ '--fotos': fotos.length }}
       >
@@ -149,15 +161,26 @@ export default function Collage({ fotos = [] }) {
         ref={fijo}
         className={activo ? 'sticky top-0 flex h-svh items-start pt-[10svh] md:items-center md:pt-0 apilado:static apilado:h-auto apilado:pt-0' : 'flex'}
       >
-        {/* La caja del V04 (1006,6x713 a 1440, 69,9 % del ancho) centrada y corrida 25 px a la derecha, como en el
-            archivo (2,48 % de su ancho); mientras está enganchada nunca es más alta que la pantalla menos 6 rem (también
-            en celular apaisado), así entra entera con aire para la foto que sube. En celular, de borde a borde.
-            Apilado: sin tope de alto, no hace falta. Esquinas de 16,4 px (V04). */}
+        {/* La caja del tablero "Web" (1006x628 a 1440, 69,86 % del ancho, centrada; hasta el 02/11/2026 era la del V04,
+            1006,6x713 y corrida 25 px a la derecha); mientras está enganchada nunca es más alta que la pantalla menos
+            6 rem (también en celular apaisado), así entra entera con aire para la foto que sube. En celular, de borde a
+            borde. Apilado: sin tope de alto, no hace falta. Esquinas de 16,4 px (V04 y tablero).
+            collage-espera (index.css): hasta que el efecto arranca (la página todavía no hidrató o el JavaScript no
+            llegó) se ve solo la foto del fondo, como cuando ya salieron las otras cuatro; si no, las cinco quedaban en
+            la caja enganchada y tapaban el título "Mapa del Museo", que sube por debajo de ella (A11Y-07 de la
+            verificación, 02/11/2026). aplicar() lo apaga con data-efecto. Las clases van en una lista: la última
+            iba pegada a la interpolación, Tailwind no la encontraba y en apilado la caja salía un 35 % más grande (R2-01,
+            03/11/2026; lo controla server/pruebas/clases.test.js). */}
         <div className="mx-auto w-full max-w-[90rem]">
           <div
             ref={caja}
             data-caja
-            className="relative mx-auto aspect-[1006.6/713] w-[min(100%,calc((100svh-6rem)*1.4118))] md:w-[min(calc(100%-5rem),calc((100svh-6rem)*1.4118))] lg:w-[min(69.9%,calc((100svh-6rem)*1.4118))] lg:translate-x-[2.48%] apilado:w-full apilado:md:w-[calc(100%-5rem)] apilado:lg:w-[69.9%]"
+            className={[
+              'relative mx-auto aspect-[1006/628] w-[min(100%,calc((100svh-6rem)*1.6019))] md:w-[min(calc(100%-5rem),calc((100svh-6rem)*1.6019))] lg:w-[min(69.86%,calc((100svh-6rem)*1.6019))] apilado:w-full apilado:md:w-[calc(100%-5rem)] apilado:lg:w-[69.86%]',
+              activo ? 'collage-espera' : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
           >
             {fotos.map((foto, i) => (
               <div key={foto.src} className={`pointer-events-auto absolute overflow-hidden rounded-[1.025rem] ${CAPAS[i] ?? CAPAS[0]}`}>

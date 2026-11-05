@@ -1,4 +1,6 @@
-// /administracion/api/tarifas (plan 3.2, 4.3 y 5.3): las tarifas, para cualquier rol.
+// /administracion/api/tarifas (plan 3.2, 4.3 y 5.3): las tarifas, para cualquier rol. Desde la Visitas del tablero
+// "Web" (03/11/2026, V1 y V2) ninguna pantalla del panel la usa y el sitio no muestra las tarifas: la ruta y la tabla
+// quedan hasta que se decida al cierre (D1).
 // - GET /tarifas: todas (también las ocultas), en su orden.
 // - POST /tarifas { nombre, gratuita, precio, condicion, visible }: la crea al final (201). Hasta TARIFAS_MAX.
 // - PUT /tarifas/orden { ids }: el orden nuevo, con TODAS las tarifas (las bloquea mientras tanto); si la lista no

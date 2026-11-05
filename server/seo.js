@@ -225,9 +225,11 @@ const FIJAS = {
     titulo: 'Exposiciones',
     descripcion: 'Las muestras actuales, próximas y permanentes del Museo Paleontológico de San Juan, y sus salas.',
   },
+  // Desde la Visitas del tablero "Web" (03/11/2026, decisión V8): sin las tarifas, que la página ya no muestra.
   visitas: {
     titulo: 'Visitas',
-    descripcion: 'Horario, tarifas y lo que hay que saber para visitar el Museo Paleontológico de San Juan.',
+    descripcion:
+      'Cómo llegar, horarios, contacto y recursos de accesibilidad para visitar el Museo Paleontológico de San Juan.',
   },
   novedades: {
     titulo: 'Novedades',
@@ -312,12 +314,13 @@ export function armarHead(estado, { urlPublica, indexar }) {
   const canonica = seo.ruta ? urlPublica + seo.ruta.slice(1) : null
   if (canonica) lineas.push(`<link rel="canonical" href="${e(canonica)}" />`)
   // Íconos (public/): la marca MuPa en crema sobre el fondo del sitio. SVG para los navegadores modernos, ICO de 32 px
-  // para los viejos y PNG de 180 para la pantalla de inicio de iOS.
+  // para los viejos y PNG de 180 para la pantalla de inicio de iOS. theme-color: el fondo del sitio (#010101 desde el
+  // tablero "Web" de la diseñadora, 02/11/2026; antes #0e100d).
   lineas.push(
     '<link rel="icon" href="/favicon.svg" type="image/svg+xml" />',
     '<link rel="icon" href="/favicon.ico" sizes="32x32" />',
     '<link rel="apple-touch-icon" href="/apple-touch-icon.png" />',
-    '<meta name="theme-color" content="#0e100d" />',
+    '<meta name="theme-color" content="#010101" />',
   )
   if (seo.tipoOg && canonica) {
     const og = (propiedad, valor) => `<meta property="og:${propiedad}" content="${e(valor)}" />`
@@ -352,21 +355,28 @@ export function robotsTxt(urlPublica) {
 }
 
 /**
- * Las entradas del sitemap (plan 6.5): las páginas fijas (la Home con la fecha del build; Exposiciones y Novedades con
- * la última modificación de lo que publican; las demás sin fecha) y las muestras y novedades publicadas (también las
- * finalizadas o realizadas), con lastmod = updated_at (el día, en San Juan). Nunca /administracion.
+ * Las entradas del sitemap (plan 6.5): las páginas fijas (la Home con la fecha del build o, si es más nueva, la de la
+ * última novedad publicada: desde el tablero "Web" de la diseñadora, 02/11/2026, la Home muestra las últimas novedades;
+ * Exposiciones y Novedades con la última modificación de lo que publican; las demás sin fecha) y las muestras y
+ * novedades publicadas (también las finalizadas o realizadas), con lastmod = updated_at (el día, en San Juan). Nunca
+ * /administracion.
  * @param {{ urlPublica: string, fijas: string[], fechaHome: Date,
  *   contenidos: { tipo: 'muestras' | 'novedades' | 'salas', slug: string, actualizadoEn: Date | null }[] }} opciones
  * @returns {{ loc: string, lastmod?: string }[]}
  */
 export function entradasDelSitemap({ urlPublica, fijas, contenidos, fechaHome }) {
-  const dia = (fecha) => (fecha instanceof Date && !Number.isNaN(fecha.getTime()) ? hoyEnSanJuan(fecha) : undefined)
-  const ultima = (tipos) => {
-    const fechas = contenidos.filter((c) => tipos.includes(c.tipo) && c.actualizadoEn).map((c) => c.actualizadoEn.getTime())
+  const valida = (fecha) => fecha instanceof Date && !Number.isNaN(fecha.getTime())
+  const dia = (fecha) => (valida(fecha) ? hoyEnSanJuan(fecha) : undefined)
+  // El día de la fecha más nueva entre `extras` y lo publicado de `tipos` (undefined si no hay ninguna).
+  const ultima = (tipos, extras = []) => {
+    const fechas = [
+      ...extras.filter(valida),
+      ...contenidos.filter((c) => tipos.includes(c.tipo) && valida(c.actualizadoEn)).map((c) => c.actualizadoEn),
+    ].map((f) => f.getTime())
     return fechas.length ? dia(new Date(Math.max(...fechas))) : undefined
   }
   const fechaDeFija = {
-    '/': dia(fechaHome),
+    '/': ultima(['novedades'], [fechaHome]),
     '/exposiciones': ultima(['muestras', 'salas']),
     '/novedades': ultima(['novedades']),
   }

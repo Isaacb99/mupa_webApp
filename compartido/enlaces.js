@@ -8,9 +8,17 @@
 // Un enlace puede ser una página (https:// o http://), un correo (mailto:) o un teléfono (tel:), de hasta
 // ENLACE_MAX caracteres. Nunca javascript:, data:, file:, una dirección relativa ni un ancla ("#…"): no se sabe a
 // dónde llevarían en el sitio.
+// Las direcciones que se cargan en Datos del museo (las redes y "Abrir en Google Maps") llegan hasta URL_MAX, como las
+// admite el panel (compartido/esquemas/campos.js, urlHttps, que toma URL_MAX de acá): el sitio las mira con
+// esDireccionDelMuseo, con ese mismo tope (hasta el 03/11/2026 las miraba con el de los textos, 500, y una dirección
+// larga, como la que se copia de la barra después de buscar el museo en Google Maps, se guardaba con "Guardado." y no
+// salía ni en Visitas, ni en Contacto, ni en el pie: PAN-02 de la verificación de Visitas).
 
-/** El largo máximo de la dirección de un enlace. */
+/** El largo máximo de la dirección de un enlace de un texto con formato. */
 export const ENLACE_MAX = 500
+
+/** El largo máximo de una dirección de Datos del museo (las redes, el mapa, la compra): la de la tabla y el panel. */
+export const URL_MAX = 2000
 
 /** Lo que se le dice a la persona cuando un enlace no sirve. */
 export const MENSAJE_ENLACE =
@@ -31,7 +39,22 @@ const TELEFONO = /^tel:\+?\d[\d\-.()]{2,30}$/i
  * @param {unknown} href
  */
 export function esEnlacePermitido(href) {
-  if (typeof href !== 'string' || href.length === 0 || href.length > ENLACE_MAX) return false
+  return permitido(href, ENLACE_MAX)
+}
+
+/**
+ * ¿Puede ir en un enlace esta dirección de Datos del museo (una red, "Abrir en Google Maps")? Solo https://, hasta
+ * URL_MAX caracteres (lo mismo que deja guardar el panel y publica server/museo.js con esUrlHttps), con las mismas reglas
+ * que esEnlacePermitido.
+ * @param {unknown} href
+ */
+export function esDireccionDelMuseo(href) {
+  return typeof href === 'string' && href.startsWith('https://') && permitido(href, URL_MAX)
+}
+
+/** Las reglas de los dos, con su tope. */
+function permitido(href, maximo) {
+  if (typeof href !== 'string' || href.length === 0 || href.length > maximo) return false
   if (NO_VAN.test(href)) return false
   if (PAGINA.test(href)) {
     let url

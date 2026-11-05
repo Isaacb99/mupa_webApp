@@ -7,12 +7,20 @@
   engancha). Con reduced-motion, al imprimir (si no, Visión y Misión no salen en el PDF) y en pantallas bajas, donde un
   eje no entra en la pantalla fija: menos de 30rem de alto en general y, entre md y lg (768-1023 px de ancho, donde los
   espaciados fijos son mayores), menos de 36rem (medido: a 853x493 la palabra grande quedaba cortada).
+  Tambien sin JavaScript (scripting: none): el efecto del carrusel de fotos lo hace el script, y sin el las cinco fotos
+  quedaban en la caja enganchada mientras collage-cola subia la seccion siguiente por debajo de ella, asi que tapaban
+  el titulo "Mapa del Museo" (A11Y-07 de la verificacion de la Home del tablero "Web", 02/11/2026). Apilado, va quieto,
+  como el tablero. Con JavaScript el alto del bloque no se toca al cargar (asi la restauracion del scroll al recargar
+  sigue cayendo en el mismo lugar): hasta que el efecto arranca, lo cubre collage-espera (mas abajo).
 */
 @custom-variant apilado {
   @media (prefers-reduced-motion: reduce) {
     @slot;
   }
   @media print {
+    @slot;
+  }
+  @media (scripting: none) {
     @slot;
   }
   @media (max-height: 30rem) {
@@ -64,15 +72,22 @@
     destacados y ~755 en "sanjuaninos" (en el PDF ademas va con el eje de ancho en 130, que la API de Google Fonts no
     sirve: el woff2 variable que manda trae solo wght, asi que la palabra queda un 10 % mas angosta que en el diseno).
     Por eso index.html pide wght 100..1000.
-  - Colores: paleta MUPA del Figma (estilos de color del archivo). ink-soft y line no estan en el Figma: superficies y
-    divisores propios, apenas mas claros que el fondo. Colores de las bandas de Areas: ver Areas.jsx.
+  - Colores: paleta MUPA del Figma (estilos de color del archivo). ink-soft no esta en el Figma: superficies propias,
+    apenas mas claras que el fondo. Colores de las bandas de Areas: ver Areas.jsx.
+  - Desde el tablero "Web" de la disenadora (Figma, 02/11/2026; decision D6 del desarrollador): el fondo de todo el
+    sitio es el negro del tablero (MUPA/black, #010101) y no el #0e100d del V03; el blanco puro (MUPA/Blanco) es el
+    color de lo interactivo del header y de los enlaces con flecha; el contenido mide 1280 con 80 de margen a 1440
+    (max-w-tablero con px-20) y el header va a 64 del borde (max-w-tablero con px-16). El degrade del hero sigue en
+    #0e100d, como en el tablero (degrade-hero mas abajo).
 */
 @theme {
-  --color-ink: #0e100d;          /* fondo del V03 (el Figma V02 tenia #010101, negro puro: se veia mas duro) */
+  --color-ink: #010101;          /* fondo (tablero "Web", MUPA/black; hasta el 02/11/2026 #0e100d, el del V03) */
   --color-ink-soft: #1b1d1a;     /* superficies apenas mas claras (placeholders) */
-  --color-paper: #eae2df;        /* crema del V03 y de la paleta del Figma: el texto no es blanco puro */
-  --color-muted: #88858e;        /* Neutros/Gris: texto secundario, hitos no activos */
-  --color-line: #2c2c2c;         /* divisores */
+  --color-paper: #eae2df;        /* crema del V03 y de la paleta del Figma: los titulos y los parrafos */
+  --color-blanco: #ffffff;       /* MUPA/Blanco del tablero: el menu, el boton de entradas, los enlaces con flecha */
+  --color-muted: #88858e;        /* Neutros/Gris: texto secundario, hitos no activos, el (c) y los enlaces del pie */
+  --color-line: #2c2c2c;         /* divisores y el borde de arriba del pie (tablero "Web") */
+  --color-caja: #1a1a1a;         /* el cuadrado de 48 de los iconos de las tarjetas (tablero "Web": Visitas) */
 
   --color-crema: #eae2df;
   --color-bordo: #8a1812;
@@ -90,6 +105,11 @@
      Hasta el 25/09/2026 eran 82,25rem = 102 px de margen, y el mosaico de Obra, que cuelga de su propia caja de
      1440 con posiciones en %, ya caia en 112: convivian dos margenes distintos en la misma pagina. */
   --container-sitio: 80.9375rem;
+  /* El ancho del tablero "Web" de la disenadora (1440, 02/11/2026): con px-20 el contenido va de 80 a 1360 (1280) y
+     con px-16 el header va a 64 del borde, como en el diseno; mas alla de 1440 todo queda centrado con ese ancho. Lo
+     usan el header, el pie y las clases de src/components/tablero.js. max-w-sitio queda para lo de la landing y las
+     paginas que todavia no tienen el diseno nuevo. */
+  --container-tablero: 90rem;
 
   /* Indicador de scroll del hero (Hero.jsx): cada flecha se enciende y se apaga en 2 s; la de abajo va medio segundo
      detras (delay negativo, asi arranca ya desfasada). El indicador entero aparece un rato despues de cargar. */
@@ -105,8 +125,14 @@
 
   --font-display: "Google Sans Flex", "GSF Fallback", "GSF Fallback Roboto", "GSF Fallback Arial", system-ui, sans-serif;
   --font-body: "Google Sans Flex", "GSF Fallback", "GSF Fallback Roboto", "GSF Fallback Arial", system-ui, sans-serif;
-  /* Roboto Mono variable 400..700 (ver index.html): 500 en las etiquetas, 400 en los anios y 700 en el anio activo. */
-  --font-mono: "Roboto Mono", ui-monospace, "Cascadia Mono", Menlo, Consolas, monospace;
+  /* El h1 de los hero del tablero "Web" (TITULO_HERO de src/components/tablero.js: Google Sans Flex 755 con el ancho en
+     130 %), con sus propios respaldos (mas abajo, COD-02). */
+  --font-hero: "Google Sans Flex", "GSF Hero Fallback", "GSF Hero Fallback Roboto", "GSF Hero Fallback Arial", system-ui, sans-serif;
+  /* Los h2 Thin del tablero "Web" (TITULO_SECCION), con respaldos del mismo ancho en Thin (mas abajo, COD-02). */
+  --font-titulo: "Google Sans Flex", "GSF Titulo Fallback", "GSF Titulo Fallback Roboto", "GSF Titulo Fallback Arial", system-ui, sans-serif;
+  /* Roboto Mono variable 400..700 (ver index.html): 500 en las etiquetas, 400 en los anios y 700 en el anio activo. Con
+     respaldos del mismo ancho (mas abajo, COD-02). */
+  --font-mono: "Roboto Mono", "RM Fallback Cascadia", "RM Fallback Menlo", "RM Fallback Consolas", "RM Fallback Courier", ui-monospace, monospace;
 }
 
 /*
@@ -163,6 +189,115 @@
   size-adjust: 99.78%;
   ascent-override: 96.81%;
   descent-override: 28.66%;
+  line-gap-override: 0%;
+}
+
+/*
+  Respaldos del h1 de los hero (TITULO_HERO, --font-hero) y de Roboto Mono, con el mismo ancho que la fuente de verdad
+  (COD-02 de la verificacion de la Home del tablero "Web", 02/11/2026): en la primera visita, cuando llega la fuente
+  (font-display: swap), los renglones centrados del h1 "Un viaje a nuestros / origenes" se corrian ~127 px (con el
+  respaldo comun, Segoe UI Regular, eran mucho mas angostos que Google Sans Flex 755 al 130 %) y "Ver todas las
+  novedades", alineado a la derecha, 5 px: la Home dejo de tener CLS 0 (0,007 a 0,014). Con estos, el comienzo de cada
+  renglon se mueve menos de 2 px (Chrome no cuenta corrimientos de menos de 3 px).
+  size-adjust = ancho de la fuente de verdad / ancho del respaldo, medido en Chrome el 02/11/2026 a 64 px con los dos
+  renglones del h1 (Google Sans Flex 755 al 130 %: 772,92 + 355,41 px; Segoe UI Bold 570,16 + 258,53; Roboto Bold
+  547,13 + 251,47; Arial Bold 586,88 + 266,75) y, en Roboto Mono, con el avance (0,6001 em; Cascadia Mono 0,5860,
+  Consolas 0,5498, Menlo 0,6021, Courier New 0,6001). Los overrides son las metricas de la fuente de verdad divididas
+  por el size-adjust, como en los de arriba (Google Sans Flex 0,966 y 0,286; Roboto Mono 1,0479 y 0,2710, medidas con
+  canvas: fontBoundingBox). font-weight con rango: si no, Chrome le sumaba negrita sintetica (otro ancho). Si cambia la
+  fuente (FID-01: el tamano optico), volver a medir.
+  Los de los h2 Thin (TITULO_SECCION, --font-titulo), igual: sin Novedades, "El MuPa en imagenes", centrado, entra en la
+  primera pantalla y se corria 12 px (Google Sans Flex 100 a 64 px: 582,16 + 458,66 con "Mapa del Museo"; Segoe UI
+  Light 572,06 + 449,38; Roboto Light 604,53 + 465,66; Arial 626,13 + 473,16).
+*/
+@font-face {
+  font-family: "GSF Titulo Fallback";
+  src: local("Segoe UI Light"), local("SegoeUI-Light");
+  font-weight: 100 1000;
+  size-adjust: 101.9%;
+  ascent-override: 94.8%;
+  descent-override: 28.07%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: "GSF Titulo Fallback Roboto";
+  src: local("Roboto Light"), local("Roboto-Light");
+  font-weight: 100 1000;
+  size-adjust: 97.26%;
+  ascent-override: 99.32%;
+  descent-override: 29.41%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: "GSF Titulo Fallback Arial";
+  src: local("Arial"), local("ArialMT");
+  font-weight: 100 1000;
+  size-adjust: 94.68%;
+  ascent-override: 102.03%;
+  descent-override: 30.21%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: "GSF Hero Fallback";
+  src: local("Segoe UI Bold"), local("SegoeUI-Bold");
+  font-weight: 100 1000;
+  size-adjust: 136.16%;
+  ascent-override: 70.95%;
+  descent-override: 21%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: "GSF Hero Fallback Roboto";
+  src: local("Roboto Bold"), local("Roboto-Bold");
+  font-weight: 100 1000;
+  size-adjust: 141.29%;
+  ascent-override: 68.37%;
+  descent-override: 20.24%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: "GSF Hero Fallback Arial";
+  src: local("Arial Bold"), local("Arial-BoldMT");
+  font-weight: 100 1000;
+  size-adjust: 132.18%;
+  ascent-override: 73.08%;
+  descent-override: 21.64%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: "RM Fallback Cascadia";
+  src: local("Cascadia Mono"), local("CascadiaMono-Regular");
+  font-weight: 100 1000;
+  size-adjust: 102.42%;
+  ascent-override: 102.31%;
+  descent-override: 26.46%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: "RM Fallback Menlo";
+  src: local("Menlo"), local("Menlo-Regular");
+  font-weight: 100 1000;
+  size-adjust: 99.68%;
+  ascent-override: 105.13%;
+  descent-override: 27.19%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: "RM Fallback Consolas";
+  src: local("Consolas");
+  font-weight: 100 1000;
+  size-adjust: 109.15%;
+  ascent-override: 96.01%;
+  descent-override: 24.83%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: "RM Fallback Courier";
+  src: local("Courier New"), local("CourierNewPSMT");
+  font-weight: 100 1000;
+  size-adjust: 100%;
+  ascent-override: 104.79%;
+  descent-override: 27.1%;
   line-gap-override: 0%;
 }
 
@@ -226,21 +361,57 @@
   con los mismos topes.
 */
 @utility collage-cola {
-  --alto-caja: min(70.83cqw, 100svh - 6rem);
-  /* Ademas descuenta el 43,5 % de abajo de la caja, que queda vacio cuando salieron las cuatro fotos de adelante (la
-     que queda, las lamas, termina en el 56,49 % de la caja): asi Identidad sigue a 284 px de esa foto y no de la caja,
-     y su titulo entra subiendo por debajo de ella mientras el bloque todavia esta enganchado, en vez de dejar media
-     pantalla en negro (pedido del desarrollador, 28/09/2026). En la variante apilado no aplica (mb-0): ahi se ven las
-     cinco fotos y la caja esta llena.
+  /* Desde la Home del tablero "Web" (02/11/2026) la caja es la del tablero: 1006x628 a 1440 (alto = 0,6243 del ancho;
+     hasta entonces, la del V04, 1006,6x713). */
+  --alto-caja: min(62.43cqw, 100svh - 6rem);
+  /* Ademas descuenta el 42,5 % de abajo de la caja, que queda vacio cuando salieron las cuatro fotos de adelante (la
+     que queda, las lamas, termina en el 57,47 % de la caja; en el V04, en el 56,49): asi lo que sigue va a la distancia
+     de esa foto y no de la caja, y entra subiendo por debajo de ella mientras el bloque todavia esta enganchado, en vez
+     de dejar media pantalla en negro (pedido del desarrollador, 28/09/2026). En la variante apilado no aplica (mt-0 y
+     mb-0): ahi se ven las cinco fotos y la caja esta llena.
      En celular la caja no va centrada sino a 10svh del borde de arriba (Collage.jsx): lo que queda vacio debajo de ella
-     es 90svh menos su alto, y de eso se descuenta el 43,5 % de la caja: 0,5649 alto - 90svh. */
-  margin-bottom: calc(0.5649 * var(--alto-caja) - 90svh);
+     es 90svh menos su alto, y de eso se descuenta el 42,5 % de la caja: 0,5747 alto - 90svh. Y arriba, el bloque sube
+     para que la caja quede 48 px debajo del titulo de la seccion (GaleriaHome.jsx). */
+  margin-top: calc(3rem - 10svh);
+  margin-bottom: calc(0.5747 * var(--alto-caja) - 90svh);
   @media (width >= 48rem) {
-    --alto-caja: min((100cqw - 5rem) * 0.7083, 100svh - 6rem);
-    margin-bottom: calc((var(--alto-caja) - 100svh) / 2 - 0.4351 * var(--alto-caja));
+    --alto-caja: min((100cqw - 5rem) * 0.6243, 100svh - 6rem);
+    /* Desde md la caja va centrada en la pantalla: el bloque sube lo que queda arriba de ella menos 80 px, asi antes
+       de engancharse la caja queda 80 px debajo del titulo, como en el tablero (a 1440x900 sube 56 px). */
+    margin-top: calc(5rem - (100svh - var(--alto-caja)) / 2);
+    margin-bottom: calc((var(--alto-caja) - 100svh) / 2 - 0.4253 * var(--alto-caja));
   }
   @media (width >= 64rem) {
-    --alto-caja: min(49.51cqw, 44.5625rem, 100svh - 6rem);
+    --alto-caja: min(43.61cqw, 39.25rem, 100svh - 6rem);
+  }
+}
+
+/*
+  El carrusel de fotos antes de que arranque su efecto (Collage.jsx: la pagina todavia no hidrato, o el JavaScript no
+  llego). La caja ya esta enganchada y collage-cola ya sube la seccion siguiente por debajo de ella, contando con que
+  las cuatro fotos de adelante salieron; sin el script estaban las cinco y tapaban el titulo "Mapa del Museo" (A11Y-07
+  de la verificacion de la Home del tablero "Web", 02/11/2026, en su ronda 2: con JavaScript pero sin hidratar se veia
+  entero en 4 de 23 posiciones a 1440x900). Hasta que aplicar() pone data-efecto en la caja se ve solo la del fondo
+  (la primera: la que queda al final), como al terminar el recorrido. Las otras siguen en el arbol de accesibilidad
+  (opacidad 0 y no visibility: su texto alternativo se lee igual) y sin puntero. El alto del bloque no cambia: la
+  restauracion del scroll al recargar cae en el mismo lugar con y sin el script.
+  Solo cuando el efecto va a andar: no en apilado (reduced-motion, impresion, sin JavaScript o pantalla baja; las
+  mismas condiciones que la variante de arriba de todo), donde se ven las cinco quietas. La especificidad (clase, dos
+  :not) le gana a pointer-events-auto de cada foto.
+*/
+@utility collage-espera {
+  @media screen and (prefers-reduced-motion: no-preference) and (scripting: enabled) and (height > 30rem) {
+    &:not([data-efecto]) > :not(:first-child) {
+      opacity: 0;
+      pointer-events: none;
+    }
+  }
+  /* Entre md y lg con menos de 36rem de alto tambien es apilado: ahi se ven las cinco. */
+  @media screen and (width >= 48rem) and (width < 64rem) and (height <= 36rem) {
+    &:not([data-efecto]) > :not(:first-child) {
+      opacity: 1;
+      pointer-events: auto;
+    }
   }
 }
 

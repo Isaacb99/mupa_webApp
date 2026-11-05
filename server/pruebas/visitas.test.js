@@ -1,12 +1,19 @@
 // Visitas (E2.4; plan 3.2, 4.3 y 5.3): el horario semanal (GET y PUT /horarios) y las tarifas (GET y POST /tarifas,
 // PUT y DELETE /tarifas/:id, PUT /tarifas/orden). Las notas, el aviso y la compra externa son del museo
-// (museo.test.js). Sin base: los esquemas y los precios. Con base: la API.
+// (museo.test.js). Sin base: los esquemas y los precios. Con base: la API y, desde la Visitas del tablero "Web"
+// (03/11/2026, V2), que lo que manda la pantalla del panel (que ya no pide las tarifas, las notas, el aviso, los otros
+// dos textos ni el texto del botón de compra) no borra lo que el museo cargó ahí.
 // Que estas rutas piden sesión, CSRF y JSON, y sus 400 antes de tocar la base, lo recorre permisos.test.js.
 import assert from 'node:assert/strict'
 import { after, before, describe, test } from 'node:test'
 import { esquemaHorarios } from '../../compartido/esquemas/horarios.js'
+import { esquemaCambioMuseo } from '../../compartido/esquemas/museo.js'
 import { esquemaOrdenTarifas, esquemaTarifa, TARIFAS_MAX } from '../../compartido/esquemas/tarifas.js'
 import { leerPrecio, textoPrecio } from '../../compartido/precios.js'
+import { validarCon } from '../../panel/src/formato.js'
+import { cuerpoDe as cuerpoDeHorario, estadoDe as estadoDeHorario } from '../../panel/src/pantallas/visitas/cuerpoHorario.js'
+import { cuerpoDeTextos, TEXTOS } from '../../panel/src/pantallas/visitas/cuerpoTextos.js'
+import { CAMPOS_COMPRA } from '../../panel/src/pantallas/visitas/partes.js'
 import { cerrarBase, levantar, prepararBase, salteoVisible, sql } from './ayudas.js'
 
 const base = await prepararBase()
@@ -428,5 +435,82 @@ describe('tarifas', { skip: base.motivo ?? false }, () => {
     assert.equal(cuantas, TARIFAS_MAX)
     assert.equal(lugares, TARIFAS_MAX)
     await sql(`DELETE FROM tarifas WHERE nombre LIKE 'Relleno %' OR nombre LIKE 'A la vez %'`)
+  })
+})
+
+// Desde la Visitas del tablero "Web" (03/11/2026; V2 del desarrollador) la pantalla Visitas del panel pide solo lo que
+// el sitio muestra: los días y sus franjas, el texto de accesibilidad y la compra (activa y su dirección). Acá, con lo
+// que arman sus módulos sin React (los mismos que usa la pantalla), que lo que dejó de pedir no se pierde al guardar.
+describe('la pantalla Visitas del panel (V2): lo que ya no pide queda como estaba', { skip: base.motivo ?? false }, () => {
+  let s
+  let editor
+  before(async () => {
+    s = await levantar()
+    editor = await s.cookiePara('editor')
+  })
+  after(() => s?.cerrar())
+
+  const pedir = async (metodo, ruta, cuerpo) => {
+    const r = await s.pedir(metodo, `api:${ruta}`, { cookie: editor.cookie, ...(cuerpo ? { cuerpo } : {}) })
+    assert.ok(r.status < 300, `${metodo} ${ruta}: ${r.status} ${r.texto}`)
+    return r.json.data
+  }
+  const doc = (texto) => ({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: texto }] }] })
+
+  test('guardar el horario, el texto de accesibilidad y la compra no borra las notas, los textos, el aviso ni las tarifas', async () => {
+    // Lo que el museo cargó antes (con el panel de antes, o por la API).
+    const avisoHasta = '2099-12-31'
+    await pedir('PUT', '/museo', {
+      comoLlegar: doc('En colectivo.'),
+      normas: doc('No se puede entrar con comida.'),
+      accesibilidad: doc('Rampas en la entrada.'),
+      notaHorarios: 'Los feriados, horario de domingo.',
+      notaTarifas: 'Se paga con tarjeta.',
+      avisoTexto: 'El lunes el museo cierra.',
+      avisoHasta,
+      compraActiva: true,
+      compraUrl: 'https://example.com/entradas',
+      compraTexto: 'Sacá tu entrada',
+    })
+    const semanaCargada = semana([franja('09:00', '13:00')], { nota: 'Visitas guiadas a las 11' })
+    semanaCargada.dias[0] = { dia: 1, abierto: false, franjas: [], nota: 'Cerrado por mantenimiento' }
+    await pedir('PUT', '/horarios', semanaCargada)
+    await sql('DELETE FROM tarifas')
+    await pedir('POST', '/tarifas', { nombre: 'General', precio: 3000, condicion: 'Con documento' })
+    const antes = await pedir('GET', '/museo')
+    const tarifasAntes = await pedir('GET', '/tarifas')
+
+    // El horario: la pantalla parte de GET /horarios, se cambia el martes y se abre el jueves, y manda lo validado.
+    const estado = estadoDeHorario((await pedir('GET', '/horarios')).dias)
+    estado[1].franjas = [franja('10:00', '14:00')]
+    estado[3] = { ...estado[3], abierto: true, franjas: [franja('10:00', '12:00')] }
+    const horario = validarCon(esquemaHorarios, cuerpoDeHorario(estado))
+    assert.equal(horario.ok, true, JSON.stringify(horario.errores))
+    const guardados = (await pedir('PUT', '/horarios', horario.datos)).dias
+    assert.deepEqual(guardados[1], { dia: 2, abierto: true, franjas: [franja('10:00', '14:00')], nota: 'Visitas guiadas a las 11' })
+    assert.deepEqual(guardados[0], { dia: 1, abierto: false, franjas: [], nota: 'Cerrado por mantenimiento' })
+    assert.deepEqual(guardados[3], { dia: 4, abierto: true, franjas: [franja('10:00', '12:00')], nota: null })
+
+    // El texto de accesibilidad: solo ese (aunque el museo traiga los tres).
+    const textos = cuerpoDeTextos({ ...antes, accesibilidad: doc('Rampas y ascensor.') }, TEXTOS.map((t) => t.campo))
+    assert.equal(textos.ok, true, JSON.stringify(textos.errores))
+    await pedir('PUT', '/museo', textos.datos)
+
+    // La compra: sus dos campos, con la dirección nueva.
+    const valores = { ...Object.fromEntries(CAMPOS_COMPRA.map((c) => [c, antes[c]])), compraUrl: 'https://example.com/otra' }
+    const compra = validarCon(esquemaCambioMuseo, valores)
+    assert.equal(compra.ok, true, JSON.stringify(compra.errores))
+    await pedir('PUT', '/museo', compra.datos)
+
+    const despues = await pedir('GET', '/museo')
+    assert.deepEqual(despues.accesibilidad, doc('Rampas y ascensor.'))
+    assert.equal(despues.compraUrl, 'https://example.com/otra')
+    assert.equal(despues.compraActiva, true)
+    for (const campo of ['comoLlegar', 'normas', 'notaHorarios', 'notaTarifas', 'avisoTexto', 'avisoHasta', 'compraTexto']) {
+      assert.deepEqual(despues[campo], antes[campo], campo)
+      assert.ok(despues[campo] != null, `${campo} sigue cargado`)
+    }
+    assert.equal(despues.avisoHasta, avisoHasta)
+    assert.deepEqual(await pedir('GET', '/tarifas'), tarifasAntes)
   })
 })

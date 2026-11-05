@@ -35,9 +35,16 @@ export const esBaseNoDisponible = (err) => err?.code === 'BASE_NO_DISPONIBLE'
 
 /**
  * El error con que una lectura dice que la base no respondió (la página sale con la 503 simple, server/ssr.js), con el
- * código de la causa (TOPE, ECONNREFUSED, 42P01…) para el log.
+ * código de la causa (TOPE, ECONNREFUSED, 42P01…) y su mensaje, para el log: hay causas sin código (el «timeout
+ * expired» de pg al conectar con la base muda, o «Connection terminated unexpectedly» después de un corte), y sin el
+ * mensaje la línea del log no decía nada (PAN-05 de la verificación de la Home del tablero "Web", 02/11/2026). Lo
+ * loguean como { mensaje: err.mensajeCausa, codigo: err.causa }, igual que museo_sin_base (server/museo.js).
  * @param {unknown} causa
  */
 export function baseNoDisponible(causa) {
-  return Object.assign(new Error('La base no respondió'), { code: 'BASE_NO_DISPONIBLE', causa: codigoDeError(causa) })
+  return Object.assign(new Error('La base no respondió'), {
+    code: 'BASE_NO_DISPONIBLE',
+    causa: codigoDeError(causa),
+    mensajeCausa: causa instanceof Error ? causa.message : undefined,
+  })
 }

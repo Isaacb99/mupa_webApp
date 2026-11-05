@@ -1,13 +1,22 @@
 // Comprueba la medición de visitas (src/analitica.js) sin mandarle nada a Google: abre la página en Chrome headless
-// con los pedidos a los dominios de Google Analytics bloqueados, recorre la página, abre una banda de Áreas con un
-// clic y lee lo que la página dejó en la cola de gtag (window.dataLayer).
-// Tiene que dar ok: true: la configuración con el ID, las secciones en orden (ver_identidad, ver_obra, ver_areas,
-// ver_pie), las bandas que abrió el scroll y la que abrió el clic, cada evento una sola vez.
+// con los pedidos a los dominios de Google Analytics bloqueados, recorre la página hasta el pie, hace clic en los
+// enlaces de compra ("Tickets" del header y de la franja de la Home, sin dejar que naveguen) y lee lo que la página
+// dejó en la cola de gtag (window.dataLayer).
+// Tiene que dar ok: true: la configuración con el ID, ver_pie una sola vez (en la Home), un clic_entradas por enlace de
+// compra con su origen (menu, el del header; home, el de la franja) si la compra está activa, y nada de los eventos de
+// la landing (ver_identidad, ver_obra, ver_areas, abrir_*: se fueron con la Home del tablero "Web", 02/11/2026, D14).
 // A diferencia de measure.mjs, abre Chrome sin --enable-automation: con esa marca la página no mide (así las recetas
 // no cuentan como visitas). Si el build no mide (ID vacío, vista previa o desarrollo) lo dice y termina con ok: false.
 // Con --ver-envios deja cargar la etiqueta real de Google (gtag.js) y frena los envíos a Analytics (los pedidos
 // "collect") justo antes de que salgan, leyendo qué mandarían: con qué ID, qué eventos y desde qué página. Así se
 // comprueba la cadena entera contra el sitio publicado sin que la prueba cuente como visita.
+// El mapa de "Insertar mapa" (el <iframe> de www.google.com/maps/embed de Visitas y Contacto) no es de la medición y no
+// sale nunca de esta máquina, en los dos modos: Chrome no resuelve www.google.com (--host-resolver-rules). Desde la
+// Visitas del tablero (03/11/2026) /visitas tiene el mapa: la herramienta lo contaba como "un pedido a Google que no
+// quedó bloqueado" y el pedido salía de verdad, porque Network.setBlockedURLs no frena la navegación de un <iframe> de
+// otro sitio (COD-02 de la verificación de Visitas). Ahora lo cuenta aparte (mapa) y falla si alguno llegó a tener
+// respuesta. Los envíos de --ver-envios a www.google.com (/g/collect) se leen igual: Fetch los frena antes de resolver
+// el nombre.
 // Uso: node tools/analitica-check.mjs [--url http://127.0.0.1:5183/] [--ancho 1440] [--alto 900] [--ver-envios]
 import { spawn } from 'node:child_process'
 import { mkdtempSync, rmSync } from 'node:fs'
@@ -25,6 +34,9 @@ const ancho = Number(opt('--ancho', 1440))
 const alto = Number(opt('--alto', 900))
 const verEnvios = argv.includes('--ver-envios')
 const BLOQUEADOS = ['*googletagmanager.com*', '*google-analytics.com*', '*analytics.google.com*', '*doubleclick.net*']
+// El mapa: el host que Chrome no resuelve y cómo se reconoce un pedido suyo.
+const SIN_RESOLVER = '--host-resolver-rules=MAP www.google.com ~NOTFOUND, MAP maps.google.com ~NOTFOUND'
+const esDelMapa = (u) => /(^|\.)google\.com$/.test(u.hostname) && u.pathname.startsWith('/maps')
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 // Un puerto libre que da el sistema, para la depuración de Chrome (un puerto al azar podía chocar con otra corrida en
@@ -40,44 +52,35 @@ const puertoLibre = () =>
     })
   })
 
-// Recorre la página de a media pantalla, abre con un clic la primera banda cerrada y devuelve la cola de gtag.
+// Recorre la página de a media pantalla hasta el final, hace clic en los enlaces de compra (sin navegar: un oyente en
+// window, que va después del de la analítica, cancela la navegación) y devuelve la cola de gtag.
 const RECORRIDO = `(async () => {
   const espera = (ms) => new Promise((r) => setTimeout(r, ms))
   if (!Array.isArray(window.dataLayer)) return { activa: false }
   const total = () => document.documentElement.scrollHeight - innerHeight
-  // Hasta Áreas, de a media pantalla; desde ahí, de a 60 px cada 50 ms, como un scroll continuo: las bandas se abren
-  // de a una a medida que llegan (con saltos grandes solo se abriría la última).
-  const areas = document.getElementById('areas')
-  const inicioAreas = areas ? areas.getBoundingClientRect().top + scrollY - innerHeight : total()
-  let y = 0
-  for (; y < inicioAreas; y += Math.round(innerHeight / 2)) {
+  for (let y = 0; y < total(); y += Math.round(innerHeight / 2)) {
     scrollTo({ top: y, behavior: 'instant' })
     await espera(140)
   }
-  for (y = Math.max(0, inicioAreas); y < total(); y += 60) {
-    scrollTo({ top: y, behavior: 'instant' })
-    await espera(50)
-  }
   scrollTo({ top: total(), behavior: 'instant' })
   await espera(1200)
-  // El clic: la cabecera se lleva al 85 % de la pantalla, por debajo de las líneas del acordeón (60/70 %), para que el
-  // scroll no la abra solo antes del clic (centrada, en celular se abría con el scroll y el clic la cerraba). Si aun así
-  // quedó abierta, se elige otra cerrada.
-  let clicEn = null
-  for (const boton of document.querySelectorAll('#areas button[aria-expanded="false"]')) {
-    const li = boton.closest('li')
-    scrollTo({ top: li.getBoundingClientRect().top + scrollY - innerHeight * 0.85, behavior: 'instant' })
-    await espera(1500)
-    if (boton.getAttribute('aria-expanded') !== 'false') continue
-    clicEn = boton.getAttribute('aria-controls').replace('panel-', '')
-    boton.click()
-    await espera(1500)
-    break
+  window.addEventListener('click', (e) => { if (e.target.closest?.('a[data-entradas]')) e.preventDefault() })
+  const pagina = JSON.parse(document.getElementById('estado')?.textContent ?? '{}').pagina ?? null
+  const clics = []
+  // El de adentro de la página: "home" en la franja de la Home y "pagina" en las demás (hoy ninguna: desde la Visitas
+  // del tablero, 03/11/2026, Visitas ya no tiene su "Comprar entradas", V9).
+  for (const [donde, selector] of [['menu', 'header a[data-entradas]'], [pagina === 'home' ? 'home' : 'pagina', 'main a[data-entradas]']]) {
+    const enlace = document.querySelector(selector)
+    if (!enlace) continue
+    enlace.click()
+    clics.push(donde)
+    await espera(200)
   }
   const cola = window.dataLayer.map((a) => Array.from(a))
   return {
     activa: true,
-    clicEn,
+    pagina,
+    clics,
     config: cola.filter((a) => a[0] === 'config').map((a) => ({ id: a[1], opciones: a[2] })),
     eventos: cola.filter((a) => a[0] === 'event').map((a) => ({ nombre: a[1], datos: a[2] })),
     scripts: [...document.scripts].map((s) => s.src).filter((s) => s.includes('googletagmanager')),
@@ -89,7 +92,7 @@ async function probar() {
   const profile = mkdtempSync(join(tmpdir(), 'cdp-'))
   const chrome = spawn(
     process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe',
-    ['--headless=new', '--disable-gpu', '--hide-scrollbars', `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, '--window-size=1280,900', 'about:blank'],
+    ['--headless=new', '--disable-gpu', '--hide-scrollbars', SIN_RESOLVER, `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, '--window-size=1280,900', 'about:blank'],
     { stdio: 'ignore' },
   )
   try {
@@ -109,6 +112,7 @@ async function probar() {
     const pend = new Map()
     const eventos = []
     const aGoogle = []
+    const mapa = []
     const envios = []
     ws.onmessage = (e) => {
       const m = JSON.parse(e.data)
@@ -119,7 +123,7 @@ async function probar() {
       }
       if (!m.method) return
       eventos.push(m.method)
-      // Modo --ver-envios: todo pasa salvo los envíos a Analytics, que se leen y se frenan.
+      // Modo --ver-envios: todo pasa salvo los envíos a Analytics, que se leen y se frenan, y el mapa, que se frena.
       if (m.method === 'Fetch.requestPaused') {
         const q = m.params.request
         const u = new URL(q.url)
@@ -127,13 +131,22 @@ async function probar() {
         if (esEnvio) {
           envios.push({ host: u.hostname, ruta: u.pathname, consulta: u.search, cuerpo: q.postData ?? '' })
           send('Fetch.failRequest', { requestId: m.params.requestId, errorReason: 'BlockedByClient' })
+        } else if (esDelMapa(u)) {
+          send('Fetch.failRequest', { requestId: m.params.requestId, errorReason: 'BlockedByClient' })
         } else {
           send('Fetch.continueRequest', { requestId: m.params.requestId })
         }
         return
       }
-      if (m.method === 'Network.requestWillBeSent' && /google|doubleclick/.test(new URL(m.params.request.url).host)) {
-        aGoogle.push({ id: m.params.requestId, url: m.params.request.url.split('?')[0], bloqueado: false })
+      if (m.method === 'Network.requestWillBeSent') {
+        const u = new URL(m.params.request.url)
+        // El mapa, aparte: no es de la medición (Chrome no resuelve su host: no tiene que tener respuesta).
+        if (esDelMapa(u)) mapa.push({ id: m.params.requestId, url: m.params.request.url.split('?')[0], respuesta: false })
+        else if (/google|doubleclick/.test(u.host)) aGoogle.push({ id: m.params.requestId, url: m.params.request.url.split('?')[0], bloqueado: false })
+      }
+      if (m.method === 'Network.responseReceived') {
+        const pedido = mapa.find((p) => p.id === m.params.requestId)
+        if (pedido) pedido.respuesta = true
       }
       if (m.method === 'Network.loadingFailed' && m.params.blockedReason) {
         const pedido = aGoogle.find((p) => p.id === m.params.requestId)
@@ -161,7 +174,7 @@ async function probar() {
     // gtag junta los eventos y los manda cada tanto: un rato más para que salgan los últimos.
     if (verEnvios) await sleep(6000)
     ws.close()
-    return { ...r.result.result.value, aGoogle, envios }
+    return { ...r.result.result.value, aGoogle, mapa: mapa.map(({ url, respuesta }) => ({ url, respuesta })), envios }
   } finally {
     chrome.kill()
     await sleep(300)
@@ -187,17 +200,19 @@ if (!r.activa) {
 
 const nombres = r.eventos.map((e) => e.nombre)
 const secciones = nombres.filter((n) => n.startsWith('ver_'))
-const porScroll = r.eventos.filter((e) => e.nombre.startsWith('abrir_') && e.datos?.origen === 'scroll').map((e) => e.datos.area)
-const porClic = r.eventos.filter((e) => e.nombre.startsWith('abrir_') && e.datos?.origen === 'clic').map((e) => e.datos.area)
+const entradas = r.eventos.filter((e) => e.nombre === 'clic_entradas').map((e) => e.datos?.origen)
 const fallas = []
 if (r.config.length !== 1 || !/^G-/.test(r.config[0]?.id ?? '')) fallas.push('falta la configuración con el ID de GA4')
 if (r.config[0]?.opciones?.allow_google_signals !== false) fallas.push('la configuración no apaga las señales de Google')
-if (secciones.join() !== 'ver_identidad,ver_obra,ver_areas,ver_pie') fallas.push(`secciones: ${secciones.join()}`)
+// ver_pie solo en la Home, una vez; los eventos de la landing ya no existen.
+if (secciones.join() !== (r.pagina === 'home' ? 'ver_pie' : '')) fallas.push(`secciones: ${secciones.join() || '(ninguna)'}`)
+for (const n of nombres) if (/^(ver_identidad|ver_obra|ver_areas|abrir_)/.test(n)) fallas.push(`evento de la landing: ${n}`)
 if (new Set(nombres.map((n, i) => `${n}:${r.eventos[i].datos?.origen ?? ''}`)).size !== nombres.length) fallas.push('hay eventos repetidos')
-if (!porScroll.length) fallas.push('el scroll no registró ninguna banda')
-if (r.clicEn && !porClic.includes(r.clicEn)) fallas.push(`el clic en ${r.clicEn} no se registró`)
+// Un clic_entradas por enlace de compra, con su origen (sin la compra activa no hay enlaces ni eventos).
+if (entradas.join() !== r.clics.join()) fallas.push(`clic_entradas: ${entradas.join() || '(ninguno)'} (clics en ${r.clics.join() || 'nada'})`)
 if (r.scripts.length !== 1) fallas.push(`scripts de gtag en la página: ${r.scripts.length}`)
 if (!verEnvios && r.aGoogle.some((p) => !p.bloqueado)) fallas.push('algún pedido a Google no quedó bloqueado')
+if (r.mapa.some((p) => p.respuesta)) fallas.push('el mapa de Google Maps salió de esta máquina (tuvo respuesta)')
 // Envíos frenados: cada pedido "collect" lleva el ID (tid) y uno o varios eventos (en), en la consulta o en el cuerpo
 // (una línea por evento cuando van juntos).
 let resumenEnvios = null
@@ -230,12 +245,12 @@ if (verEnvios) {
   if (!r.envios.length) fallas.push('la etiqueta no intentó mandar nada a Analytics')
   if (ids.length !== 1 || ids[0] !== r.config[0]?.id) fallas.push(`los envíos van con el ID ${ids.join(', ') || '(ninguno)'}`)
   if (!nombresEnviados.includes('page_view')) fallas.push('no se envió la vista de página (page_view)')
-  for (const n of ['ver_identidad', 'ver_obra', 'ver_areas']) if (!nombresEnviados.includes(n)) fallas.push(`no se envió ${n}`)
+  if (r.pagina === 'home' && !nombresEnviados.includes('ver_pie')) fallas.push('no se envió ver_pie')
 }
 
 console.log(
   JSON.stringify(
-    { ok: fallas.length === 0, url, tamano: `${ancho}x${alto}`, fallas, id: r.config[0]?.id, secciones, porScroll, porClic, pedidosAGoogle: r.aGoogle, envios: resumenEnvios },
+    { ok: fallas.length === 0, url, tamano: `${ancho}x${alto}`, fallas, id: r.config[0]?.id, pagina: r.pagina, secciones, entradas, pedidosAGoogle: r.aGoogle, mapa: r.mapa, envios: resumenEnvios },
     null,
     2,
   ),

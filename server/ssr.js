@@ -11,8 +11,10 @@
 // - HTML con Cache-Control: no-cache; Express agrega el ETag y responde 304 si no cambió.
 // - Las respuestas públicas nunca ponen cookies.
 // - Desde E4 (plan 6.1 a 6.3): cada pedido calcula "hoy" y "ahora" una vez; el museo y los datos de la página se leen
-//   a la vez (cargar() recibe la lectura del museo, que solo espera Visitas). El estado común lleva el museo sin sus
-//   tres textos con formato (museoComun: van solo en los datos de /visitas). Si la base falla, la Home sale como
+//   a la vez (cargar() recibe la lectura del museo, que esperan solo Visitas y Contacto). El estado común lleva solo
+//   lo del museo que usa el sitio (museoComun, server/museo.js, una lista blanca: ninguno de los tres textos con
+//   formato —"Accesibilidad" va solo en los datos de /visitas, y "Cómo llegar" y las normas no salen en ninguna
+//   página— ni lo que el sitio dejó de mostrar con la Visitas del tablero). Si la base falla, la Home sale como
 //   siempre (con el último museo bueno) y las demás rutas, con la 503 simple (paginaDeError, sin el bundle); un
 //   cargar() que devuelve redirigir() responde un 301.
 // - Cada página va en su archivo JS (src/Raiz.jsx, plan 6.2): render() es async (espera la página) y el <head> pide de
@@ -131,12 +133,15 @@ export function crearSsr({
     const publico = esHostPublico(config, req)
     // El estado de la página (plan 6.2): todo lo que el navegador necesita para hidratar, en objetos planos.
     // medir: GA4 solo en producción y con el host público. userway: el ID de UserWay o null (src/userway.js, E4.7).
+    // anio: el año de hoy en San Juan, para el © del pie (src/components/Pie.jsx, tablero "Web" del 02/11/2026): sale
+    // del servidor, así el navegador nunca lo calcula (la hidratación compararía dos años distintos el 31/12).
     const estado = {
       pagina,
       ruta: req.path,
       datos,
       museo: museoComun(museo),
       hoy,
+      anio: Number(hoy.slice(0, 4)),
       medir: publico,
       userway: config.USERWAY_ID ?? null,
     }
@@ -161,7 +166,7 @@ export function crearSsr({
 
   /** La 503 simple de una página interna cuando la base no responde (plan 6.3): sin el bundle, no-store, sin cookies. */
   function noDisponible(req, res, pagina, err) {
-    log('aviso', 'pagina_sin_base', { pagina, codigo: err?.causa ?? codigoDeError(err) })
+    log('aviso', 'pagina_sin_base', { pagina, mensaje: err?.mensajeCausa, codigo: err?.causa ?? codigoDeError(err) })
     res.status(503).set({ 'Cache-Control': 'no-store', 'Retry-After': '60' }).type('html').send(paginaDeError(503))
   }
 
@@ -202,7 +207,8 @@ export function crearSsr({
   /**
    * Las entradas del sitemap (plan 6.5): las páginas fijas y lo publicado. Si la base falla, tira BASE_NO_DISPONIBLE
    * (el sitemap responde 503: mejor que uno sin las páginas de los contenidos).
-   * @param {Date} fechaHome  la última modificación de la Home (la fecha del build)
+   * @param {Date} fechaHome  la fecha del build (el lastmod de la Home es la más nueva entre esta y la de la última
+   *   novedad publicada: entradasDelSitemap, server/seo.js)
    */
   async function sitemap(fechaHome) {
     return entradasDelSitemap({

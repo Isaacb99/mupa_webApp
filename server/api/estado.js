@@ -1,9 +1,11 @@
 // /administracion/api/estado (plan 4.3, 5.2 y 8): lo que muestra el Inicio del panel, para cualquier rol.
 // {
-//   paraCompletar: ['direccion', 'telefono', 'emailPublico', 'emailDestinoContacto', 'horario', 'tarifas'],
+//   paraCompletar: ['direccion', 'telefono', 'emailPublico', 'emailDestinoContacto', 'horario'],
 //     solo lo que falta, en ese orden: los datos del museo vacíos (dirección, teléfono, correo público y, SOLO para un
-//     admin, el correo de destino del formulario: un editor no lo puede ver ni cambiar, plan 4.5), el horario sin
-//     ningún día abierto y ninguna tarifa visible. Un texto que solo tiene espacios cuenta como vacío;
+//     admin, el correo de destino del formulario: un editor no lo puede ver ni cambiar, plan 4.5) y el horario sin
+//     ningún día abierto. Un texto que solo tiene espacios cuenta como vacío. Hasta el 03/11/2026 pedía también una
+//     tarifa visible ('tarifas'); desde la Visitas del tablero "Web" de la diseñadora el sitio no muestra las tarifas
+//     (V1 y V2 del desarrollador);
 //   unSoloAdmin: true si hay un administrador activo (o ninguno): lo recomendado son dos (plan 4.4);
 //   correo: el formulario de contacto y su envío por correo (E4.5 y E4.9; plan 8, punto 4), para los dos roles:
 //     { estado: 'sin_configurar' | 'ok' | 'falla', formulario, desde, codigo, sinEnviar, otraCausa }
@@ -34,7 +36,7 @@ const OTRA_CAUSA = SIN_CORREO_POR_OTRA_CAUSA.map((codigo) => {
   return `'${codigo}'`
 }).join(', ')
 
-// Una sola consulta: la fila del museo, los tres conteos, el tamaño de la base y los mensajes del formulario que no
+// Una sola consulta: la fila del museo, los dos conteos, el tamaño de la base y los mensajes del formulario que no
 // salieron por correo después del último que sí (E4.9): por la casilla y, aparte, por otra causa (CON-08). Sin datos
 // de la persona: no lleva replacements.
 const CONSULTA = `
@@ -50,7 +52,6 @@ WITH ultimo AS (SELECT max(created_at) AS en FROM mensajes_contacto WHERE envio 
        WHERE envio = 'fallido' AND error IN (${OTRA_CAUSA}) AND (ultimo.en IS NULL OR created_at > ultimo.en))
 SELECT m.direccion, m.telefono, m.email_publico, m.email_destino_contacto,
        (SELECT count(*) FROM horario_semanal WHERE abierto)::int AS dias_abiertos,
-       (SELECT count(*) FROM tarifas WHERE visible)::int AS tarifas_visibles,
        (SELECT count(*) FROM usuarios WHERE rol = 'admin' AND activo)::int AS admins_activos,
        pg_database_size(current_database())::bigint AS bytes_base,
        sin_enviar.cantidad AS sin_enviar, sin_enviar.desde AS sin_enviar_desde, sin_enviar.codigo AS sin_enviar_codigo,
@@ -103,7 +104,6 @@ async function verEstado(req, res, { config, sequelize, registroTareas, correo }
   if (vacio(fila.email_publico)) paraCompletar.push('emailPublico')
   if (esAdmin && vacio(fila.email_destino_contacto)) paraCompletar.push('emailDestinoContacto')
   if (fila.dias_abiertos === 0) paraCompletar.push('horario')
-  if (fila.tarifas_visibles === 0) paraCompletar.push('tarifas')
   res.json({
     data: {
       paraCompletar,

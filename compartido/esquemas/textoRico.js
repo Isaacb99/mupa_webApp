@@ -1,7 +1,8 @@
 // Los textos con formato (plan 3.1 y 5.4): lo que guarda el editor del panel (EditorTexto, el JSON de TipTap:
-// editor.getJSON()) en una columna jsonb. Hoy, los tres textos de Visitas (cómo llegar, normas y accesibilidad); desde
-// E3.3 y E3.4, el cuerpo de las novedades y la descripción de las salas y las muestras. Solo servidor y panel: nunca
-// en el bundle público (zod no entra ahí, plan 6.2; el sitio los dibuja con src/components/TextoRico.jsx).
+// editor.getJSON()) en una columna jsonb. Los tres textos de Visitas (cómo llegar, normas y accesibilidad: desde el
+// 03/11/2026 el panel edita solo el de accesibilidad, y los otros dos quedan en la API y en la base) y, desde E3.3 y
+// E3.4, el cuerpo de las novedades y la descripción de las salas y las muestras. Solo servidor y panel: nunca en el
+// bundle público (zod no entra ahí, plan 6.2; el sitio los dibuja con src/components/TextoRico.jsx).
 //
 // Lo que se admite es exactamente lo que el editor sabe hacer, con esta forma (la profundidad queda fija en cinco:
 // documento > lista > elemento > párrafo > texto, así que no hace falta otro tope):

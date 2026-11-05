@@ -37,7 +37,7 @@ const GA4 = {
 // userway.org sin subdominio. A CONFIRMAR AL INTEGRARLO, con el ID del museo, mirando la consola (plan 6.6 y 9).
 const USERWAY = ['https://*.userway.org']
 const USERWAY_MARCOS = [...USERWAY, 'https://userway.org']
-// El mapa de Contacto (E4.5): el <iframe> de "Insertar mapa" de Google Maps, que la base solo acepta si empieza con
+// El mapa de Contacto (E4.5) y el de Visitas: el <iframe> de "Insertar mapa", que la base solo acepta si empieza con
 // https://www.google.com/maps/embed? (museo_mapa_embed_google, migración 02). Lo de adentro del marco lo pide la página
 // de Google con su propia CSP, no la del sitio. frame-src lleva además 'self': hasta E4.5 no estaba escrita y valía la
 // de default-src ('self'); sin él, un marco del propio sitio quedaba bloqueado (tools/parallax-compuerta.js carga la
@@ -46,8 +46,9 @@ const MAPA = ['https://www.google.com']
 
 /**
  * CSP de las páginas públicas. Lo propio, las imágenes inline (data:, Vite incrusta los SVG chicos), GA4, el mapa de
- * Contacto (frame-src: lo propio y www.google.com, y nada más) y, con USERWAY_ID, UserWay. 'unsafe-inline' en estilos por los
- * style= que dibuja el SSR; no hay scripts inline (el estado y el JSON-LD son JSON, no se ejecutan).
+ * Contacto y de Visitas (frame-src: lo propio y www.google.com) y, con USERWAY_ID, UserWay (también en frame-src).
+ * 'unsafe-inline' en estilos por los style= que dibuja el SSR; no hay scripts inline (el estado y el JSON-LD son JSON,
+ * no se ejecutan).
  * En desarrollo (server/dev.js) se agregan el script inline del preámbulo de React Refresh y el websocket de Vite.
  */
 export function textoCspPublica({ userway = false, desarrollo = false } = {}) {

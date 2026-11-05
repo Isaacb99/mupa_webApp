@@ -11,6 +11,7 @@
 // - Las direcciones (URL) se guardan con el esquema en minúsculas ("HTTPS://" pasa a "https://": los CHECK de la tabla
 //   comparan con 'https://%', que distingue mayúsculas) y sin caracteres invisibles ni de control.
 // Código puro: sin APIs de Node ni del DOM (URL es un estándar de los dos).
+import { URL_MAX } from '../enlaces.js'
 import { esFechaHoraValida, esFechaValida } from '../fechas.js'
 import { z } from './zod.js'
 
@@ -59,7 +60,9 @@ export function textoVariasLineas(max, { largo = `Puede tener hasta ${max} carac
     )
 }
 
-export const URL_MAX = 2000
+// El tope de una dirección está en compartido/enlaces.js (sin zod): el sitio lo usa para mirar las mismas direcciones
+// antes de enlazarlas (esDireccionDelMuseo), así lo que el panel deja guardar es lo que el sitio muestra (PAN-02).
+export { URL_MAX }
 export const MENSAJE_HTTPS =
   'Tiene que ser una dirección completa, que empiece con https://, por ejemplo https://www.instagram.com/museo. ' +
   'Lo más seguro es copiarla de la barra de direcciones del navegador.'

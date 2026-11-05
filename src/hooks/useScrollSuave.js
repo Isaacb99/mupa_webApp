@@ -93,8 +93,16 @@ export default function useScrollSuave() {
       anchors: true,
       stopInertiaOnNavigate: true,
       naiveDimensions: true,
+      // false: la rueda va nativa, sin Lenis. Una muesca durante el scroll animado de una tecla (ver arriba), y Mayús +
+      // rueda: es el scroll horizontal del navegador (el carrusel de Novedades de la Home). Chrome y Edge en Windows
+      // probablemente ya la mandan como deltaX, que Lenis no toma; si llega como deltaY con shiftKey (así la manda el
+      // CDP; Firefox, sin comprobar), Lenis la tomaba y bajaba la página en vez de mover la fila (COD-01 de la
+      // verificación, 02/11/2026).
       virtualScroll: ({ event }) =>
-        !(event.type === 'wheel' && lenis?.isScrolling === 'native' && performance.now() - ultimaTecla < SCROLL_TECLA),
+        !(
+          event.type === 'wheel' &&
+          (event.shiftKey || (lenis?.isScrolling === 'native' && performance.now() - ultimaTecla < SCROLL_TECLA))
+        ),
     })
     lenisActual = lenis
     const vs = lenis.virtualScroll
