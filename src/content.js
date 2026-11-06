@@ -90,9 +90,58 @@ import heroDivulgacion960 from './assets/hero-divulgacion-960.webp'
 import heroDivulgacion1440 from './assets/hero-divulgacion-1440.webp'
 import heroDivulgacion1920 from './assets/hero-divulgacion-1920.webp'
 import heroDivulgacion2880 from './assets/hero-divulgacion-2880.webp'
+import heroEducacion960 from './assets/hero-educacion-960.webp'
+import heroEducacion1440 from './assets/hero-educacion-1440.webp'
+import heroEducacion1920 from './assets/hero-educacion-1920.webp'
+import heroEducacion2880 from './assets/hero-educacion-2880.webp'
+import educacionEscolares600 from './assets/educacion-escolares-600.webp'
+import educacionEscolares1140 from './assets/educacion-escolares-1140.webp'
+import heroCircuitos960 from './assets/hero-circuitos-960.webp'
+import heroCircuitos1440 from './assets/hero-circuitos-1440.webp'
+import heroCircuitos1920 from './assets/hero-circuitos-1920.webp'
+import heroCircuitos2880 from './assets/hero-circuitos-2880.webp'
+import bloqueCiencia600 from './assets/bloque-ciencia-600.webp'
+import bloqueCiencia880 from './assets/bloque-ciencia-880.webp'
+import heroElMuseo960 from './assets/hero-el-museo-960.webp'
+import heroElMuseo1440 from './assets/hero-el-museo-1440.webp'
+import heroElMuseo1920 from './assets/hero-el-museo-1920.webp'
+import heroElMuseo2880 from './assets/hero-el-museo-2880.webp'
+import patronB from './assets/patron-b.svg'
 
 // srcSet de las fotos del carrusel, con versión de 700 y de 1400 px.
 const doble = (chica, grande) => `${chica} 700w, ${grande} 1400w`
+
+// Las fotos de "El MuPa en imágenes" de la Home (Collage.jsx, con identidad.collage, más abajo), que también usa El
+// Museo (elMuseo: el patio en "El MuPa" y tres en los documentales): las del carrusel del V04, enteras (3:2), en 700 y
+// 1400. Van acá arriba (elMuseo está antes que identidad en el archivo) y identidad.collage arma su lista con los mismos
+// objetos: el HTML de la Home no cambia.
+const FOTOS_CARRUSEL = {
+  lamas: {
+    src: carruselLamas1400,
+    srcSet: doble(carruselLamas700, carruselLamas1400),
+    alt: 'Lamas metálicas curvas de la fachada del museo, vistas desde abajo contra el cielo',
+  },
+  dremel: {
+    src: carruselDremel1400,
+    srcSet: doble(carruselDremel700, carruselDremel1400),
+    alt: 'Manos de un técnico puliendo con una herramienta rotativa la réplica de una garra de dinosaurio',
+  },
+  restaurador: {
+    src: carruselRestaurador1400,
+    srcSet: doble(carruselRestaurador700, carruselRestaurador1400),
+    alt: 'Restaurador con guantes revisando de cerca las vértebras de un esqueleto montado en el hall',
+  },
+  pincel: {
+    src: carruselPincel1400,
+    srcSet: doble(carruselPincel700, carruselPincel1400),
+    alt: 'Manos de un restaurador pasando un pincel sobre un fósil',
+  },
+  patio: {
+    src: carruselPatio1400,
+    srcSet: doble(carruselPatio700, carruselPatio1400),
+    alt: 'Patio del museo con el edificio de la cúpula y las lamas de la fachada',
+  },
+}
 
 // La foto del hero de una página interna sin hero en el tablero (Exposiciones, Novedades y Contacto: HeroPagina.jsx,
 // decisión R1 del desarrollador, 04/11/2026), como la de Visitas: 3:1, de la "Seleccion Fotográfica" con
@@ -651,6 +700,440 @@ export const divulgacion = {
   },
 }
 
+// La foto de "Visitas Escolares" de Educación (decisión R-B del orquestador, 06/11/2026): los chicos de guardapolvo en
+// la baranda del hall, la foto real de una visita escolar que mandó el museo el 22/09/2026 (la banda Educación de la
+// landing, ya publicada en mupa.ar con este alt). El tablero la pone en el hero, donde no alcanza (1.140 px), y en esta
+// sección pone la paleontóloga del campo (relleno); acá va al revés. 10:7 en 600 y 1140 (tools/convertir-fotos.mjs,
+// desde area-educacion-1140: el original no está en esta PC). sizes: el de "Museo accesible" (la mitad del contenido
+// desde lg). A validar con el museo: el permiso de los chicos (pregunta 3 de la lista de Divulgación) y EDU-6.
+const fotoDeVisitasEscolares = {
+  src: educacionEscolares600,
+  srcSet: `${educacionEscolares600} 600w, ${educacionEscolares1140} 1140w`,
+  sizes: '(min-width: 90rem) 600px, (min-width: 64rem) calc((100vw - 15rem) / 2), calc(100vw - 3rem)',
+  ancho: 1140,
+  alto: 798,
+  alt: 'Chicos de guardapolvo blanco asomados a la baranda de vidrio del hall del museo',
+}
+
+// Educación (src/paginas/Educacion.jsx): la página del tablero "Web" (Figma 2846:1561; decisiones IN1 a IN10 del
+// desarrollador, 06/11/2026). Va COMPLETA, como el tablero (IN1): el hero, "Visitas Escolares" (BloqueTextoFoto.jsx) y
+// "Recursos educativos" (SeccionRecursos.jsx). Es la misma excepción a D13 y al plan 6.1 que Divulgación (DV1), hasta
+// que el museo mande lo suyo. El texto es el de la nota de contenido de la página (Figma 2846:1871), que es del museo
+// (a validar, pregunta 1 de tools/salida/e6-divulgacion/prep/preguntas-museo.md): el título, el rótulo, el h2 y los
+// dos párrafos de Visitas Escolares, y el h2, la bajada y los títulos y textos de las tres tarjetas de Recursos. Del
+// tablero y no de la nota: la lista de niveles, "Coordinar visita", el rótulo "Recursos" y los "enlaces" de las
+// tarjetas. Las erratas evidentes, corregidas: la nota dice "Videos Educativos" y "triásico" (van como en el tablero).
+// Lo de relleno lleva al lado "RELLENO DEL TABLERO:", con de dónde viene y qué pregunta lo destraba (de
+// tools/salida/e6-internas/prep/educacion/preguntas-museo.md, EDU-n, o de la de Divulgación, por número); antes del
+// corte del dominio, se reemplaza o se saca (IN4). Ningún control sin destino (IN2): "Coordinar visita" lleva a
+// Contacto (enlace.pagina; si esa página no existiera, iría como texto) y los "enlaces" de las tarjetas van como texto
+// (url: null) hasta que el museo diga dónde están los recursos.
+export const educacion = {
+  hero: {
+    titulo: 'Educación', // de la nota ("EDUCACIÓN"); sin bajada: la nota la deja vacía
+    // RELLENO DEL TABLERO: la foto del tablero (los chicos de guardapolvo en la baranda, 2846:1563) es
+    // area-educacion-1140 de la landing: 1.140 px, no alcanza para el hero (va en "Visitas Escolares"). Va la
+    // restauradora con el pincel sobre un fósil en el hall ("Id. Mision - IMG_7735" de la selección, el eje Misión de la
+    // landing; decisión R-A del orquestador), 3:1 sin el 15 % de la derecha del original (así la cara queda en el 62-70 %
+    // del ancho), filas del 9,5 al 52 %: el h1 sobre la pared y el pelo, y la cara debajo. Desde 1440 la foto ocupa todo
+    // el ancho y se recorta arriba y abajo: posicion '50% 90%' deja la boca entera hasta 3440, y de ~1640 en adelante los
+    // ojos quedan a la derecha del h1 (hasta ahí, debajo). Medido de 1024 a 3440: el h1 no tapa los ojos ni la boca en
+    // ningún ancho. El alt es nuestro (a validar con el museo, pregunta 38 de la lista de Divulgación). La destraban
+    // EDU-1 (el original de los chicos en alta resolución) y la pregunta 30 de la lista de Divulgación (fotos de visitas
+    // escolares).
+    imagen: fotoDeHero(
+      [heroEducacion960, heroEducacion1440, heroEducacion1920, heroEducacion2880],
+      '50% 90%',
+      'Restauradora del museo sonriendo mientras trabaja con un pincel, en el hall',
+    ),
+  },
+  // "Visitas Escolares" (BloqueTextoFoto.jsx, Figma 2851:77).
+  escolares: {
+    id: 'educacion-visitas',
+    rotulo: 'Experiencia MuPa', // de la nota (Volanta); las mayúsculas, por CSS
+    titulo: 'Visitas Escolares', // de la nota y del tablero, con la E mayúscula (¿el nombre del programa?: EDU-2)
+    parrafos: [
+      {
+        // De la nota (a validar: pregunta 25 de la lista de Divulgación).
+        texto:
+          'Traé a tu escuela al MuPa y viajá con tus estudiantes al Triásico. Nuestros guías especializados adaptan ' +
+          'el recorrido al nivel de cada grupo, inicial, primaria, secundaria y nivel superior.',
+      },
+      // De la nota; "esenciales" queda como está (¿"especiales"?: pregunta 25).
+      { texto: 'Contactanos para coordinar fecha, horario y requerimientos esenciales.', secundario: true },
+    ],
+    // Del tablero (no está en la nota): repite los niveles del párrafo (EDU-3).
+    lista: ['Nivel inicial', 'Primaria', 'Secundaria', 'Nivel superior'],
+    // Del tablero, sin destino en el archivo: a Contacto (IN2; adónde lleva de verdad, pregunta 27).
+    enlace: { texto: 'Coordinar visita', pagina: 'contacto' },
+    imagen: fotoDeVisitasEscolares,
+  },
+  // "Recursos educativos" (SeccionRecursos.jsx, Figma 2851:104): el rótulo, el h2, la bajada y tres tarjetas con el
+  // ícono en crema. Cada tarjeta, con la forma de una fila (IN3): icono (la clave de SeccionRecursos.jsx: descarga,
+  // video o enlace), titulo, texto, accion y url (null: la acción va como texto; con url, como enlace).
+  recursos: {
+    id: 'educacion-recursos',
+    rotulo: 'Recursos', // del tablero (no está en la nota); las mayúsculas, por CSS
+    titulo: 'Recursos educativos', // de la nota
+    bajada: 'Material gratuito para educadores y estudiantes', // de la nota (Subtítulo)
+    // Los títulos y los textos, de la nota (como los escribe el tablero: "Videos educativos", "Triásico"; los puntos
+    // finales, del tablero).
+    // RELLENO DEL TABLERO: las acciones ("Ver guías", "Ver videos", "Explorar") son del tablero y no tienen destino:
+    // van como texto (url: null, IN2). No sabemos si las guías, los videos y la biblioteca existen ni dónde están: los
+    // destraban la pregunta 28 de la lista de Divulgación y EDU-4. Antes del corte: el enlace de cada una, o sacarla.
+    tarjetas: [
+      {
+        icono: 'descarga',
+        titulo: 'Guías didácticas',
+        texto: 'Material educativo descargable para docentes: nivel inicial, primaria, secundaria y universidad.',
+        accion: 'Ver guías',
+        url: null,
+      },
+      {
+        icono: 'video',
+        titulo: 'Videos educativos',
+        texto: 'Contenido audiovisual sobre paleontología y geología del Triásico: conferencias y documentales.',
+        accion: 'Ver videos',
+        url: null,
+      },
+      {
+        icono: 'enlace',
+        titulo: 'Biblioteca digital',
+        texto: 'Acceso a publicaciones científicas del MuPa: artículos, libros y tesis.',
+        accion: 'Explorar',
+        url: null,
+      },
+    ],
+  },
+}
+
+// La foto de los dos circuitos de Circuitos (BloqueTextoFoto.jsx, 600x420 a 1440, 10:7): la que les puso la diseñadora
+// en el tablero, la paleontóloga con la cuadrícula de hilos (la misma de los bloques de Divulgación), pero desde su
+// original ("Acordeon - Ciencia" de la Selección, 920x633; decisión R-C del orquestador) y no desde area-ciencia-570: sin
+// el marco del escaneo y un poco más abierta, en 600 y 880 (1,47x a 600; para 2x hace falta el original del museo).
+// Divulgación sigue con area-ciencia-570 (fotoDeBloque): pasarla a esta es una decisión del cierre. El alt, el de
+// Divulgación (no nombra a nadie: IN5); repetido en los dos circuitos, como en Divulgación (R-I: vaciarlo en la repetida
+// se decide al cierre, para las dos páginas). sizes: el de "Museo accesible" (la mitad del contenido desde lg).
+// RELLENO DEL TABLERO: la misma foto en los dos circuitos (y en los bloques de Divulgación); no es de Ischigualasto ni
+// del Parque las Huellas que se sepa. La destraba la pregunta 35 de tools/salida/e6-divulgacion/prep/preguntas-museo.md
+// (fotos de los dos lugares, con permiso y crédito).
+const fotoDeCircuito = {
+  src: bloqueCiencia600,
+  srcSet: `${bloqueCiencia600} 600w, ${bloqueCiencia880} 880w`,
+  sizes: '(min-width: 90rem) 600px, (min-width: 64rem) calc((100vw - 15rem) / 2), calc(100vw - 3rem)',
+  ancho: 880,
+  alto: 616,
+  alt: 'Paleontóloga registrando un hallazgo en el campo con una cuadrícula de hilos sobre el fósil',
+}
+
+// Circuitos (src/paginas/Circuitos.jsx): la página del tablero "Web" (Figma 2860:5827; decisiones IN1 a IN10 del
+// desarrollador, 06/11/2026). Va COMPLETA, como el tablero (IN1): el hero con su bajada y los dos circuitos, Valle de la
+// Luna con "Conexión MuPa". Es la misma excepción a D13 y al plan 6.1 que Divulgación (DV1), hasta que el museo mande lo
+// suyo: lo de relleno o en borrador lleva al lado "RELLENO DEL TABLERO:", con de dónde viene y qué pregunta lo destraba
+// (de tools/salida/e6-divulgacion/prep/preguntas-museo.md, por número, o de
+// tools/salida/e6-internas/prep/circuitos/preguntas-museo.md, Cn); antes del corte del dominio, se reemplaza o se saca
+// (IN4). El texto es el del tablero; la nota de contenido de la página (Figma 2860:6184) dice lo mismo salvo dos cosas:
+// en Valle de la Luna, los tres dinosaurios van entre rayas ("conocidos — Eoraptor, …, Herrerasaurus — y escenario") y
+// el tablero los puso después de dos puntos; en Parque las Huellas, la nota trae aparte la línea "Descubrimiento 2024 —
+// Iglesia, San Juan" y el tablero la metió en el párrafo ("en el departamento de Iglesia, San Juan,"). Va el del tablero
+// (pregunta C1). Las erratas evidentes, corregidas: "Palentológicos" en el h1 (y en minúscula, como los demás h1 del
+// tablero: decisión R-G del orquestador) y el espacio final de la bajada. Los circuitos son filas (IN3: slug, nombre,
+// parrafos, lista, enlace, apartado, imagen): el día que los cargue el museo, son un tipo del panel con estos campos.
+// Ningún control sin destino (IN2): "Coordinar visita" lleva a Contacto (enlace.pagina; si esa página no existiera, iría
+// como texto).
+export const circuitos = {
+  hero: {
+    titulo: 'Circuitos\npaleontológicos', // "\n": el corte del tablero ("Circuitos" / "Palentológicos")
+    // RELLENO DEL TABLERO: borrador de la nota: anuncia destinos "urbanos" que la página no tiene; lo destraba la
+    // pregunta 31 (tools/salida/e6-divulgacion/prep/preguntas-museo.md).
+    bajada: 'Extendé tu visita al MuPa con otros destinos paleontológicos y urbanos de San Juan.',
+    // RELLENO DEL TABLERO: la foto del tablero (de campo, 1000x993, la misma del tablero de Divulgación) no alcanza y no
+    // está en la Selección (IN6); va el soldador con la máscara entre los caños celestes (Mosaico - IMG_1085 de la
+    // Selección, la foto 5 del mosaico de Obra de la landing, ya publicada en mupa.ar), 3:1 con las filas del 40 al 90 %
+    // (decisión R-D del orquestador: con el esqueleto de IMG_8110, la primera propuesta, la bajada quedaba sobre una pared
+    // blanca, con el 1,5-2 % del borde de sus letras bajo 3:1; con esta, como mucho el 0,2 %, medido de 1024 a 3440).
+    // posicion: la máscara (al 62 % del ancho y el 40 % del alto del recorte), así queda a la misma altura más allá de
+    // 1440. No tiene que ver con los circuitos: la destraba la pregunta 35 (fotos de los dos lugares). El alt, el de la
+    // landing (no se le ve la cara: la máscara la tapa).
+    imagen: fotoDeHero(
+      [heroCircuitos960, heroCircuitos1440, heroCircuitos1920, heroCircuitos2880],
+      '62% 40%',
+      'Soldador con máscara trabajando sobre la estructura metálica de un montaje, entre chispas',
+    ),
+  },
+  // El rótulo de cada circuito (del tablero y de la nota, "CIRCUITOS PALEONTOLÓGICOS"; las mayúsculas, por CSS). Si
+  // algún día hay circuitos urbanos, pasa a ser un campo de cada fila.
+  rotulo: 'Circuitos paleontológicos',
+  // Cada circuito, un BloqueTextoFoto (el id del h2, y el ancla, circuito-<slug>: Circuitos.jsx).
+  destinos: [
+    {
+      slug: 'valle-de-la-luna',
+      nombre: 'Valle de la Luna', // del tablero y de la nota (pregunta 32: ¿o "Ischigualasto", o los dos?)
+      parrafos: [
+        {
+          // Del tablero; "Herrerasaurus, y escenario" (la coma que dejó el cambio de las rayas de la nota por dos
+          // puntos) queda como está: no es una errata evidente (pregunta 32).
+          texto:
+            'El yacimiento paleontológico más importante del Triásico en el mundo. Hogar de los primeros dinosaurios ' +
+            'conocidos: Eoraptor, Eodromaeus, Herrerasaurus, y escenario de décadas de investigación del equipo del ' +
+            'MuPa. Patrimonio de la Humanidad UNESCO desde 2000.',
+        },
+      ],
+      // RELLENO DEL TABLERO: borrador de la nota a validar: "Triásico Inferior" (Ischigualasto es del Triásico
+      // Superior) y "Recorrido guiado en vehículo" (¿sigue así?); lo destraba la pregunta 32.
+      lista: ['Dinosaurios del Triásico Inferior', 'Recorrido guiado en vehículo', 'Paisaje lunar'],
+      // Sin destino en el tablero: a Contacto (IN2; adónde lleva de verdad, pregunta 34).
+      enlace: { texto: 'Coordinar visita', pagina: 'contacto' },
+      apartado: {
+        titulo: 'Conexión MuPa', // del tablero y de la nota
+        // RELLENO DEL TABLERO: borrador de la nota: "más de 40 especies" en Ischigualasto (en El Museo, "40 especies"
+        // en total) y el cargo abreviado, "Dir. Científico". Lo destraban las preguntas 32 y C3.
+        parrafos: [
+          {
+            texto:
+              'Muchas de las especies exhibidas en el MuPa provienen de Ischigualasto. El Dir. Científico Ricardo ' +
+              'Martínez descubrió aquí más de 40 especies.',
+          },
+        ],
+      },
+      imagen: fotoDeCircuito,
+    },
+    {
+      slug: 'parque-las-huellas',
+      nombre: 'Parque las Huellas', // del tablero y de la nota (pregunta 33: en El Museo, "Parque de las Huellas")
+      parrafos: [
+        {
+          // RELLENO DEL TABLERO: borrador: es la versión del tablero, que mete en el párrafo la línea de la nota
+          // "Descubrimiento 2024 — Iglesia, San Juan", y dice a la vez Iglesia y "en las cercanías de la capital
+          // sanjuanina"; el cargo, abreviado ("Dir."). Lo destraban la pregunta 33, C1 y C3.
+          texto:
+            'Descubierto en 2024 en el departamento de Iglesia, San Juan, por el Dir. Oscar Alcober, este yacimiento ' +
+            'conserva huellas fósiles extraordinarias de dinosaurios del Triásico en las cercanías de la capital ' +
+            'sanjuanina. El hallazgo más reciente del equipo del MuPa.',
+        },
+      ],
+      lista: [],
+      // Sin destino en el tablero: a Contacto (IN2; pregunta 34).
+      enlace: { texto: 'Coordinar visita', pagina: 'contacto' },
+      apartado: null, // ¿tiene su "Conexión MuPa"? (pregunta C4)
+      imagen: fotoDeCircuito,
+    },
+  ],
+}
+
+// El tamaño de las fotos de El Museo (src/paginas/ElMuseo.jsx), para el srcset: la del patio, la mitad del contenido
+// desde lg (como "Museo accesible" de Visitas); las de los documentales, un tercio (tres columnas con 32 entre sí).
+const SIZES_MITAD = '(min-width: 90rem) 600px, (min-width: 64rem) calc((100vw - 15rem) / 2), calc(100vw - 3rem)'
+const SIZES_TERCIO = '(min-width: 90rem) 405px, (min-width: 64rem) calc((100vw - 14rem) / 3), calc(100vw - 3rem)'
+
+// El Museo (src/paginas/ElMuseo.jsx): la página del tablero "Web" (Figma 2823:10228; decisiones IN1 a IN10 del
+// desarrollador, 06/11/2026). Va COMPLETA, como el tablero (IN1): el hero, El MuPa, Cómo nos organizamos, Misión y visión
+// con Valores, Haciendo el MuPa, El MuPa en números, Autoridades y Nuestro equipo. Es la misma excepción a D13 y al plan
+// 6.1 que Divulgación (DV1), hasta que el museo mande lo suyo: lo de relleno lleva al lado "RELLENO DEL TABLERO:", con de
+// dónde viene y qué pregunta lo destraba (de tools/salida/e6-internas/prep/el-museo/preguntas-museo.md, Mn, o de
+// tools/salida/e6-divulgacion/prep/preguntas-museo.md, por número: las de El Museo son la 15 a la 24); antes del corte
+// del dominio, se reemplaza o se saca (IN4). Lo que está en la nota de contenido de la página (Figma 2823:11012:
+// tools/salida/e6-internas/prep/el-museo/figma/nota-contenido.md) es texto del museo (a validar, pregunta 1 de la lista
+// de Divulgación); los rótulos "El Museo Paleontológico", "Liderazgo" y "El equipo" son del tablero (no están en la
+// nota). Las erratas evidentes, corregidas: "Áreas de extensión" -> "Área de extensión" y "Director Científico" ->
+// "Director científico" (como la nota). Como están (no son erratas evidentes; M2 y M3): "Co-gestión" y "Cogestión",
+// "socio-ambiental" y "socioambiental", los nombres científicos sin cursiva y "3500". Lo que algún día podría cargar el
+// museo en el panel va como filas (IN3): las partes de la cogestión, los valores, los documentales, las cifras, las
+// autoridades y el equipo. La página no tiene enlaces ni botones propios (IN2): el "play" de los documentales es un
+// decorado y las píldoras de Valores, una lista.
+export const elMuseo = {
+  hero: {
+    titulo: 'Acerca del MuPa', // el de la nota y el tablero (el menú dice "El Museo": pregunta 15); sin bajada
+    // RELLENO DEL TABLERO: la foto del tablero es la fachada con el cartel (Header - IMG_1526 v2), que ya es el hero de
+    // Contacto (IN6); va la más cercana de la Selección que no repite un hero (decisión R-E del orquestador): el mismo
+    // frente, de cerca y contra el cielo (Id. Vision - IMG_1676, el eje Visión de la landing), 3:1 de la franja x del 5
+    // al 95 % y las filas del 0 al 45 %, con el h1 sobre el cielo y las torres blancas debajo (el cartel queda afuera).
+    // posicion: más allá de 1440 la foto se recorta arriba y abajo; con el 60 % el h1 sigue sobre el cielo y abajo se ven
+    // las torres. El alt es nuestro (a validar, pregunta 38 de la lista de Divulgación). La destraba la M1.
+    imagen: fotoDeHero(
+      [heroElMuseo960, heroElMuseo1440, heroElMuseo1920, heroElMuseo2880],
+      '50% 60%',
+      'Las torres curvas y blancas del frente del museo contra el cielo azul',
+    ),
+  },
+  // "El MuPa" (Figma 2825:123).
+  presentacion: {
+    rotulo: 'El Museo Paleontológico', // del tablero; las mayúsculas, por CSS
+    titulo: 'El MuPa',
+    // De la nota (a validar: pregunta 17 de la lista de Divulgación).
+    parrafos: [
+      'El Museo Paleontológico de San Juan (MuPa) es una institución dedicada a la divulgación científica y ' +
+        'educativa, así como a la preservación del patrimonio paleontológico y cultural de la provincia.',
+      'El MuPa es administrado por el Ministerio de Turismo, Cultura y Deporte del Gobierno de San Juan en ' +
+        'coparticipación con la Universidad Nacional de San Juan (UNSJ).',
+    ],
+    // La foto del tablero (museo-imagen): el patio con la cúpula (Carrusel - IMG_1605), la del Collage de la Home, en
+    // 5:3 por CSS. La de la sección es la del tablero; a validar con el museo (M4).
+    imagen: { ...FOTOS_CARRUSEL.patio, sizes: SIZES_MITAD, ancho: 1400, alto: 933 },
+    piedritas: patronGaleria, // el mismo dibujo del tablero (2826:322), el de "El MuPa en imágenes" de la Home
+  },
+  // "Cómo nos organizamos" (Figma 2825:133): cada parte de la cogestión, una fila (IN3).
+  cogestion: {
+    rotulo: 'Cogestión', // de la nota ("COGESTIÓN"); las mayúsculas, por CSS
+    titulo: 'Cómo nos organizamos',
+    piedritas: patronB, // las del cierre de Identidad de la landing (3123:18997), con su desvanecido (patron-b)
+    // De la nota (a validar: la 18 de la lista de Divulgación; "Co-gestión" y "Cogestión", M2). Los logos, los del pie
+    // y del cierre de Identidad (identidad.instituciones), al tamaño del tablero.
+    partes: [
+      {
+        rotulo: 'Co-gestión académica',
+        institucion: { nombre: 'Universidad Nacional de San Juan', logo: logoUnsj, ancho: 205, alto: 94.4 },
+        intro: 'La UNSJ aporta el respaldo científico del museo:',
+        items: [
+          'Investigación científica',
+          'Expediciones',
+          'Preparación de fósiles en laboratorio',
+          'Formación en geología y paleontología',
+          'Publicaciones y divulgación',
+        ],
+      },
+      {
+        rotulo: 'Gestión provincial',
+        institucion: { nombre: 'Gobierno de San Juan', logo: logoGobierno, ancho: 253.5, alto: 73.06 },
+        intro: 'El Ministerio de Turismo, Cultura y Deporte del Gobierno de la provincia garantiza:',
+        // En la nota, en minúscula; el tablero, con mayúscula inicial.
+        items: [
+          'Infraestructura y mantenimiento del edificio',
+          'Acceso público, programas y talleres de gratuidad',
+          'Interacción con circuitos turísticos',
+          'Comunicación y difusión provincial',
+        ],
+      },
+    ],
+  },
+  // "Misión y visión" con "Valores" (Figma 2825:177). Los textos de la nota, distintos de los del V03 que publica la
+  // landing (identidad.ejes): cuál es el oficial lo pregunta la 16 de la lista de Divulgación ("socio-ambiental": M2).
+  mision: {
+    titulo: 'Misión y visión',
+    items: [
+      {
+        rotulo: 'Misión',
+        texto:
+          'Inspirar vocaciones científicas y técnicas en las infancias y juventudes de San Juan, promoviendo el ' +
+          'pensamiento crítico y el deseo de comprender el pasado para planificar el futuro, desde una mirada ' +
+          'socio-ambiental e inclusiva.',
+      },
+      {
+        rotulo: 'Visión',
+        texto: 'Consolidarnos como un referente a nivel nacional e internacional en materia científica y tecnológica.',
+      },
+    ],
+    // Los valores, como píldoras: una lista, no controles (IN2). De la nota (la 19 de la lista de Divulgación).
+    valores: {
+      titulo: 'Valores',
+      lista: [
+        'Preservación de la memoria',
+        'Veracidad científica',
+        'Innovación',
+        'Vocación comunitaria',
+        'Accesibilidad',
+        'Compromiso socioambiental',
+        'Vocación pedagógica',
+      ],
+    },
+  },
+  // "Haciendo el MuPa" (Figma 2825:203): cada documental, una fila (IN3).
+  documentales: {
+    rotulo: 'Documentales', // la "Volanta" de la nota
+    titulo: 'Haciendo el MuPa',
+    bajada: 'Conocé quiénes forman parte del MuPa', // de la nota (rara para documentales: la 20 de Divulgación)
+    etiqueta: 'Documental', // "Documental · 1": del tablero (el número, el orden en la lista)
+    // RELLENO DEL TABLERO: los tres títulos, "[Título pendiente]" y las fotos (las del Collage de la Home, no cuadros de
+    // los documentales); la nota dice solo "*Carrusel de documentales*". Sin enlace (url: null): no se reproducen ni
+    // llevan a ningún lado (IN2); con url, el título de la tarjeta pasa a ser el enlace (ElMuseo.jsx). Los destraban la
+    // 20 de la lista de Divulgación (si existen, sus títulos y su enlace) y, las fotos, la M4.
+    lista: [
+      {
+        titulo: 'El MuPa por dentro',
+        subtitulo: '[Título pendiente]',
+        url: null,
+        imagen: { ...FOTOS_CARRUSEL.restaurador, sizes: SIZES_TERCIO, ancho: 1400, alto: 933 },
+      },
+      {
+        titulo: 'Detrás de la ciencia',
+        subtitulo: '[Título pendiente]',
+        url: null,
+        imagen: { ...FOTOS_CARRUSEL.dremel, sizes: SIZES_TERCIO, ancho: 1400, alto: 933 },
+      },
+      {
+        titulo: 'Fósiles y personas',
+        subtitulo: '[Título pendiente]',
+        url: null,
+        imagen: { ...FOTOS_CARRUSEL.pincel, sizes: SIZES_TERCIO, ancho: 1400, alto: 933 },
+      },
+    ],
+  },
+  // "El MuPa en números" (Figma 2825:242): cada cifra, una fila (IN3).
+  numeros: {
+    titulo: 'El MuPa en números',
+    // Las etiquetas son las de la nota ("Áreas de extensión" en el tablero: errata, la nota dice "Área de extensión";
+    // "Dispositivos Interactivos" en la nota, en minúscula como el tablero).
+    // RELLENO DEL TABLERO: las cifras. El tablero dice "200" en las cuatro; va "[—]" (decisiones IN1 y R-F: un número de
+    // ejemplo se leería como un dato del museo). Las destraba la 21 de la lista de Divulgación.
+    cifras: [
+      { cifra: '[—]', rotulo: 'Área de extensión' },
+      { cifra: '[—]', rotulo: 'Piezas fósiles' },
+      { cifra: '[—]', rotulo: 'Dispositivos interactivos' },
+      { cifra: '[—]', rotulo: 'Científicos e investigadores' },
+    ],
+  },
+  // "Autoridades" (Figma 2825:257): cada persona, una fila (IN3).
+  autoridades: {
+    rotulo: 'Liderazgo', // del tablero
+    titulo: 'Autoridades',
+    // Los nombres, los cargos y las biografías son los de la nota (a validar: la 22 de la lista de Divulgación; los
+    // nombres científicos sin cursiva, M3).
+    // RELLENO DEL TABLERO: los retratos (foto: null, IN5): el del tablero de Alcober es el mismo archivo que los cuatro
+    // del equipo y el de Martínez no se sabe que sea él; va el recuadro neutro (bg-caja) hasta que lleguen las fotos
+    // oficiales, con permiso (la 22).
+    personas: [
+      {
+        cargo: 'Director',
+        nombre: 'Oscar Alcober',
+        bio:
+          'Paleontólogo. Lideró decenas de expediciones a Ischigualasto. Taytalura alcoberi, el ancestro común de ' +
+          'todos los lagartos actuales, lleva su nombre en homenaje a él. Realizó una extensa investigación sobre la ' +
+          'historia de Ischigualasto. En 2024, descubrió el yacimiento paleontológico Parque de las Huellas, ubicado ' +
+          'en el departamento de Iglesia, San Juan.',
+        foto: null,
+      },
+      {
+        cargo: 'Director científico', // "Director Científico" en el tablero; la nota, así
+        nombre: 'Ricardo Martínez',
+        // La del tablero (la nota dice "Además, Martínez ha descubierto…").
+        bio:
+          'Paleontólogo. Descubrió 3500 fósiles y 40 especies. Entre ellas, varios de los dinosaurios más primitivos, ' +
+          'como Eoraptor, Eodromaeus, Panphagia, Sanjuansaurus, Adeopapposaurus, Lucianovenator. Además, ha ' +
+          'descubierto y publicado una extensa lista de nuevas especies de distintos grupos de paleovertebrados.',
+        foto: null,
+      },
+    ],
+  },
+  // "Nuestro equipo" (Figma 2825:274): cada integrante, una fila (IN3).
+  equipo: {
+    rotulo: 'El equipo', // del tablero
+    titulo: 'Nuestro equipo',
+    // De la nota (a validar: la 23 de la lista de Divulgación).
+    parrafo:
+      'El MuPa cuenta con un equipo multidisciplinario dedicado a construir y mantener técnica, científica y ' +
+      'conceptualmente el museo.',
+    // RELLENO DEL TABLERO: los cuatro integrantes ("[Nombre del integrante]", "[Rol]"; la nota dice "F F F F") y sin
+    // foto (IN5: el tablero repite el mismo retrato en los cuatro). Los destraba la 23 de la lista de Divulgación
+    // (quiénes son, su rol y su foto con permiso).
+    personas: [
+      { nombre: '[Nombre del integrante]', rol: '[Rol]', foto: null },
+      { nombre: '[Nombre del integrante]', rol: '[Rol]', foto: null },
+      { nombre: '[Nombre del integrante]', rol: '[Rol]', foto: null },
+      { nombre: '[Nombre del integrante]', rol: '[Rol]', foto: null },
+    ],
+  },
+}
+
 export const hero = {
   // La foto del V04 (IMG_1526 v2, 28/09/2026), con el recorte del diseño: 1440x1195,5 a 1440. Hasta entonces, la
   // IMG_1524 del Figma a 1440x852.
@@ -730,32 +1213,13 @@ export const identidad = {
   // Carrusel del V04 (28/09/2026; en el Figma era un collage de otras cinco fotos, después de los ejes): cinco fotos
   // apiladas entre el párrafo de la intro y esta sección, en orden de capas: la primera va al fondo (y es la que queda)
   // y la última adelante (la primera en salir con el scroll). Las mide Collage.jsx.
+  // Desde El Museo (06/11/2026) los objetos están en FOTOS_CARRUSEL, más arriba (los usa también esa página).
   collage: [
-    {
-      src: carruselLamas1400,
-      srcSet: doble(carruselLamas700, carruselLamas1400),
-      alt: 'Lamas metálicas curvas de la fachada del museo, vistas desde abajo contra el cielo',
-    },
-    {
-      src: carruselDremel1400,
-      srcSet: doble(carruselDremel700, carruselDremel1400),
-      alt: 'Manos de un técnico puliendo con una herramienta rotativa la réplica de una garra de dinosaurio',
-    },
-    {
-      src: carruselRestaurador1400,
-      srcSet: doble(carruselRestaurador700, carruselRestaurador1400),
-      alt: 'Restaurador con guantes revisando de cerca las vértebras de un esqueleto montado en el hall',
-    },
-    {
-      src: carruselPincel1400,
-      srcSet: doble(carruselPincel700, carruselPincel1400),
-      alt: 'Manos de un restaurador pasando un pincel sobre un fósil',
-    },
-    {
-      src: carruselPatio1400,
-      srcSet: doble(carruselPatio700, carruselPatio1400),
-      alt: 'Patio del museo con el edificio de la cúpula y las lamas de la fachada',
-    },
+    FOTOS_CARRUSEL.lamas,
+    FOTOS_CARRUSEL.dremel,
+    FOTOS_CARRUSEL.restaurador,
+    FOTOS_CARRUSEL.pincel,
+    FOTOS_CARRUSEL.patio,
   ],
   // Foto "Mid" del V04: sola, a todo el ancho del contenido, entre los ejes y el párrafo del cierre.
   foto: {

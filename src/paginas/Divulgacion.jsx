@@ -1,17 +1,8 @@
 import BloqueTextoFoto from '../components/BloqueTextoFoto.jsx'
 import CarruselNovedades from '../components/CarruselNovedades.jsx'
 import HeroPagina from '../components/HeroPagina.jsx'
-import { Descarga, Enlace, FlechaDerecha24, Video } from '../components/IconosRecursos.jsx'
 import { seccionDe } from '../components/navegacion.js'
-import {
-  BAJADA,
-  CONTENEDOR_TABLERO,
-  ICONO_TARJETA,
-  ROTULO_TARJETA,
-  SECCION_TABLERO,
-  TEXTO_TARJETA,
-  TITULO_SECCION,
-} from '../components/tablero.js'
+import SeccionRecursos from '../components/SeccionRecursos.jsx'
 import { divulgacion, home } from '../content.js'
 
 // /divulgacion: la página del tablero "Web" de la diseñadora (Figma 2857:5439, 06/11/2026; decisiones DV1 a DV10 del
@@ -27,8 +18,9 @@ import { divulgacion, home } from '../content.js'
 //   novedades-titulo (los id son por página: así tools/carrusel-check.js anda también acá).
 // - Los cuatro bloques de texto y foto (BloqueTextoFoto.jsx): Infraestructura científica, Laboratorio Abierto MuPa,
 //   Investigaciones recientes del equipo MuPa - UNSJ y Contenido multimedial.
-// - "NEWSLETTER" (Figma 2857:5575): el h2 Thin 64 sin rótulo, 16 abajo la bajada (Regular 18/28 en gris, BAJADA, en un
-//   renglón de ~885 px a 1440 como en el tablero: max-w-none le saca el tope de 42em de los párrafos de index.css) y 48
+// - "NEWSLETTER" (Figma 2857:5575; desde Educación, 06/11/2026, con SeccionRecursos.jsx y el mismo HTML): el h2 Thin
+//   64 sin rótulo, 16 abajo la bajada (Regular 18/28 en gris, BAJADA, en un renglón de ~885 px a 1440 como en el
+//   tablero: max-w-none le saca el tope de 42em de los párrafos de index.css) y 48
 //   abajo tres tarjetas de recursos, como las de información de Visitas: tres columnas de 400 con 40 entre sí y 40 de
 //   padding (entre lg y xl, 24 a los costados), sin fondo propio (el del tablero es el de la página). Cada una: el ícono
 //   de 24 en naranja en su cuadrado de 48 (ICONO_TARJETA, que lo pone en crema: acá el ícono lleva el naranja, como en
@@ -40,11 +32,6 @@ import { divulgacion, home } from '../content.js'
 // - La analítica: solo page_view (y clic_entradas desde el menú: D14, DV8).
 
 const { hero, noticias, bloques, newsletter } = divulgacion
-
-// Los íconos de las tarjetas del newsletter, por la clave de content.js.
-const ICONOS = { descarga: Descarga, video: Video, enlace: Enlace }
-
-const ACCION_TARJETA = 'flex items-center gap-2 font-mono text-sm leading-5 font-normal text-paper'
 
 /** @param {{ estado: { datos?: { novedades?: object[] } } }} props */
 export default function Divulgacion({ estado }) {
@@ -72,34 +59,13 @@ export default function Divulgacion({ estado }) {
         />
       ))}
 
-      <section aria-labelledby="divulgacion-newsletter" className={SECCION_TABLERO}>
-        <div className={CONTENEDOR_TABLERO}>
-          <h2 id="divulgacion-newsletter" className={TITULO_SECCION}>
-            {newsletter.titulo}
-          </h2>
-          <p className={`${BAJADA} mt-4 max-w-none`}>{newsletter.bajada}</p>
-          <ul className="mt-12 grid gap-10 lg:grid-cols-3">
-            {newsletter.tarjetas.map((tarjeta) => {
-              const Icono = ICONOS[tarjeta.icono]
-              return (
-                <li key={tarjeta.titulo} className="flex min-w-0 flex-col gap-6 lg:px-6 lg:py-10 xl:px-10">
-                  <span className={ICONO_TARJETA}>
-                    <Icono className="size-6 text-naranja" />
-                  </span>
-                  <div className="flex flex-col gap-2">
-                    <h3 className={ROTULO_TARJETA}>{tarjeta.titulo}</h3>
-                    <p className={TEXTO_TARJETA}>{tarjeta.texto}</p>
-                  </div>
-                  <p className={ACCION_TARJETA}>
-                    {tarjeta.accion}
-                    <FlechaDerecha24 />
-                  </p>
-                </li>
-              )
-            })}
-          </ul>
-        </div>
-      </section>
+      <SeccionRecursos
+        id="divulgacion-newsletter"
+        titulo={newsletter.titulo}
+        bajada={newsletter.bajada}
+        tarjetas={newsletter.tarjetas}
+        iconoNaranja
+      />
     </>
   )
 }

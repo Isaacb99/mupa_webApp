@@ -10,16 +10,32 @@ import { CONTENEDOR_TABLERO, LISTA_TARJETAS_TABLERO, ROTULO_SECCION, SECCION_TAB
 //   arriba de cada circuito: así no hace falta ningún texto nuevo (D13). Sin rotulo, solo el h2.
 // - contenedor: false dentro de algo que ya tiene el ancho del contenido (la galería de una ficha, Ficha.jsx), con su
 //   propio className (el aire de arriba).
+// - cerca: el h2 a 16 del rótulo en vez de 24 (mt-4: El Museo, Figma 2823:10228, en Cogestión, Haciendo el MuPa,
+//   Autoridades y Nuestro equipo, 06/11/2026; como "Recursos educativos" de Educación, SeccionRecursos.jsx). Sin ella,
+//   el HTML es el de siempre (Exposiciones, Novedades, las fichas, Visitas y Contacto).
+
+/** El h2 debajo del rótulo: a 24 (el de siempre) o a 16 (cerca). */
+const TITULO_CON_ROTULO = `${TITULO_SECCION} mt-6`
+const TITULO_CERCA = `${TITULO_SECCION} mt-4`
 
 /**
- * @param {{ id: string, rotulo?: string | null, titulo: string, contenedor?: boolean, className?: string,
- *   children: import('react').ReactNode }} props
+ * @param {{ id: string, rotulo?: string | null, titulo: string, contenedor?: boolean, cerca?: boolean,
+ *   className?: string, children: import('react').ReactNode }} props
  */
-export default function Seccion({ id, rotulo = null, titulo, contenedor = true, className = SECCION_TABLERO, children }) {
+export default function Seccion({
+  id,
+  rotulo = null,
+  titulo,
+  contenedor = true,
+  cerca = false,
+  className = SECCION_TABLERO,
+  children,
+}) {
+  const conRotulo = cerca ? TITULO_CERCA : TITULO_CON_ROTULO
   const contenido = (
     <>
       {rotulo ? <p className={ROTULO_SECCION}>{rotulo}</p> : null}
-      <h2 id={id} className={rotulo ? `${TITULO_SECCION} mt-6` : TITULO_SECCION}>
+      <h2 id={id} className={rotulo ? conRotulo : TITULO_SECCION}>
         {titulo}
       </h2>
       {children}

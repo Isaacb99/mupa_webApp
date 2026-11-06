@@ -1,8 +1,9 @@
-import { BAJADA_HERO_PAGINA, TITULO_HERO_PAGINA } from './tablero.js'
+import { BAJADA_HERO_PAGINA, BAJADA_HERO_PAGINA_JUSTA, TITULO_HERO_PAGINA } from './tablero.js'
 
 // El hero de las páginas internas del tablero "Web" de la diseñadora (Figma: el de Visitas, nodo 2846:998, 03/11/2026;
-// decisión V7 del desarrollador). Lo usan Visitas y, desde el 06/11/2026, Divulgación (con bajada), y lo van a usar El
-// Museo, Educación y Circuitos, que en el tablero tienen el mismo (cada una con su foto y su título). Desde el 04/11/2026
+// decisión V7 del desarrollador). Lo usan Visitas y, desde el 06/11/2026, Divulgación (con bajada), Educación (sin
+// bajada), Circuitos (con la bajada en dos renglones) y El Museo (sin bajada), que en el tablero tienen el mismo (cada
+// una con su foto y su título). Desde el 04/11/2026
 // (decisión R1) también Exposiciones, Novedades y Contacto, que el tablero no dibuja, con fotos nuestras de la
 // selección (content.js, fotoDeHero; las fichas y la 404 van sin hero: tablero.js, TITULO_SIN_FOTO). Medidas a 1440:
 // - 480 de alto, sin esquinas redondeadas, con la foto a sangre: cubre el hero (object-cover; cada página da su foto ya
@@ -39,7 +40,10 @@ import { BAJADA_HERO_PAGINA, TITULO_HERO_PAGINA } from './tablero.js'
 //   Home, con su halo). 168 + 144 + 16 + 56 + 64 (pb-16) = 448, dentro de los 480. Entre 1024 y 1030 px el contenido
 //   mide 864 y el h1 va en tres renglones de palabras enteras («Investigación y / divulgación / científica»): se acepta
 //   (DV4) y el hero crece (mide 480 como mínimo). El degradé es el común (el tablero de Divulgación lo lleva a 0 a los
-//   344 px: desvío a confirmar con la diseñadora). Circuitos lleva la bajada en 32/40: se ajusta con esa página.
+//   344 px: desvío a confirmar con la diseñadora). Circuitos (Figma 2860:5939) lleva la bajada en dos renglones de
+//   32/40 (prop bajadaJusta: BAJADA_HERO_PAGINA_JUSTA, la misma con lg:leading-[1.25]): 168 + 144 + 16 + 80 + 64 = 472,
+//   dentro de los 480; su h1 («Circuitos / paleontológicos») va en dos renglones de 1024 a 1440. Sin bajadaJusta, el
+//   HTML de Divulgación es el mismo de antes.
 //   Las clases van en constantes estáticas (TEXTO, TEXTO_CON_BAJADA, CAJA y CAJA_CON_BAJADA: nada pegado a una
 //   interpolación) y, sin bajada, el HTML es el mismo que antes, byte a byte (Visitas, Exposiciones, Novedades y
 //   Contacto).
@@ -52,12 +56,14 @@ const CAJA = 'mx-auto lg:max-w-[52.5rem]'
 const CAJA_CON_BAJADA = 'mx-auto lg:max-w-[58.25rem]'
 
 /**
- * @param {{ id: string, titulo: string, bajada?: string | null, imagen: { src: string, srcSet: string, sizes: string,
- *   ancho: number, alto: number, alt: string, posicion?: string } }} props  id: el del h1 (lo nombra la sección con
- *   aria-labelledby); bajada: el texto debajo del h1 (opcional); imagen.posicion: el punto de interés de la foto como
+ * @param {{ id: string, titulo: string, bajada?: string | null, bajadaJusta?: boolean, imagen: { src: string, srcSet: string,
+ *   sizes: string, ancho: number, alto: number, alt: string, posicion?: string } }} props  id: el del h1 (lo nombra la
+ *   sección con
+ *   aria-labelledby); bajada: el texto debajo del h1 (opcional); bajadaJusta: la bajada con el interlineado de 1,25 desde
+ *   lg (Circuitos, dos renglones; sin ella, 1,75: Divulgación); imagen.posicion: el punto de interés de la foto como
  *   object-position ("50% 80%"; sin él, centrada)
  */
-export default function HeroPagina({ id, titulo, bajada = null, imagen }) {
+export default function HeroPagina({ id, titulo, bajada = null, bajadaJusta = false, imagen }) {
   return (
     <section aria-labelledby={id} className="relative">
       <div className="relative min-h-[20rem] overflow-hidden lg:min-h-[30rem]">
@@ -81,7 +87,7 @@ export default function HeroPagina({ id, titulo, bajada = null, imagen }) {
             <h1 id={id} className={`${TITULO_HERO_PAGINA} whitespace-pre-line`}>
               {titulo}
             </h1>
-            {bajada ? <p className={BAJADA_HERO_PAGINA}>{bajada}</p> : null}
+            {bajada ? <p className={bajadaJusta ? BAJADA_HERO_PAGINA_JUSTA : BAJADA_HERO_PAGINA}>{bajada}</p> : null}
           </div>
         </div>
       </div>

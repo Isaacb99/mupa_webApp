@@ -238,7 +238,7 @@ describe('Layout, header, menú y pie (sin base)', () => {
     const modulo = await vite.ssrLoadModule('/src/Raiz.jsx')
     Raiz = modulo.default
     // Desde E4 cada página va en su archivo (src/Raiz.jsx): se cargan antes, como hacen el servidor y el navegador.
-    for (const nombre of ['home', 'visitas', 'divulgacion', 'exposiciones', 'muestra', 'novedades', 'novedad', 'contacto', 'no-encontrada', 'rara']) {
+    for (const nombre of ['home', 'el-museo', 'visitas', 'divulgacion', 'educacion', 'circuitos', 'exposiciones', 'muestra', 'novedades', 'novedad', 'contacto', 'no-encontrada', 'rara']) {
       paginasCargadas[nombre] = await modulo.cargarPagina(nombre)
     }
     Header = (await vite.ssrLoadModule('/src/components/Header.jsx')).default
@@ -275,8 +275,9 @@ describe('Layout, header, menú y pie (sin base)', () => {
   const sinDialogo = (html) => html.replace(/<dialog[\s\S]*?<\/dialog>/g, '')
   // Las direcciones de los enlaces de un pedazo de HTML, en orden.
   const hrefs = (html) => [...html.matchAll(/<a href="([^"]*)"/g)].map((m) => m[1])
-  const SECCIONES_QUE_EXISTEN = ['/visitas', '/divulgacion', '/exposiciones', '/novedades', '/contacto']
-  const SECCIONES_FUTURAS = ['/el-museo', '/educacion', '/circuitos']
+  const SECCIONES_QUE_EXISTEN = ['/el-museo', '/visitas', '/divulgacion', '/educacion', '/circuitos', '/exposiciones', '/novedades', '/contacto']
+  // Desde El Museo (06/11/2026) existen las cinco secciones del menú del tablero: ninguna futura.
+  const SECCIONES_FUTURAS = []
 
   test('la Home con el museo vacío: header absolute, menú con las secciones que existen, pie sin redes ni compra', () => {
     const html = pagina({ pagina: 'home', museo: MUSEO_VACIO })
@@ -298,6 +299,16 @@ describe('Layout, header, menú y pie (sin base)', () => {
     // Divulgación (desde el 06/11/2026), en el menú ancho, en el del celular y en el pie.
     assert.equal(cuantas(html, 'href="/divulgacion"'), 3)
     assert.equal(cuantas(delHeader(html), 'href="/divulgacion"'), 2)
+    // Educación (desde el 06/11/2026), en el menú ancho, en el del celular, en el pie y en la franja de accesos de la Home
+    // ("Recursos educativos", D11).
+    assert.equal(cuantas(html, 'href="/educacion"'), 4)
+    assert.equal(cuantas(delHeader(html), 'href="/educacion"'), 2)
+    // Circuitos (desde el 06/11/2026), en el menú ancho, en el del celular y en el pie.
+    assert.equal(cuantas(html, 'href="/circuitos"'), 3)
+    assert.equal(cuantas(delHeader(html), 'href="/circuitos"'), 2)
+    // El Museo (desde el 06/11/2026), primera en el menú ancho, en el del celular y en el pie.
+    assert.equal(cuantas(html, 'href="/el-museo"'), 3)
+    assert.equal(cuantas(delHeader(html), 'href="/el-museo"'), 2)
     for (const ruta of ['/exposiciones', '/novedades', '/contacto']) assert.equal(cuantas(html, `href="${ruta}"`), 1, ruta)
     for (const ruta of SECCIONES_FUTURAS) assert.equal(cuantas(html, `href="${ruta}"`), 0, ruta)
     // Sin el selector de idioma del tablero.
@@ -380,6 +391,30 @@ describe('Layout, header, menú y pie (sin base)', () => {
       /<a href="\/divulgacion" aria-current="page" class="[^"]* decoration-ink [^"]*"><span class="underline decoration-naranja[^"]*">Divulgación<\/span><\/a>/,
     )
     assert.match(divulgacion, /<a href="\/visitas" class="[^"]* hover:underline">Visitas<\/a>/)
+    // Educación (desde el 06/11/2026), igual.
+    const educacion = header('/educacion')
+    assert.equal(cuantas(educacion, 'aria-current="page"'), 2)
+    assert.match(
+      educacion,
+      /<a href="\/educacion" aria-current="page" class="[^"]* decoration-ink [^"]*"><span class="underline decoration-naranja[^"]*">Educación<\/span><\/a>/,
+    )
+    // Circuitos (desde el 06/11/2026), igual.
+    const circuitos = header('/circuitos')
+    assert.equal(cuantas(circuitos, 'aria-current="page"'), 2)
+    assert.match(
+      circuitos,
+      /<a href="\/circuitos" aria-current="page" class="[^"]* decoration-ink [^"]*"><span class="underline decoration-naranja[^"]*">Circuitos<\/span><\/a>/,
+    )
+    assert.equal(cuantas(header('/circuitos/x'), 'aria-current="true"'), 2)
+    // El Museo (desde el 06/11/2026), igual (el menú dice "El Museo"; el h1, "Acerca del MuPa").
+    const museo = header('/el-museo')
+    assert.equal(cuantas(museo, 'aria-current="page"'), 2)
+    assert.match(
+      museo,
+      /<a href="\/el-museo" aria-current="page" class="[^"]* decoration-ink [^"]*"><span class="underline decoration-naranja[^"]*">El Museo<\/span><\/a>/,
+    )
+    assert.equal(cuantas(header('/el-museo/x'), 'aria-current="true"'), 2)
+    assert.equal(cuantas(header('/el-museox'), 'aria-current'), 0)
     assert.equal(cuantas(header('/'), 'aria-current'), 0)
     assert.equal(cuantas(header('/visitasx'), 'aria-current'), 0)
     // Exposiciones no va en el menú del header: su ficha marca la sección solo en el pie.
@@ -395,44 +430,55 @@ describe('Layout, header, menú y pie (sin base)', () => {
     assert.equal(cuantas(html, 'aria-current'), 0)
   })
 
-  test('las secciones: el menú y el pie dibujan solo las que existen; agregar la página de una la suma sola, en su lugar', () => {
+  test('las secciones: el menú y el pie dibujan solo las que existen; sacar la página de una la saca sola, y las demás quedan en su lugar', () => {
     const { navegacion } = contenido
     // Las secciones: los enlaces internos que no son el inicio (el logo) ni "Ir al contenido" (#main) ni la compra.
     const secciones = (enlaces) => enlaces.filter((h) => h.startsWith('/') && h !== '/')
     const delMenu = (html) => secciones(hrefs(sinDialogo(delHeader(html))))
     const delMenuMovil = (html) => secciones(hrefs(/<dialog[\s\S]*?<\/dialog>/.exec(html)[0]))
     const navDelPie = (html) => hrefs(parte(delPie(html), `<nav aria-label="${contenido.pie.secciones}"`, '</nav>'))
-    // Hoy: Visitas y Divulgación en el menú; en el pie, las del menú que existen y después las demás.
+    // Hoy (desde El Museo, 06/11/2026): las cinco del tablero en el menú, en su orden (D3); en el pie, las del menú y
+    // después las demás. Ninguna futura.
+    const HOY = ['/el-museo', '/visitas', '/divulgacion', '/educacion', '/circuitos']
     let html = pagina({ pagina: 'visitas', ruta: '/visitas', museo: MUSEO_VACIO })
-    assert.deepEqual(delMenu(html), ['/visitas', '/divulgacion'])
-    assert.deepEqual(delMenuMovil(html), ['/visitas', '/divulgacion'])
+    assert.deepEqual(delMenu(html), HOY)
+    assert.deepEqual(delMenuMovil(html), HOY)
     assert.deepEqual(navDelPie(html), SECCIONES_QUE_EXISTEN)
-    assert.deepEqual(navegacionDelSitio.seccionesDelMenu().map((s) => s.ruta), ['/visitas', '/divulgacion'])
-    // Con las cuatro páginas del tablero construidas (sin tocar el header ni el pie): todas, en el orden del tablero.
+    assert.deepEqual(navegacionDelSitio.seccionesDelMenu().map((s) => s.ruta), HOY)
+    assert.ok(html.includes('>El Museo</a>'))
     const futuras = navegacion.menu.filter((s) => !Object.hasOwn(tabla.PAGINAS, s.pagina)).map((s) => s.pagina)
-    assert.deepEqual(futuras, ['el-museo', 'educacion', 'circuitos'])
+    assert.deepEqual(futuras, [])
+    // Sin la página de El Museo (sin tocar el header ni el pie): sale del menú, del del celular, del pie y de la 404, y
+    // las demás quedan en su orden.
+    const elMuseo = tabla.PAGINAS['el-museo']
     try {
-      for (const p of futuras) tabla.PAGINAS[p] = async () => ({ default: () => null })
+      delete tabla.PAGINAS['el-museo']
       html = pagina({ pagina: 'visitas', ruta: '/visitas', museo: MUSEO_VACIO })
-      const menu = ['/el-museo', '/visitas', '/divulgacion', '/educacion', '/circuitos']
-      assert.deepEqual(delMenu(html), menu)
-      assert.deepEqual(delMenuMovil(html), menu)
-      assert.deepEqual(navDelPie(html), [...menu, '/exposiciones', '/novedades', '/contacto'])
-      assert.ok(html.includes('>Divulgación</a>'))
-      // La 404 también las nombra.
+      const sinMuseo = HOY.slice(1)
+      assert.deepEqual(delMenu(html), sinMuseo)
+      assert.deepEqual(delMenuMovil(html), sinMuseo)
+      assert.deepEqual(navDelPie(html), [...sinMuseo, '/exposiciones', '/novedades', '/contacto'])
+      assert.equal(cuantas(html, 'href="/el-museo"'), 0)
       const noEncontrada = pagina({ pagina: 'no-encontrada', ruta: '/x', museo: MUSEO_VACIO })
       const main = parte(noEncontrada, '<main', '</main>')
-      for (const ruta of menu) assert.ok(main.includes(`href="${ruta}"`), ruta)
+      assert.equal(cuantas(main, 'href="/el-museo"'), 0)
+      for (const ruta of sinMuseo) assert.ok(main.includes(`href="${ruta}"`), ruta)
     } finally {
-      for (const p of futuras) delete tabla.PAGINAS[p]
+      tabla.PAGINAS['el-museo'] = elMuseo
     }
-    assert.deepEqual(delMenu(pagina({ pagina: 'visitas', ruta: '/visitas', museo: MUSEO_VACIO })), ['/visitas', '/divulgacion'])
+    assert.deepEqual(delMenu(pagina({ pagina: 'visitas', ruta: '/visitas', museo: MUSEO_VACIO })), HOY)
     // Sin ninguna sección ni compra, el menú no se dibuja (ni el botón "Menú" del celular).
     const visitas = tabla.PAGINAS.visitas
     const divulgacion = tabla.PAGINAS.divulgacion
+    const educacion = tabla.PAGINAS.educacion
+    const circuitos = tabla.PAGINAS.circuitos
+    const elMuseoPagina = tabla.PAGINAS['el-museo']
     try {
+      delete tabla.PAGINAS['el-museo']
       delete tabla.PAGINAS.visitas
       delete tabla.PAGINAS.divulgacion
+      delete tabla.PAGINAS.educacion
+      delete tabla.PAGINAS.circuitos
       const vacio = renderToStaticMarkup(createElement(Header, { ruta: '/', compra: null }))
       assert.equal(cuantas(vacio, '<nav'), 0)
       assert.equal(cuantas(vacio, 'menu-movil'), 0)
@@ -442,6 +488,9 @@ describe('Layout, header, menú y pie (sin base)', () => {
     } finally {
       tabla.PAGINAS.visitas = visitas
       tabla.PAGINAS.divulgacion = divulgacion
+      tabla.PAGINAS.educacion = educacion
+      tabla.PAGINAS.circuitos = circuitos
+      tabla.PAGINAS['el-museo'] = elMuseoPagina
     }
   })
 
@@ -1004,35 +1053,41 @@ describe('Layout, header, menú y pie (sin base)', () => {
     const { accesos } = contenido.home
     const franja = (html) => parte(html, `<nav aria-label="${accesos.etiqueta}"`, '</nav>')
     const enlaces = (html) => [...franja(html).matchAll(/<a href="([^"]*)"([^>]*)>([^<]*)<\/a>/g)].map((m) => [m[1], m[3]])
-    // Sin compra: solo Visitas, en celeste.
+    // Sin compra: Visitas, en celeste, y "Recursos educativos" (desde el 06/11/2026, la página de Educación existe), en
+    // naranja, con la dirección del menú (D11).
     let html = home()
-    assert.deepEqual(enlaces(html), [['/visitas', accesos.visita]])
+    assert.deepEqual(enlaces(html), [['/visitas', accesos.visita], ['/educacion', accesos.recursos]])
     assert.match(franja(html), /class="[^"]*bg-celeste/)
+    assert.match(franja(html), /<a href="\/educacion" class="[^"]*bg-naranja[^"]*">Recursos educativos<\/a>/)
     // Con la compra activa: "Tickets" (el texto del botón del header, no el que cargó el museo), en bordó, medido por la
     // analítica (data-entradas).
     html = home([], MUSEO_MAXIMO)
     assert.deepEqual(enlaces(html), [
       ['/visitas', accesos.visita],
       [MUSEO_MAXIMO.compra.url, contenido.navegacion.entradas],
+      ['/educacion', accesos.recursos],
     ])
     assert.match(franja(html), /<a href="https:\/\/example.com\/entradas" data-entradas="" class="[^"]*bg-bordo/)
-    // "Recursos educativos" aparece sola el día que exista la página de Educación, con la dirección del menú.
+    // "Recursos educativos" no se mide (no lleva data-entradas).
+    assert.match(franja(html), /<a href="\/educacion" class="[^"]*bg-naranja[^"]*">Recursos educativos<\/a>/)
+    // Sin la página de Educación, no va (como antes del 06/11/2026).
+    const educacion = tabla.PAGINAS.educacion
     try {
-      tabla.PAGINAS.educacion = async () => ({ default: () => null })
-      html = home([], MUSEO_MAXIMO)
-      assert.deepEqual(enlaces(html).map(([href]) => href), ['/visitas', MUSEO_MAXIMO.compra.url, '/educacion'])
-      assert.match(franja(html), /<a href="\/educacion" class="[^"]*bg-naranja[^"]*">Recursos educativos<\/a>/)
-    } finally {
       delete tabla.PAGINAS.educacion
+      assert.deepEqual(enlaces(home([], MUSEO_MAXIMO)).map(([href]) => href), ['/visitas', MUSEO_MAXIMO.compra.url])
+    } finally {
+      tabla.PAGINAS.educacion = educacion
     }
     assert.equal(cuantas(home([], MUSEO_MAXIMO), 'Tienda virtual'), 0)
-    // Sin ningún acceso (sin Visitas ni compra), sin franja.
+    // Sin ningún acceso (sin Visitas, Educación ni compra), sin franja.
     const visitas = tabla.PAGINAS.visitas
     try {
       delete tabla.PAGINAS.visitas
+      delete tabla.PAGINAS.educacion
       assert.equal(cuantas(home(), `aria-label="${accesos.etiqueta}"`), 0)
     } finally {
       tabla.PAGINAS.visitas = visitas
+      tabla.PAGINAS.educacion = educacion
     }
   })
 
@@ -1314,6 +1369,9 @@ describe('Layout, header, menú y pie (sin base)', () => {
       hero: h1De(pagina({ pagina: 'exposiciones', ruta: '/exposiciones', museo: MUSEO_VACIO, datos: { muestras: [], salas: [] } })),
       visitas: h1De(pagina({ pagina: 'visitas', ruta: '/visitas', museo: MUSEO_VACIO, datos: { accesibilidad: null } })),
       divulgacion: h1De(pagina({ pagina: 'divulgacion', ruta: '/divulgacion', museo: MUSEO_VACIO, datos: { novedades: [] } })),
+      educacion: h1De(pagina({ pagina: 'educacion', ruta: '/educacion', museo: MUSEO_VACIO, datos: {} })),
+      circuitos: h1De(pagina({ pagina: 'circuitos', ruta: '/circuitos', museo: MUSEO_VACIO, datos: {} })),
+      elMuseo: h1De(pagina({ pagina: 'el-museo', ruta: '/el-museo', museo: MUSEO_VACIO, datos: {} })),
       ficha: h1De(pagina({ pagina: 'muestra', ruta: '/exposiciones/x', museo: MUSEO_VACIO, datos: { titulo: 'Herrerasaurus ischigualastensis' } })),
       noEncontrada: h1De(pagina({ pagina: 'no-encontrada', ruta: '/no-existe', museo: MUSEO_VACIO })),
     }
@@ -1325,7 +1383,7 @@ describe('Layout, header, menú y pie (sin base)', () => {
     // en tres renglones no se parte «cien- / tífica»); en el título de una ficha (lo carga el museo) y en el de la 404
     // (TITULO_SIN_FOTO), sin ese límite.
     const limite = '[hyphenate-limit-chars:auto_5_5]'
-    for (const nombre of ['hero', 'visitas', 'divulgacion']) assert.ok(casos[nombre].includes(limite), nombre)
+    for (const nombre of ['hero', 'visitas', 'divulgacion', 'educacion', 'circuitos', 'elMuseo']) assert.ok(casos[nombre].includes(limite), nombre)
     for (const nombre of ['ficha', 'noEncontrada']) assert.ok(!casos[nombre].includes(limite), nombre)
     // El de la Home no cambió (sus palabras entran desde 32rem): 32 y 64 desde 32rem.
     const home = clasesDe(pagina({ pagina: 'home', museo: MUSEO_VACIO, datos: { novedades: [] } }), /<h1 id="home-titulo" class="([^"]*)"/)
@@ -1830,12 +1888,14 @@ describe('Layout, header, menú y pie (sin base)', () => {
     for (const texto of NUNCA_EN_DIVULGACION) assert.equal(cuantas(html, texto), 0, texto)
   })
 
-  test('HeroPagina sin bajada (Visitas, Exposiciones, Novedades y Contacto): las clases de siempre y ningún <p> en el hero', () => {
+  test('HeroPagina sin bajada (Visitas, Exposiciones, Novedades, Contacto, Educación y El Museo): las clases de siempre y ningún <p> en el hero', () => {
     const casos = {
       'visitas-titulo': pagina({ pagina: 'visitas', ruta: '/visitas', museo: MUSEO_VACIO, datos: { accesibilidad: null } }),
       'exposiciones-titulo': pagina({ pagina: 'exposiciones', ruta: '/exposiciones', museo: MUSEO_VACIO, datos: { muestras: [], salas: [] } }),
       'novedades-titulo': pagina({ pagina: 'novedades', ruta: '/novedades', museo: MUSEO_VACIO, datos: { proximas: [], noticias: [], pagina: 1, paginas: 1 } }),
       'contacto-titulo': pagina({ pagina: 'contacto', ruta: '/contacto', museo: MUSEO_VACIO, datos: { ...SIN_AVISOS, formulario: false } }),
+      'educacion-titulo': pagina({ pagina: 'educacion', ruta: '/educacion', museo: MUSEO_VACIO, datos: {} }),
+      'el-museo-titulo': pagina({ pagina: 'el-museo', ruta: '/el-museo', museo: MUSEO_VACIO, datos: {} }),
     }
     for (const [id, html] of Object.entries(casos)) {
       const hero = seccion(delMain(html), id)
@@ -1843,6 +1903,494 @@ describe('Layout, header, menú y pie (sin base)', () => {
       assert.ok(hero.includes('<div class="relative mx-auto max-w-tablero px-6 pt-32 pb-16 md:px-10 md:pt-40 lg:px-20 lg:pt-52"><div class="mx-auto lg:max-w-[52.5rem]"><h1'), id)
       assert.equal(cuantas(hero, '<p'), 0, id)
     }
+  })
+
+  // --- Educación (tablero "Web", Figma 2846:1561; decisiones IN1 a IN10 del desarrollador, 06/11/2026) ---
+  const educacionCon = (museo = MUSEO_VACIO) => pagina({ pagina: 'educacion', ruta: '/educacion', museo, datos: {} })
+  /** Lo que nunca va en el <main>: el selector de idioma, las erratas, "pendiente" y controles sin destino. */
+  const NUNCA_EN_EDUCACION = ['Contenido pendiente', 'Es (Arg)', 'Tikets', 'Videos Educativos', 'triásico', 'href="#"', '<button', '<form', '<input']
+
+  test('Educación (IN1, IN6, IN7): el hero sin bajada, sobreFoto, y las tres secciones en el orden del tablero', () => {
+    const { hero, escolares, recursos } = contenido.educacion
+    const html = educacionCon()
+    const main = delMain(html)
+    assert.equal(cuantas(html, '<h1'), 1)
+    assert.equal(cuantas(html, '<footer'), 1)
+    assert.ok(main.includes('<h1 id="educacion-titulo" class="'))
+    assert.equal(hero.titulo, 'Educación')
+    comprobarHero(main, 'educacion-titulo', hero.titulo, hero.imagen)
+    // Sin bajada: el texto a 208 (lg:pt-52), la caja de 840 y ningún <p> en el hero.
+    const heroHtml = seccion(main, 'educacion-titulo')
+    assert.ok(heroHtml.includes('lg:pt-52'))
+    assert.deepEqual(clasesDe(heroHtml, /<div class="(mx-auto lg:max-w-[^"]*)"/), ['mx-auto', 'lg:max-w-[52.5rem]'])
+    assert.equal(cuantas(heroHtml, '<p'), 0)
+    // sobreFoto: los logos del header no se invierten con colores forzados (A11Y-08).
+    for (const img of logosDelHeader(html)) assert.ok(!img.includes('data-logo-blanco'), img.slice(0, 120))
+    // El orden: el hero, "Visitas Escolares" y "Recursos educativos"; 3 secciones, 2 h2 y 3 h3 (las tarjetas).
+    const ids = ['educacion-titulo', escolares.id, recursos.id]
+    assert.deepEqual(ids, ['educacion-titulo', 'educacion-visitas', 'educacion-recursos'])
+    const orden = ids.map((id) => main.indexOf(`<section aria-labelledby="${id}"`))
+    assert.ok(orden.every((i, n) => i >= 0 && (n === 0 || i > orden[n - 1])), orden.join(', '))
+    assert.equal(cuantas(main, '<section'), 3)
+    assert.equal(cuantas(main, '<h2'), 2)
+    assert.equal(cuantas(main, '<h3'), 3)
+    // La página se marca en el menú (y no lee la base: sus datos son {}).
+    assert.equal(cuantas(delHeader(html), 'aria-current="page"'), 2)
+    // (En el <main>: el header tiene el botón "Menú" del celular.)
+    for (const texto of NUNCA_EN_EDUCACION) assert.equal(cuantas(main, texto), 0, texto)
+  })
+
+  test('Educación (IN1, IN2, IN6): "Visitas Escolares" con el rótulo, los párrafos, la lista, "Coordinar visita" a Contacto y la foto de los chicos', () => {
+    const { escolares } = contenido.educacion
+    const html = seccion(delMain(educacionCon()), 'educacion-visitas')
+    assert.match(html, new RegExp(`<p class="font-mono text-sm leading-5 font-medium text-paper uppercase">${escolares.rotulo}</p>`))
+    const h2 = /<h2 id="educacion-visitas" class="([^"]*)">([^<]*)<\/h2>/.exec(html)
+    assert.ok(h2)
+    assert.equal(h2[2], 'Visitas Escolares')
+    for (const c of ['font-thin', 'min-[32rem]:text-[4rem]', 'mt-6']) assert.ok(h2[1].split(' ').includes(c), c)
+    assert.equal(escolares.parrafos.length, 2)
+    for (const parrafo of escolares.parrafos) {
+      const clase = parrafo.secundario ? 'text-muted' : 'text-paper'
+      assert.match(html, new RegExp(`<p class="text-lg leading-\\[1\\.875rem\\] font-normal ${clase} [^"]*">${parrafo.texto}</p>`), parrafo.texto)
+    }
+    // La lista de niveles con la viñeta de 6 px.
+    const lista = /<ul class="([^"]*)">((?:<li>[^<]*<\/li>)+)<\/ul>/.exec(html)
+    assert.ok(lista, 'la lista')
+    assert.deepEqual([...lista[2].matchAll(/<li>([^<]*)<\/li>/g)].map((m) => m[1]), ['Nivel inicial', 'Primaria', 'Secundaria', 'Nivel superior'])
+    assert.ok(lista[1].replaceAll('&amp;', '&').replaceAll('&gt;', '>').split(' ').includes('[&>li]:before:size-1.5'))
+    // "Coordinar visita" a Contacto (IN2), con la flecha aria-hidden.
+    assert.match(html, /<a href="\/contacto" class="inline-flex min-h-11 [^"]* -my-2 self-start">Coordinar visita<svg [^>]*aria-hidden="true"/)
+    assert.equal(cuantas(html, '<a '), 1)
+    // La foto: los chicos de guardapolvo (R-B), 10:7, lazy y con prioridad baja, en 600 y 1140.
+    const fotos = html.match(/<img [^>]*>/g)
+    assert.equal(fotos.length, 1)
+    for (const a of ['loading="lazy"', 'decoding="async"', 'fetchPriority="low"', `alt="${escolares.imagen.alt}"`, 'aspect-[10/7]', 'rounded-2xl', 'object-cover']) {
+      assert.ok(fotos[0].includes(a), a)
+    }
+    assert.match(escolares.imagen.alt, /guardapolvo/)
+    assert.deepEqual([...fotos[0].matchAll(/ (\d+)w/g)].map((m) => Number(m[1])), [600, 1140])
+    assert.ok(fotos[0].includes('educacion-escolares-600'))
+  })
+
+  test('Educación (IN1, IN2, IN3): "Recursos educativos" con el rótulo a 16, la bajada y tres tarjetas con el ícono en crema y la acción como texto', () => {
+    const { recursos } = contenido.educacion
+    const main = delMain(educacionCon())
+    const html = seccion(main, 'educacion-recursos')
+    // El rótulo y, 16 abajo (mt-4, no mt-6), el h2; la bajada en gris a 16.
+    assert.match(html, /<p class="font-mono text-sm leading-5 font-medium text-paper uppercase">Recursos<\/p><h2 id="educacion-recursos" class="([^"]*)">Recursos educativos<\/h2>/)
+    const h2 = clasesDe(html, /<h2 id="educacion-recursos" class="([^"]*)"/)
+    assert.ok(h2.includes('mt-4') && !h2.includes('mt-6') && h2.includes('font-thin'), h2.join(' '))
+    assert.ok(html.includes(`<p class="text-lg leading-7 font-normal text-muted mt-4 max-w-none">${recursos.bajada}</p>`))
+    // Las tarjetas: el ícono en crema (sin text-naranja), el h3, el texto en gris y la acción como texto con la flecha.
+    const tarjetas = [...html.matchAll(/<li class="([^"]*)"><span class="flex size-12 [^"]*bg-caja[^"]*text-paper"><svg [^>]*class="shrink-0 size-6"[\s\S]*?<\/svg><\/span><div class="flex flex-col gap-2"><h3 class="font-mono text-xs [^"]*">([^<]*)<\/h3><p class="text-base [^"]*text-muted[^"]*">([^<]*)<\/p><\/div><p class="flex items-center gap-2 font-mono text-sm leading-5 font-normal text-paper">([^<]*)<svg [^>]*aria-hidden="true"/g)]
+    assert.deepEqual(tarjetas.map((m) => [m[2], m[3], m[4]]), [
+      ['Guías didácticas', 'Material educativo descargable para docentes: nivel inicial, primaria, secundaria y universidad.', 'Ver guías'],
+      ['Videos educativos', 'Contenido audiovisual sobre paleontología y geología del Triásico: conferencias y documentales.', 'Ver videos'],
+      ['Biblioteca digital', 'Acceso a publicaciones científicas del MuPa: artículos, libros y tesis.', 'Explorar'],
+    ])
+    for (const m of tarjetas) for (const c of ['lg:px-6', 'lg:py-10', 'xl:px-10', 'gap-6']) assert.ok(m[1].split(' ').includes(c), c)
+    assert.equal(cuantas(html, 'text-naranja'), 0)
+    assert.ok(html.includes('<ul class="mt-12 grid gap-10 lg:grid-cols-3">'))
+    // IN3: cada tarjeta con la forma de una fila, sin url (la acción va como texto).
+    for (const t of recursos.tarjetas) assert.deepEqual(Object.keys(t), ['icono', 'titulo', 'texto', 'accion', 'url'])
+    assert.ok(recursos.tarjetas.every((t) => t.url === null))
+    for (const t of ['<a', '<button', '<input', '<form']) assert.equal(cuantas(html, t), 0, t)
+    // IN2: en todo el <main>, el único enlace es "Coordinar visita"; ningún botón ni "#".
+    assert.deepEqual(anclas(main), ['/contacto'])
+    assert.equal(cuantas(main, '<button'), 0)
+    for (const texto of NUNCA_EN_EDUCACION) assert.equal(cuantas(main, texto), 0, texto)
+  })
+
+  test('Educación (IN2): sin la página de Contacto, "Coordinar visita" va como texto (ningún control sin destino)', () => {
+    const contactoPagina = tabla.PAGINAS.contacto
+    try {
+      delete tabla.PAGINAS.contacto
+      const main = delMain(educacionCon())
+      assert.equal(cuantas(main, '<a'), 0)
+      assert.match(seccion(main, 'educacion-visitas'), /<p class="flex items-center gap-2 font-mono text-base leading-\[1\.8\] text-blanco">Coordinar visita<svg [^>]*aria-hidden="true"/)
+    } finally {
+      tabla.PAGINAS.contacto = contactoPagina
+    }
+  })
+
+  // --- Circuitos (tablero "Web", Figma 2860:5827; decisiones IN1 a IN10 del desarrollador, 06/11/2026) ---
+  const circuitosCon = (museo = MUSEO_VACIO) => pagina({ pagina: 'circuitos', ruta: '/circuitos', museo, datos: {} })
+  /** Lo que nunca va en la página: el selector de idioma, las erratas del tablero, "pendiente" y controles sin destino. */
+  const NUNCA_EN_CIRCUITOS = ['Contenido pendiente', 'Es (Arg)', 'Tikets', 'Palentológicos', 'San Juan. <', 'href="#"', '<form', '<input']
+
+  test('Circuitos (IN1, IN6, IN7): el hero con la bajada en dos renglones (32/40), sobreFoto, y los dos circuitos en el orden del tablero', () => {
+    const { hero, destinos } = contenido.circuitos
+    const html = circuitosCon()
+    const main = delMain(html)
+    assert.equal(cuantas(html, '<h1'), 1)
+    assert.equal(cuantas(html, '<footer'), 1)
+    // El h1 del tablero con su corte ("Palentológicos": la errata, corregida y en minúscula).
+    assert.equal(hero.titulo, 'Circuitos\npaleontológicos')
+    comprobarHero(main, 'circuitos-titulo', hero.titulo, hero.imagen)
+    const heroHtml = seccion(main, 'circuitos-titulo')
+    // La bajada: a 16 del h1, en la caja de 840, con el halo, en 32/40 desde lg (no en 32/56, como Divulgación).
+    assert.equal(hero.bajada, 'Extendé tu visita al MuPa con otros destinos paleontológicos y urbanos de San Juan.')
+    const bajada = new RegExp(`<p class="([^"]*)">${hero.bajada}</p>`).exec(heroHtml)
+    assert.ok(bajada, 'la bajada')
+    const clasesBajada = bajada[1].split(' ')
+    for (const c of ['mt-4', 'lg:max-w-[52.5rem]', 'text-[1.25rem]', 'min-[32rem]:text-[2rem]', 'lg:leading-[1.25]', SOMBRA_BAJADA]) {
+      assert.ok(clasesBajada.includes(c), `${c} en ${bajada[1]}`)
+    }
+    assert.ok(!clasesBajada.includes('lg:leading-[1.75]'), bajada[1])
+    assert.ok(heroHtml.indexOf('</h1>') < heroHtml.indexOf(hero.bajada))
+    // Con bajada: el texto a 168 y la caja del h1 de 932.
+    const texto = clasesDe(heroHtml, /<div class="(relative mx-auto max-w-tablero [^"]*)"/)
+    assert.ok(texto.includes('lg:pt-[10.5rem]') && !texto.includes('lg:pt-52'), texto.join(' '))
+    assert.deepEqual(clasesDe(heroHtml, /<div class="(mx-auto lg:max-w-[^"]*)"/), ['mx-auto', 'lg:max-w-[58.25rem]'])
+    // sobreFoto: los logos del header no se invierten con colores forzados (A11Y-08).
+    for (const img of logosDelHeader(html)) assert.ok(!img.includes('data-logo-blanco'), img.slice(0, 120))
+    // El orden: el hero, Valle de la Luna y Parque las Huellas; 3 secciones, 2 h2 y 1 h3 ("Conexión MuPa").
+    const ids = ['circuitos-titulo', ...destinos.map((d) => `circuito-${d.slug}`)]
+    assert.deepEqual(ids, ['circuitos-titulo', 'circuito-valle-de-la-luna', 'circuito-parque-las-huellas'])
+    const orden = ids.map((id) => main.indexOf(`<section aria-labelledby="${id}"`))
+    assert.ok(orden.every((i, n) => i >= 0 && (n === 0 || i > orden[n - 1])), orden.join(', '))
+    assert.equal(cuantas(main, '<section'), 3)
+    assert.equal(cuantas(main, '<h2'), 2)
+    assert.equal(cuantas(main, '<h3'), 1)
+    // La página se marca en el menú (y no lee la base: sus datos son {}).
+    assert.equal(cuantas(delHeader(html), 'aria-current="page"'), 2)
+    for (const texto of NUNCA_EN_CIRCUITOS) assert.equal(cuantas(html, texto), 0, texto)
+  })
+
+  test('Circuitos (IN1, IN2, IN3, IN5): cada circuito con el rótulo, el h2, el párrafo, "Coordinar visita" a Contacto y la foto; Valle de la Luna con la lista y "Conexión MuPa"', () => {
+    const { rotulo, destinos } = contenido.circuitos
+    const main = delMain(circuitosCon())
+    // IN3: cada circuito con la forma de una fila, las mismas claves en los dos.
+    for (const d of destinos) assert.deepEqual(Object.keys(d), ['slug', 'nombre', 'parrafos', 'lista', 'enlace', 'apartado', 'imagen'])
+    for (const d of destinos) {
+      const id = `circuito-${d.slug}`
+      const html = seccion(main, id)
+      // El rótulo (en mayúsculas por CSS) y, 24 abajo, el h2 Thin 64.
+      assert.match(html, new RegExp(`<p class="font-mono text-sm leading-5 font-medium text-paper uppercase">${rotulo}</p><h2 id="${id}"`), id)
+      const h2 = new RegExp(`<h2 id="${id}" class="([^"]*)">([^<]*)</h2>`).exec(html)
+      assert.ok(h2, id)
+      assert.equal(h2[2], d.nombre)
+      for (const c of ['font-thin', 'min-[32rem]:text-[4rem]', 'mt-6']) assert.ok(h2[1].split(' ').includes(c), `${id}: ${c}`)
+      for (const parrafo of d.parrafos) {
+        assert.match(html, new RegExp(`<p class="text-lg leading-\\[1\\.875rem\\] font-normal text-paper [^"]*">${parrafo.texto}</p>`), parrafo.texto)
+      }
+      // "Coordinar visita" a Contacto (IN2), con la flecha aria-hidden; un solo enlace por circuito.
+      assert.match(html, /<a href="\/contacto" class="inline-flex min-h-11 [^"]* -my-2 self-start">Coordinar visita<svg [^>]*aria-hidden="true"/)
+      assert.equal(cuantas(html, '<a '), 1)
+      // Dos columnas desde lg; la foto 10:7 con esquinas de 16, lazy y con prioridad baja, en 600 y 880 (desde el
+      // original, R-C), con un alt que no nombra a nadie (IN5).
+      assert.ok(html.includes('<div class="mt-12 grid gap-8 lg:grid-cols-2 lg:gap-x-20">'), id)
+      const fotos = html.match(/<img [^>]*>/g)
+      assert.equal(fotos.length, 1, id)
+      for (const a of ['loading="lazy"', 'decoding="async"', 'fetchPriority="low"', `alt="${d.imagen.alt}"`, 'aspect-[10/7]', 'rounded-2xl', 'object-cover']) {
+        assert.ok(fotos[0].includes(a), `${id}: ${a}`)
+      }
+      assert.deepEqual([...fotos[0].matchAll(/ (\d+)w/g)].map((m) => Number(m[1])), [600, 880])
+      assert.ok(fotos[0].includes('bloque-ciencia-600'), id)
+      assert.doesNotMatch(d.imagen.alt, /Martínez|Alcober/)
+    }
+    // Valle de la Luna: la lista con la viñeta de 6 px y, después del enlace, "Conexión MuPa" (h3 Thin 40/52) y su párrafo.
+    const [valle, huellas] = destinos
+    const v = seccion(main, 'circuito-valle-de-la-luna')
+    const lista = /<ul class="([^"]*)">((?:<li>[^<]*<\/li>)+)<\/ul>/.exec(v)
+    assert.ok(lista, 'la lista')
+    assert.deepEqual([...lista[2].matchAll(/<li>([^<]*)<\/li>/g)].map((m) => m[1]), ['Dinosaurios del Triásico Inferior', 'Recorrido guiado en vehículo', 'Paisaje lunar'])
+    assert.ok(lista[1].replaceAll('&amp;', '&').replaceAll('&gt;', '>').split(' ').includes('[&>li]:before:size-1.5'))
+    const h3 = /<h3 class="([^"]*)">([^<]*)<\/h3>/.exec(v)
+    assert.ok(h3, 'el h3')
+    assert.equal(h3[2], 'Conexión MuPa')
+    for (const c of ['font-titulo', 'font-thin', 'min-[32rem]:text-[2.5rem]', 'min-[32rem]:leading-[3.25rem]']) assert.ok(h3[1].split(' ').includes(c), c)
+    const apartado = valle.apartado.parrafos[0].texto
+    assert.match(apartado, /Ricardo Martínez/)
+    const i = (texto) => v.indexOf(texto)
+    const orden = [valle.parrafos[0].texto, '<ul', '>Coordinar visita<', '>Conexión MuPa</h3>', apartado].map(i)
+    assert.ok(orden.every((n, k) => n >= 0 && (k === 0 || n > orden[k - 1])), orden.join(', '))
+    assert.ok(v.includes(`<p class="text-lg leading-[1.875rem] font-normal text-paper wrap-break-word text-pretty">${apartado}</p>`))
+    // Parque las Huellas: sin lista y sin apartado.
+    const h = seccion(main, 'circuito-parque-las-huellas')
+    assert.equal(cuantas(h, '<ul'), 0)
+    assert.equal(cuantas(h, '<h3'), 0)
+    assert.match(huellas.parrafos[0].texto, /Oscar Alcober/)
+    // IN2: en todo el <main>, los dos "Coordinar visita"; ningún botón, formulario ni "#".
+    assert.deepEqual(anclas(main), ['/contacto', '/contacto'])
+    assert.equal(cuantas(main, '<button'), 0)
+    for (const texto of NUNCA_EN_CIRCUITOS) assert.equal(cuantas(main, texto), 0, texto)
+  })
+
+  test('Circuitos (IN2): sin la página de Contacto, los dos "Coordinar visita" van como texto (ningún control sin destino)', () => {
+    const contactoPagina = tabla.PAGINAS.contacto
+    try {
+      delete tabla.PAGINAS.contacto
+      const main = delMain(circuitosCon())
+      assert.equal(cuantas(main, '<a'), 0)
+      for (const id of ['circuito-valle-de-la-luna', 'circuito-parque-las-huellas']) {
+        assert.match(seccion(main, id), /<p class="flex items-center gap-2 font-mono text-base leading-\[1\.8\] text-blanco">Coordinar visita<svg [^>]*aria-hidden="true"/, id)
+      }
+    } finally {
+      tabla.PAGINAS.contacto = contactoPagina
+    }
+  })
+
+  // --- El Museo (tablero "Web", Figma 2823:10228; decisiones IN1 a IN10 del desarrollador, 06/11/2026) ---
+  const elMuseoCon = (museo = MUSEO_VACIO) => pagina({ pagina: 'el-museo', ruta: '/el-museo', museo, datos: {} })
+  /**
+   * Lo que nunca va en el <main>: el selector de idioma, las erratas del tablero ("Tikets", "Áreas de extensión",
+   * "Director Científico"), "Producción" (D3), la cifra de ejemplo "200" (IN1), el "1/3" del carrusel y el subtítulo de
+   * la nota que el tablero no dibuja, "pendiente" del plan 6.1 y controles sin destino (IN2).
+   */
+  const NUNCA_EN_EL_MUSEO = [
+    'Contenido pendiente', 'Es (Arg)', 'Tikets', 'Producción', '>200<', 'Áreas de extensión', 'Director Científico',
+    '1/3', 'Conocé quiénes están detrás', 'href="#"', '<button', '<form', '<input',
+  ]
+  const ID_SECCIONES_EL_MUSEO = [
+    'el-museo-presentacion', 'el-museo-cogestion', 'el-museo-mision', 'el-museo-documentales', 'el-museo-numeros',
+    'el-museo-autoridades', 'el-museo-equipo',
+  ]
+  const h2De = (html, id) => {
+    const m = new RegExp(`<h2 id="${id}" class="([^"]*)">([^<]*)</h2>`).exec(html)
+    assert.ok(m, id)
+    return { clases: m[1].split(' '), texto: m[2] }
+  }
+  /** Los recuadros neutros en lugar de un retrato (IN5). */
+  const RECUADRO_EL_MUSEO = '<span aria-hidden="true" class="block size-30 shrink-0 rounded-[1.25rem] bg-caja"></span>'
+
+  test('El Museo (IN1, IN6, IN7): el hero sin bajada, sobreFoto, y las siete secciones en el orden del tablero, con 120 de aire', () => {
+    const m = contenido.elMuseo
+    for (const museo of [MUSEO_VACIO, MUSEO_MAXIMO]) {
+      const html = elMuseoCon(museo)
+      const main = delMain(html)
+      assert.equal(cuantas(html, '<h1'), 1)
+      assert.equal(cuantas(html, '<footer'), 1)
+      // El h1 del tablero ("Acerca del MuPa", aunque el menú diga "El Museo"), sin bajada: a 208 y en la caja de 840.
+      assert.equal(m.hero.titulo, 'Acerca del MuPa')
+      comprobarHero(main, 'el-museo-titulo', m.hero.titulo, m.hero.imagen)
+      const heroHtml = seccion(main, 'el-museo-titulo')
+      assert.ok(heroHtml.includes('lg:pt-52'))
+      assert.deepEqual(clasesDe(heroHtml, /<div class="(mx-auto lg:max-w-[^"]*)"/), ['mx-auto', 'lg:max-w-[52.5rem]'])
+      assert.equal(cuantas(heroHtml, '<p'), 0)
+      assert.ok(heroHtml.includes('hero-el-museo-1440'))
+      // sobreFoto: los logos del header no se invierten con colores forzados (A11Y-08).
+      for (const img of logosDelHeader(html)) assert.ok(!img.includes('data-logo-blanco'), img.slice(0, 120))
+      // El orden: el hero y las siete secciones; 8 secciones, 7 h2 y 10 h3 (las dos partes de la cogestión, Misión,
+      // Visión, Valores, los tres documentales y las dos autoridades: los integrantes del equipo, sin encabezado).
+      const ids = ['el-museo-titulo', ...ID_SECCIONES_EL_MUSEO]
+      const orden = ids.map((id) => main.indexOf(`<section aria-labelledby="${id}"`))
+      assert.ok(orden.every((i, n) => i >= 0 && (n === 0 || i > orden[n - 1])), orden.join(', '))
+      assert.equal(cuantas(main, '<section'), 8)
+      assert.equal(cuantas(main, '<h2'), 7)
+      assert.equal(cuantas(main, '<h3'), 10)
+      const titulos = ID_SECCIONES_EL_MUSEO.map((id) => h2De(main, id).texto)
+      assert.deepEqual(titulos, [
+        'El MuPa', 'Cómo nos organizamos', 'Misión y visión', 'Haciendo el MuPa', 'El MuPa en números', 'Autoridades',
+        'Nuestro equipo',
+      ])
+      // 120 de aire arriba y abajo desde lg en todas (el tablero de esta página; las demás, 80).
+      for (const id of ID_SECCIONES_EL_MUSEO) {
+        const clases = clasesDe(main, new RegExp(`<section aria-labelledby="${id}" class="([^"]*)"`))
+        assert.ok(clases.includes('lg:py-30') && clases.includes('py-16') && !clases.includes('lg:py-20'), `${id}: ${clases.join(' ')}`)
+      }
+      // El rótulo antes del h2: a 16 (mt-4) en Cogestión, Haciendo el MuPa, Autoridades y Nuestro equipo; a 24 (mt-6) en
+      // El MuPa; Misión y visión y los números, sin rótulo.
+      const rotulos = {
+        'el-museo-presentacion': [m.presentacion.rotulo, 'mt-6'],
+        'el-museo-cogestion': [m.cogestion.rotulo, 'mt-4'],
+        'el-museo-documentales': [m.documentales.rotulo, 'mt-4'],
+        'el-museo-autoridades': [m.autoridades.rotulo, 'mt-4'],
+        'el-museo-equipo': [m.equipo.rotulo, 'mt-4'],
+      }
+      for (const [id, [rotulo, margen]] of Object.entries(rotulos)) {
+        assert.ok(seccion(main, id).includes(`<p class="font-mono text-sm leading-5 font-medium text-paper uppercase">${rotulo}</p><h2 id="${id}"`), id)
+        const { clases } = h2De(main, id)
+        assert.ok(clases.includes(margen) && clases.includes('font-thin'), `${id}: ${clases.join(' ')}`)
+        assert.ok(!clases.includes(margen === 'mt-4' ? 'mt-6' : 'mt-4'), id)
+      }
+      for (const id of ['el-museo-mision', 'el-museo-numeros']) {
+        assert.equal(cuantas(seccion(main, id).split(`<h2 id="${id}"`)[0], '<p'), 0, id)
+        assert.ok(!h2De(main, id).clases.some((c) => /^mt-/.test(c)), id)
+      }
+      // La página se marca en el menú (y no lee la base: sus datos son {}).
+      assert.equal(cuantas(delHeader(html), 'aria-current="page"'), 2)
+      for (const texto of NUNCA_EN_EL_MUSEO) assert.equal(cuantas(main, texto), 0, texto)
+    }
+  })
+
+  test('El Museo: "El MuPa" con los dos párrafos, la foto del patio y las piedritas; "Cómo nos organizamos" con las dos partes, sus logos y las piedritas de la Identidad', () => {
+    const { presentacion, cogestion } = contenido.elMuseo
+    const main = delMain(elMuseoCon())
+    // El MuPa: la sección posicionada y sin scroll horizontal (por las piedritas); los párrafos de la nota.
+    const p = seccion(main, 'el-museo-presentacion')
+    assert.deepEqual(clasesDe(main, /<section aria-labelledby="el-museo-presentacion" class="([^"]*)"/), ['relative', 'overflow-x-clip', 'py-16', 'lg:py-30'])
+    assert.equal(presentacion.parrafos.length, 2)
+    for (const texto of presentacion.parrafos) {
+      assert.ok(p.includes(`<p class="text-lg leading-[1.875rem] font-normal text-paper wrap-break-word text-pretty">${texto}</p>`), texto)
+    }
+    assert.ok(p.includes('<div class="mt-12 grid gap-8 lg:grid-cols-2 lg:gap-x-20">'))
+    // La foto del patio (la del Collage de la Home), en 5:3 con esquinas de 16, lazy y con prioridad baja.
+    const fotos = p.match(/<img [^>]*>/g)
+    assert.equal(fotos.length, 2)
+    const patio = fotos.find((f) => f.includes('carrusel-patio'))
+    for (const a of ['loading="lazy"', 'decoding="async"', 'fetchPriority="low"', `alt="${presentacion.imagen.alt}"`, 'aspect-[5/3]', 'rounded-2xl', 'object-cover']) {
+      assert.ok(patio.includes(a), a)
+    }
+    assert.deepEqual([...patio.matchAll(/ (\d+)w/g)].map((x) => Number(x[1])), [700, 1400])
+    // Las piedritas: decorativas (alt vacío dentro de un aria-hidden), solo desde lg, lazy; 96 px sobre la sección.
+    assert.match(
+      p,
+      /<div aria-hidden="true" class="pointer-events-none absolute inset-x-0 top-0 hidden h-0 lg:block"><img src="[^"]*patron-galeria[^"]*" alt="" width="408" height="462" loading="lazy" fetchPriority="low" class="absolute top-\[-6\.0625rem\] right-\[-5\.6875rem\] w-\[25\.5rem\] max-w-none"\/><\/div>/,
+    )
+    // Cómo nos organizamos: las dos partes (una lista), cada una con su rótulo en h3, el logo de la institución (el
+    // blanco del pie, con data-logo-blanco y su nombre de alt), la introducción en gris y su lista.
+    const c = seccion(main, 'el-museo-cogestion')
+    assert.deepEqual(clasesDe(main, /<section aria-labelledby="el-museo-cogestion" class="([^"]*)"/), ['relative', 'overflow-x-clip', 'py-16', 'lg:py-30'])
+    assert.ok(c.includes('<ul class="mt-12 grid gap-10 lg:grid-cols-[502fr_738fr]">'))
+    assert.deepEqual([...c.matchAll(/<h3 class="([^"]*)">([^<]*)<\/h3>/g)].map((x) => x[2]), ['Co-gestión académica', 'Gestión provincial'])
+    assert.match(c, /<h3 class="font-mono text-xs leading-4 font-medium text-paper uppercase">Co-gestión académica<\/h3>/)
+    const logos = c.match(/<img [^>]*data-logo-blanco[^>]*>/g)
+    assert.equal(logos.length, 2)
+    assert.match(logos[0], /logo-unsj[^"]*" alt="Universidad Nacional de San Juan" width="205" height="94.4" loading="lazy"/)
+    assert.match(logos[1], /logo-gobierno-san-juan[^"]*" alt="Gobierno de San Juan" width="253.5" height="73.06" loading="lazy"/)
+    for (const parte of cogestion.partes) {
+      assert.ok(c.includes(`<p class="text-base leading-[1.625rem] font-normal text-muted wrap-break-word">${parte.intro}</p>`), parte.intro)
+      for (const item of parte.items) assert.ok(c.includes(`<li>${item}</li>`), item)
+    }
+    assert.deepEqual(cogestion.partes.map((x) => x.items.length), [5, 4])
+    assert.equal(cuantas(c, '<li'), 2 + 5 + 4)
+    // Las piedritas de la Identidad de la landing, con su desvanecido (la utilidad patron-b); entre lg y xl, 48 px más
+    // afuera (con 280, a 1024 pisaban el final de la lista de Gobierno).
+    assert.match(c, /<div aria-hidden="true" class="pointer-events-none absolute inset-x-0 top-0 hidden h-0 lg:block"><img src="[^"]*patron-b[^"]*" alt=""[^>]*class="patron-b absolute top-\[31\.375rem\] right-\[-20\.5rem\] w-\[38\.58rem\] max-w-none xl:right-\[-17\.5rem\]"\/><\/div>/)
+    // IN3: cada parte con la forma de una fila.
+    for (const parte of cogestion.partes) assert.deepEqual(Object.keys(parte), ['rotulo', 'institucion', 'intro', 'items'])
+  })
+
+  test('El Museo (IN1, IN2): Misión y visión con siete Valores que no son controles; los documentales sin flechas ni contador y el "play" decorado; los números con "[—]"', () => {
+    const { mision, documentales, numeros } = contenido.elMuseo
+    const main = delMain(elMuseoCon())
+    // Misión y visión: el rótulo de cada una en h3 y su texto en 20/32; "Valores" en h3 Thin 40/52 y las siete píldoras,
+    // una lista sin enlaces ni botones.
+    const mv = seccion(main, 'el-museo-mision')
+    for (const item of mision.items) {
+      assert.ok(mv.includes(`<h3 class="font-mono text-sm leading-5 font-medium text-paper uppercase">${item.rotulo}</h3><p class="text-xl leading-8 font-normal text-paper wrap-anywhere text-pretty">${item.texto}</p>`), item.rotulo)
+    }
+    assert.match(mv, /<h3 class="font-titulo [^"]*font-thin[^"]*min-\[32rem\]:text-\[2\.5rem\][^"]*">Valores<\/h3><ul class="mt-8 flex flex-wrap gap-4">/)
+    const pildoras = [...mv.matchAll(/<li class="([^"]*)">([^<]*)<\/li>/g)]
+    assert.deepEqual(pildoras.map((x) => x[2]), mision.valores.lista)
+    assert.equal(pildoras.length, 7)
+    for (const [, clases] of pildoras) for (const cl of ['rounded-full', 'border', 'border-paper', 'font-mono', 'text-sm']) assert.ok(clases.split(' ').includes(cl), cl)
+    assert.equal(cuantas(mv, '<a'), 0)
+    // Haciendo el MuPa: la bajada (de la nota), tres tarjetas en una fila desde lg, sin flechas ni "1/3" (IN2).
+    const d = seccion(main, 'el-museo-documentales')
+    assert.ok(d.includes(`<p class="text-lg leading-7 font-normal text-muted mt-4">${documentales.bajada}</p>`))
+    assert.ok(d.includes('<ul class="mt-12 grid gap-8 lg:grid-cols-3">'))
+    assert.deepEqual([...d.matchAll(/<h3 class="[^"]*">([^<]*)<\/h3>/g)].map((x) => x[1]), documentales.lista.map((x) => x.titulo))
+    for (const n of [1, 2, 3]) assert.ok(d.includes(`<p class="font-mono text-xs leading-4 font-medium text-paper uppercase">Documental · ${n}</p>`), n)
+    assert.equal(cuantas(d, '>[Título pendiente]</p>'), 3)
+    const fotos = d.match(/<img [^>]*>/g)
+    assert.equal(fotos.length, 3)
+    for (const f of fotos) for (const a of ['loading="lazy"', 'fetchPriority="low"', 'aspect-[405/280]', 'rounded-xl']) assert.ok(f.includes(a), a)
+    // El "play": un círculo decorado (aria-hidden), con el ícono; no es un enlace ni un botón.
+    assert.equal(cuantas(d, '<span aria-hidden="true" class="absolute top-1/2 left-1/2 flex size-16'), 3)
+    assert.equal(cuantas(d, '<polygon points="5 3 19 12 5 21 5 3"'), 3)
+    for (const texto of ['<a', '<button', '1/3', 'Anterior', 'Siguiente']) assert.equal(cuantas(d, texto), 0, texto)
+    // IN3: cada documental, una fila sin enlace.
+    for (const doc of documentales.lista) {
+      assert.deepEqual(Object.keys(doc), ['titulo', 'subtitulo', 'url', 'imagen'])
+      assert.equal(doc.url, null)
+    }
+    // El MuPa en números: el h2 centrado y una lista de definiciones con la etiqueta (dt) y la cifra (dd, arriba con
+    // order-first); "[—]" en las cuatro (IN1: el tablero dice "200"); "Área de extensión" (la errata, corregida).
+    const n = seccion(main, 'el-museo-numeros')
+    assert.ok(h2De(n, 'el-museo-numeros').clases.includes('text-center'))
+    assert.deepEqual([...n.matchAll(/<dt class="[^"]*">([^<]*)<\/dt>/g)].map((x) => x[1]), ['Área de extensión', 'Piezas fósiles', 'Dispositivos interactivos', 'Científicos e investigadores'])
+    const cifras = [...n.matchAll(/<dd class="([^"]*)">([^<]*)<\/dd>/g)]
+    assert.deepEqual(cifras.map((x) => x[2]), ['[—]', '[—]', '[—]', '[—]'])
+    for (const [, clases] of cifras) for (const cl of ['order-first', 'font-hero', 'font-[weight:755]', 'min-[32rem]:text-[4rem]']) assert.ok(clases.split(' ').includes(cl), cl)
+    assert.ok(n.includes('<dl class="mt-16 grid grid-cols-2 lg:grid-cols-4">'))
+    assert.equal(cuantas(n, 'lg:not-last:border-r'), 4)
+    for (const c of numeros.cifras) assert.deepEqual(Object.keys(c), ['cifra', 'rotulo'])
+  })
+
+  test('El Museo (IN2, IN3, IN5): las autoridades y el equipo sin retrato (el recuadro neutro); con foto en la fila, la foto con su nombre; ningún control en la página', () => {
+    const { autoridades, equipo, documentales } = contenido.elMuseo
+    const main = delMain(elMuseoCon())
+    // Autoridades: el recuadro (aria-hidden, en el color de la caja), el cargo, el nombre en h3 y la biografía; ninguna foto.
+    const a = seccion(main, 'el-museo-autoridades')
+    assert.equal(cuantas(a, '<img'), 0)
+    assert.equal(cuantas(a, RECUADRO_EL_MUSEO), 2)
+    for (const persona of autoridades.personas) {
+      assert.ok(a.includes(`<p class="font-mono text-xs leading-4 font-medium text-paper uppercase">${persona.cargo}</p><h3 class="mt-2 text-[1.75rem] leading-9 font-medium text-paper wrap-break-word">${persona.nombre}</h3>`), persona.nombre)
+      assert.ok(a.includes(`<p class="text-base leading-[1.625rem] font-normal text-muted wrap-break-word text-pretty">${persona.bio}</p>`), persona.nombre)
+      assert.deepEqual(Object.keys(persona), ['cargo', 'nombre', 'bio', 'foto'])
+      assert.equal(persona.foto, null)
+    }
+    assert.deepEqual(autoridades.personas.map((x) => [x.cargo, x.nombre]), [['Director', 'Oscar Alcober'], ['Director científico', 'Ricardo Martínez']])
+    // Nuestro equipo: el párrafo en gris (en su caja de 700) y cuatro integrantes de relleno, sin foto.
+    const e = seccion(main, 'el-museo-equipo')
+    assert.ok(e.includes(`<p class="text-lg leading-[1.875rem] font-normal text-muted wrap-break-word text-pretty mt-4 max-w-[43.75rem]">${equipo.parrafo}</p>`))
+    assert.ok(e.includes('<ul class="mt-12 grid grid-cols-2 gap-6 lg:grid-cols-4">'))
+    assert.equal(cuantas(e, '<img'), 0)
+    assert.equal(cuantas(e, RECUADRO_EL_MUSEO), 4)
+    assert.equal(cuantas(e, '>[Nombre del integrante]</p>'), 4)
+    assert.equal(cuantas(e, '>[Rol]</p>'), 4)
+    assert.equal(cuantas(e, '<h3'), 0)
+    for (const persona of equipo.personas) assert.deepEqual(Object.keys(persona), ['nombre', 'rol', 'foto'])
+    // IN2: en todo el <main>, ningún enlace, botón ni formulario; solo la foto del hero sin loading (las demás, lazy).
+    assert.deepEqual(anclas(main), [])
+    assert.equal(cuantas(main, '<button'), 0)
+    const imgs = main.match(/<img [^>]*>/g)
+    assert.equal(imgs.filter((i) => !i.includes('loading="lazy"')).length, 1)
+    assert.ok(imgs.find((i) => !i.includes('loading="lazy"')).includes('hero-el-museo'))
+    for (const texto of NUNCA_EN_EL_MUSEO) assert.equal(cuantas(main, texto), 0, texto)
+    // IN3: con la foto en la fila de una persona, la foto (con su nombre de alt) en lugar del recuadro; con la url de un
+    // documental, el título es el enlace, estirado sobre la tarjeta.
+    const martinez = autoridades.personas[1]
+    const doc = documentales.lista[0]
+    try {
+      martinez.foto = { src: '/retrato-de-prueba.webp' }
+      doc.url = 'https://example.com/documental'
+      const con = delMain(elMuseoCon())
+      const ca = seccion(con, 'el-museo-autoridades')
+      assert.equal(cuantas(ca, RECUADRO_EL_MUSEO), 1)
+      assert.match(ca, /<img src="\/retrato-de-prueba.webp" width="120" height="120" alt="Ricardo Martínez" loading="lazy" decoding="async" fetchPriority="low" class="block size-30 shrink-0 rounded-\[1\.25rem\] object-cover"\/>/)
+      const cd = seccion(con, 'el-museo-documentales')
+      assert.match(cd, /<h3 class="[^"]*"><a href="https:\/\/example.com\/documental" class="[^"]*after:absolute after:inset-0[^"]*">El MuPa por dentro<\/a><\/h3>/)
+      assert.equal(cuantas(cd, '<a '), 1)
+    } finally {
+      martinez.foto = null
+      doc.url = null
+    }
+  })
+
+  test('HeroPagina y BloqueTextoFoto: sin bajadaJusta ni apartado, lo de antes (la bajada de Divulgación en 1,75, sin h3 en sus bloques)', async () => {
+    const tablero = await vite.ssrLoadModule('/src/components/tablero.js')
+    // La bajada de Divulgación, carácter por carácter la de antes de Circuitos; la de Circuitos, la misma con 1,25.
+    const antes =
+      'mx-auto mt-4 max-w-none text-center text-[1.25rem] leading-normal font-normal text-paper ' +
+      '[text-shadow:0_0_1rem_rgb(0_0_0/0.25),0_0_0.125em_rgb(1_1_1/0.9),0_0_0.25em_rgb(1_1_1/0.8),0_0_0.5em_rgb(1_1_1/0.5)] ' +
+      'min-[32rem]:text-[2rem] lg:max-w-[52.5rem] lg:leading-[1.75]'
+    assert.equal(tablero.BAJADA_HERO_PAGINA, antes)
+    assert.equal(tablero.BAJADA_HERO_PAGINA_JUSTA, antes.replace('lg:leading-[1.75]', 'lg:leading-[1.25]'))
+    // En Divulgación, la bajada sigue en 1,75 y sus cuatro bloques sin h3 (los 3 h3 son las tarjetas del newsletter).
+    const main = delMain(pagina({ pagina: 'divulgacion', ruta: '/divulgacion', museo: MUSEO_VACIO, datos: { novedades: [] } }))
+    assert.ok(seccion(main, 'divulgacion-titulo').includes(`<p class="${antes}">`))
+    for (const b of contenido.divulgacion.bloques) assert.equal(cuantas(seccion(main, b.id), '<h3'), 0, b.id)
+  })
+
+  test('SeccionRecursos (IN3): con url, la acción es un enlace de 44 px con la flecha; sin url, texto; el ícono naranja solo con iconoNaranja', async () => {
+    const SeccionRecursos = (await vite.ssrLoadModule('/src/components/SeccionRecursos.jsx')).default
+    const tarjetas = [
+      { icono: 'descarga', titulo: 'Con enlace', texto: 'Texto.', accion: 'Ver', url: 'https://example.com/guias' },
+      { icono: 'video', titulo: 'Sin enlace', texto: 'Texto.', accion: 'Mirar', url: null },
+    ]
+    const html = renderToStaticMarkup(createElement(SeccionRecursos, { id: 'prueba', rotulo: 'Rótulo', titulo: 'T', bajada: 'B', tarjetas }))
+    assert.match(html, /<a href="https:\/\/example.com\/guias" class="-my-3 inline-flex min-h-11 [^"]*focus-visible:outline-blanco">Ver<svg [^>]*aria-hidden="true"/)
+    assert.match(html, /<p class="flex items-center gap-2 font-mono text-sm leading-5 font-normal text-paper">Mirar<svg/)
+    assert.equal(cuantas(html, '<a '), 1)
+    assert.equal(cuantas(html, 'text-naranja'), 0)
+    const naranja = renderToStaticMarkup(createElement(SeccionRecursos, { id: 'p', titulo: 'T', bajada: 'B', tarjetas, iconoNaranja: true }))
+    assert.equal(cuantas(naranja, 'class="shrink-0 size-6 text-naranja"'), 2)
+    // Sin rótulo, el h2 sin mt-4 (el newsletter de Divulgación) y ningún <p> antes del h2.
+    assert.match(naranja, /<div class="[^"]*"><h2 id="p" class="[^"]*font-thin[^"]*">T<\/h2>/)
+    assert.ok(!clasesDe(naranja, /<h2 id="p" class="([^"]*)"/).includes('mt-4'))
   })
 })
 

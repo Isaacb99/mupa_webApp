@@ -119,6 +119,50 @@ const JOBS = [
   ['Mosaico - IMG_7822.jpg',      'hero-divulgacion-1920',      1920,  640, 0, 1, 0.20, 0.70],
   ['Mosaico - IMG_7822.jpg',      'hero-divulgacion-1440',      1440,  480, 0, 1, 0.20, 0.70],
   ['Mosaico - IMG_7822.jpg',      'hero-divulgacion-960',        960,  320, 0, 1, 0.20, 0.70],
+  // Educación (tablero 2846:1562: su foto, los chicos de guardapolvo en la baranda, es area-educacion-1140 de la landing:
+  // 1.140 px, no alcanza para el hero; decisión R-A del orquestador, 06/11/2026): la restauradora con el pincel sobre
+  // un fósil en el hall ("Id. Mision - IMG_7735" de la selección, el eje Misión de la landing, que master no usaba), 3:1
+  // sin el 15 % de la derecha del original (x 0-0,85: la cara pasa al 62-70 % del ancho), filas del 9,5 al 52 %: el h1
+  // sobre la pared y el pelo, y la cara (los ojos y la boca) debajo del h1 hasta ~1640 px y a su derecha más allá (con
+  // la posicion '50% 90%' de content.js; a todo el ancho, desde 1920 el h1 tapaba los anteojos y a 3440 un ojo).
+  ['Id. Mision - IMG_7735.jpg',   'hero-educacion-2880',        2880,  960, 0, 0.85, 0.095, 0.52],
+  ['Id. Mision - IMG_7735.jpg',   'hero-educacion-1920',        1920,  640, 0, 0.85, 0.095, 0.52],
+  ['Id. Mision - IMG_7735.jpg',   'hero-educacion-1440',        1440,  480, 0, 0.85, 0.095, 0.52],
+  ['Id. Mision - IMG_7735.jpg',   'hero-educacion-960',          960,  320, 0, 0.85, 0.095, 0.52],
+  // Educación, "Visitas Escolares" (BloqueTextoFoto.jsx, 600x420 a 1440; decisión R-B del orquestador): los chicos de
+  // guardapolvo en la baranda (la foto real de una visita escolar que mandó el museo el 22/09/2026 y que el tablero pone
+  // en el hero). El original (educacion.png, magnific_mejorar_nVhF3TGYQD.png del Drive) no está en esta PC: sale de
+  // area-educacion-1140.webp (lo más grande que hay; la carpeta de originales es src/assets), 10:7 con las filas del 27
+  // al 97,4 % (1140x798: las cabezas de los chicos enteras, sin el piso de abajo).
+  ['area-educacion-1140.webp',    'educacion-escolares-1140',   1140,  798, 0, 1, 0.27, 0.974],
+  ['area-educacion-1140.webp',    'educacion-escolares-600',     600,  420, 0, 1, 0.27, 0.974],
+  // Circuitos (tablero 2860:5828: su foto, de campo, mide 1000 px, no está en la Selección y es la misma del tablero de
+  // Divulgación; IN6 y R-D del orquestador, 06/11/2026): el soldador con la máscara entre los caños celestes (Mosaico -
+  // IMG_1085, 3744x2496; la foto 5 del mosaico de Obra de la landing, que master no usaba), 3:1 a todo el ancho, filas
+  // del 40 al 90 %: las chispas arriba y la máscara a la derecha del h1. Con el esqueleto de IMG_8110 (la primera
+  // propuesta, filas del 6 al 56 %) la bajada quedaba sobre una pared blanca, con el 1,5-2 % del anillo de sus letras
+  // bajo 3:1 de 1024 a 3440 (ninguna fila lo arreglaba: la pared baja hasta el pie de la foto); con esta, como mucho el
+  // 0,2 %. En WebP 75, como Novedades: con las chispas y los caños, en 80 la de 2880 pesaba 186 kB (en 75, 150).
+  ['Mosaico - IMG_1085.jpg',      'hero-circuitos-2880',        2880,  960, 0, 1, 0.40, 0.90, 75],
+  ['Mosaico - IMG_1085.jpg',      'hero-circuitos-1920',        1920,  640, 0, 1, 0.40, 0.90, 75],
+  ['Mosaico - IMG_1085.jpg',      'hero-circuitos-1440',        1440,  480, 0, 1, 0.40, 0.90, 75],
+  ['Mosaico - IMG_1085.jpg',      'hero-circuitos-960',          960,  320, 0, 1, 0.40, 0.90, 75],
+  // Los dos circuitos de Circuitos (BloqueTextoFoto.jsx, 600x420 a 1440, 10:7; decisión R-C del orquestador): la
+  // paleontóloga con la cuadrícula de hilos, la foto que el tablero les pone (relleno), desde su original (920x633) y no
+  // desde area-ciencia-570: columnas del 2 al 97,6 % y filas del 1 al 98,3 % (880x616 del original, sin el marco del
+  // escaneo: la línea de la izquierda, la franja clara de la derecha y los bordes oscuros de arriba y de abajo), así la
+  // de 880 sale sin agrandar ni achicar.
+  ['Acordeon - Ciencia.jpg',      'bloque-ciencia-880',          880,  616, 0.02, 0.976, 0.01, 0.983],
+  ['Acordeon - Ciencia.jpg',      'bloque-ciencia-600',          600,  420, 0.02, 0.976, 0.01, 0.983],
+  // El Museo (tablero 2823:10228: su foto es la fachada con el cartel, Header - IMG_1526 v2, que ya es el hero de
+  // Contacto; IN6 y R-E del orquestador, 06/11/2026): el mismo frente de cerca y contra el cielo (Id. Vision - IMG_1676,
+  // 6000x4000, el eje Visión de la landing, que master no usaba), 3:1 de la franja x del 5 al 95 % y las filas del 0 al
+  // 45 %: el h1 sobre el cielo y las torres blancas debajo (el cartel queda afuera: con él, el h1 se cortaba con el
+  // borde de la banda oscura o se pisaba con sus letras).
+  ['Id. Vision - IMG_1676.jpg',   'hero-el-museo-2880',         2880,  960, 0.05, 0.95, 0, 0.45],
+  ['Id. Vision - IMG_1676.jpg',   'hero-el-museo-1920',         1920,  640, 0.05, 0.95, 0, 0.45],
+  ['Id. Vision - IMG_1676.jpg',   'hero-el-museo-1440',         1440,  480, 0.05, 0.95, 0, 0.45],
+  ['Id. Vision - IMG_1676.jpg',   'hero-el-museo-960',           960,  320, 0.05, 0.95, 0, 0.45],
 ];
 (async () => {
   let total = 0;

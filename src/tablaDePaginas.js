@@ -12,15 +12,18 @@
 // Desde el diseño del tablero "Web" (02/11/2026) esta tabla es también la que decide qué secciones van en el menú y en el
 // pie (src/components/navegacion.js): cada sección de navegacion en src/content.js nombra su página y se dibuja solo si
 // la página está acá. Así El Museo, Divulgación, Educación y Circuitos aparecen solos en el menú el día que se agrega su
-// página, sin tocar el header (desde el 06/11/2026 está Divulgación: el menú dibuja Visitas y Divulgación). Este
-// archivo no importa nada de React ni del Layout: lo pueden leer el menú y el pie sin que el import sea circular
-// (Raiz.jsx importa el Layout, y el Layout el header).
+// página, sin tocar el header (desde el 06/11/2026 están las cinco: El Museo, Visitas, Divulgación, Educación y
+// Circuitos). Este archivo no importa nada de React ni del Layout: lo pueden leer el menú y el pie sin que el import sea
+// circular (Raiz.jsx importa el Layout, y el Layout el header).
 export const PAGINAS = {
   home: () => import('./paginas/Home.jsx'),
+  'el-museo': () => import('./paginas/ElMuseo.jsx'),
   exposiciones: () => import('./paginas/Exposiciones.jsx'),
   muestra: () => import('./paginas/Muestra.jsx'),
   visitas: () => import('./paginas/Visitas.jsx'),
   divulgacion: () => import('./paginas/Divulgacion.jsx'),
+  educacion: () => import('./paginas/Educacion.jsx'),
+  circuitos: () => import('./paginas/Circuitos.jsx'),
   novedades: () => import('./paginas/Novedades.jsx'),
   novedad: () => import('./paginas/Novedad.jsx'),
   contacto: () => import('./paginas/Contacto.jsx'),
@@ -32,10 +35,13 @@ export const PAGINAS = {
  */
 export const ARCHIVOS_DE_PAGINAS = {
   home: 'src/paginas/Home.jsx',
+  'el-museo': 'src/paginas/ElMuseo.jsx',
   exposiciones: 'src/paginas/Exposiciones.jsx',
   muestra: 'src/paginas/Muestra.jsx',
   visitas: 'src/paginas/Visitas.jsx',
   divulgacion: 'src/paginas/Divulgacion.jsx',
+  educacion: 'src/paginas/Educacion.jsx',
+  circuitos: 'src/paginas/Circuitos.jsx',
   novedades: 'src/paginas/Novedades.jsx',
   novedad: 'src/paginas/Novedad.jsx',
   contacto: 'src/paginas/Contacto.jsx',

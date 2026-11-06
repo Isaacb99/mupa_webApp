@@ -9,6 +9,7 @@ import {
   cargarContacto,
   cargarDivulgacion,
   cargarExposiciones,
+  cargarFija,
   cargarHome,
   cargarMuestra,
   cargarNovedad,
@@ -20,12 +21,20 @@ export const RUTAS = [
   // La Home (tablero "Web", 02/11/2026) lee las últimas novedades para su carrusel; si la base falla, sale sin ellas
   // (nunca la 503: cargarHome). Sus textos están en src/content.js y el museo (la compra, el pie) va aparte en el estado.
   { patron: '/', pagina: 'home', cargar: cargarHome },
+  // El Museo (tablero "Web", 06/11/2026, IN1 a IN10): todo su texto y sus fotos están en src/content.js y no lee la
+  // base, así que sale igual con la base caída (cargarFija). Va primera, como en el menú (es también el orden del sitemap).
+  { patron: '/el-museo', pagina: 'el-museo', cargar: cargarFija },
   { patron: '/exposiciones', pagina: 'exposiciones', cargar: cargarExposiciones },
   { patron: '/exposiciones/:slug', pagina: 'muestra', cargar: cargarMuestra },
   { patron: '/visitas', pagina: 'visitas', cargar: cargarVisitas },
   // Divulgación (tablero "Web", 06/11/2026, DV1 a DV10): como la Home, lee las últimas novedades para "Últimas
   // noticias" y, si la base falla, sale sin ellas (nunca la 503: cargarDivulgacion). Sus textos están en src/content.js.
   { patron: '/divulgacion', pagina: 'divulgacion', cargar: cargarDivulgacion },
+  // Educación (tablero "Web", 06/11/2026, IN1 a IN10): todo su texto y sus fotos están en src/content.js y no lee la
+  // base, así que sale igual con la base caída (cargarFija).
+  { patron: '/educacion', pagina: 'educacion', cargar: cargarFija },
+  // Circuitos (tablero "Web", 06/11/2026, IN1 a IN10): igual, todo en src/content.js y sin leer la base (cargarFija).
+  { patron: '/circuitos', pagina: 'circuitos', cargar: cargarFija },
   { patron: '/novedades', pagina: 'novedades', cargar: cargarNovedades },
   { patron: '/novedades/:slug', pagina: 'novedad', cargar: cargarNovedad },
   { patron: '/contacto', pagina: 'contacto', cargar: cargarContacto },

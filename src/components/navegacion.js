@@ -1,8 +1,8 @@
 // Las secciones del sitio que se dibujan en el menú, el menú del celular, el pie y la 404, y cuál es la de la página.
 // Código puro (nada de React ni del DOM): lo mismo en el servidor y en el navegador.
 // Una sección se dibuja solo si su página existe (src/tablaDePaginas.js): navegacion.menu de src/content.js tiene las
-// cinco del tablero "Web" (02/11/2026) y hoy existen Visitas y Divulgación (desde el 06/11/2026); las demás aparecen
-// solas cuando se agregue su página.
+// cinco del tablero "Web" (02/11/2026) y existen todas: Visitas y, desde el 06/11/2026, El Museo, Divulgación, Educación
+// y Circuitos.
 import { navegacion } from '../content.js'
 import { existePagina } from '../tablaDePaginas.js'
 

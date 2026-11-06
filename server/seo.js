@@ -221,6 +221,16 @@ function imagenDe(portada) {
 // Las páginas fijas: los mismos títulos que el menú (src/content.js) y una línea neutra que dice qué hay en cada una,
 // sin datos del museo. A validar con el museo, como la de la Home.
 const FIJAS = {
+  // El Museo (tablero "Web", 06/11/2026, IN8): el título del menú, como "Divulgación · MuPa" (decisión R-G del
+  // orquestador; el h1 dice "Acerca del MuPa"), y una línea con lo que tiene la página, con sus palabras (a validar con
+  // el museo, pregunta 38 de la lista de Divulgación). En el sitemap, sin lastmod (no muestra nada del panel); sin
+  // IndexNow.
+  'el-museo': {
+    titulo: 'El Museo',
+    descripcion:
+      'Qué es el Museo Paleontológico de San Juan, cómo se organiza con la UNSJ y el Gobierno de San Juan, su misión, ' +
+      'su visión, sus valores y su equipo.',
+  },
   exposiciones: {
     titulo: 'Exposiciones',
     descripcion: 'Las muestras actuales, próximas y permanentes del Museo Paleontológico de San Juan, y sus salas.',
@@ -237,6 +247,21 @@ const FIJAS = {
     titulo: 'Divulgación',
     descripcion:
       'Investigación y divulgación científica del Museo Paleontológico de San Juan y la Universidad Nacional de San Juan.',
+  },
+  // Educación (tablero "Web", 06/11/2026, IN8): con las palabras de la página (a validar con el museo, pregunta 38 de
+  // la lista de Divulgación). En el sitemap, sin lastmod (no muestra nada del panel: sus textos cambian con un deploy).
+  educacion: {
+    titulo: 'Educación',
+    descripcion:
+      'Visitas escolares y recursos educativos del Museo Paleontológico de San Juan: material gratuito para educadores y estudiantes.',
+  },
+  // Circuitos (tablero "Web", 06/11/2026, IN8): el título del menú, como "Divulgación · MuPa" (decisión R-G del
+  // orquestador; el h1 dice "Circuitos paleontológicos"); la descripción, con las palabras de la página (a validar con el
+  // museo, pregunta 38 de la lista de Divulgación). En el sitemap, sin lastmod; sin IndexNow (no cambia con el panel).
+  circuitos: {
+    titulo: 'Circuitos',
+    descripcion:
+      'Circuitos paleontológicos para extender la visita al Museo Paleontológico de San Juan: el Valle de la Luna (Ischigualasto) y el Parque las Huellas.',
   },
   novedades: {
     titulo: 'Novedades',

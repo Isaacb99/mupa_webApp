@@ -40,6 +40,17 @@
 //   /divulgacion; sin base, con 0, 1 y 6 novedades de un lector falso, con la base caída (200, nunca la 503), colgada (a
 //   los TOPE_HOME_MS, divulgacion_sin_novedades con TOPE) o con "timeout expired" (el aviso con su mensaje), la foto del
 //   hero primera en el <head> y /divulgacion/algo, 404.
+// - Educación del tablero "Web" (06/11/2026, IN1 a IN10): no lee la base (cargarFija), así que con la base caída da
+//   200 con datos {}; su <head> (título, canonical, la descripción y el JSON-LD); en el sitemap, sin lastmod; IndexNow
+//   no la avisa; la foto del hero primera en el <head> y la de "Visitas Escolares", lazy; /educacion/algo, 404.
+// - Circuitos del tablero "Web" (06/11/2026, IN1 a IN10), igual: con la base caída, 200 con datos {}; su <head> (el
+//   título del menú, "Circuitos · MuPa", el canonical, la descripción y el JSON-LD); en el sitemap, después de
+//   Educación y sin lastmod; IndexNow no la avisa; la foto del hero primera en el <head> y las de los dos circuitos,
+//   lazy; /circuitos/algo, 404.
+// - El Museo del tablero "Web" (06/11/2026, IN1 a IN10), igual: con la base caída, 200 con datos {}; su <head> (el
+//   título del menú, "El Museo · MuPa", el canonical, la descripción y el JSON-LD); en el sitemap, primera después de
+//   la Home y sin lastmod; IndexNow no la avisa; la foto del hero primera en el <head> y las demás (el patio, los
+//   documentales, los logos y las piedritas), lazy y sin precargar; /el-museo/algo, 404.
 import assert from 'node:assert/strict'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -557,6 +568,9 @@ describe('las páginas internas con base', { skip: base.motivo ?? false }, () =>
       ['/exposiciones', 'Exposiciones · MuPa'],
       ['/visitas', 'Visitas · MuPa'],
       ['/divulgacion', 'Divulgación · MuPa'],
+      ['/educacion', 'Educación · MuPa'],
+      ['/circuitos', 'Circuitos · MuPa'],
+      ['/el-museo', 'El Museo · MuPa'],
       ['/novedades', 'Novedades · MuPa'],
     ]) {
       const fija = await s.pedir('GET', ruta)
@@ -570,6 +584,22 @@ describe('las páginas internas con base', { skip: base.motivo ?? false }, () =>
     assert.equal(
       meta((await s.pedir('GET', '/divulgacion')).texto, 'description'),
       'Investigación y divulgación científica del Museo Paleontológico de San Juan y la Universidad Nacional de San Juan.',
+    )
+    // La de Educación: con las palabras de la página (IN8, a validar con el museo).
+    assert.equal(
+      meta((await s.pedir('GET', '/educacion')).texto, 'description'),
+      'Visitas escolares y recursos educativos del Museo Paleontológico de San Juan: material gratuito para educadores y estudiantes.',
+    )
+    // La de Circuitos: con las palabras de la página (IN8, a validar con el museo); el título es el del menú (R-G).
+    assert.equal(
+      meta((await s.pedir('GET', '/circuitos')).texto, 'description'),
+      'Circuitos paleontológicos para extender la visita al Museo Paleontológico de San Juan: el Valle de la Luna (Ischigualasto) y el Parque las Huellas.',
+    )
+    // La de El Museo: con las palabras de la página (IN8, a validar con el museo); el título es el del menú (R-G), no el
+    // h1 ("Acerca del MuPa").
+    assert.equal(
+      meta((await s.pedir('GET', '/el-museo')).texto, 'description'),
+      'Qué es el Museo Paleontológico de San Juan, cómo se organiza con la UNSJ y el Gobierno de San Juan, su misión, su visión, sus valores y su equipo.',
     )
     // La Home sigue con WebSite + Museum, ahora con los datos cargados.
     const home = await s.pedir('GET', '/')
@@ -661,7 +691,17 @@ describe('las páginas internas con base', { skip: base.motivo ?? false }, () =>
     assert.equal(r.status, 200)
     assert.match(r.h['content-type'], /application\/xml/)
     const locs = [...r.texto.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1])
-    for (const fija of ['/', '/exposiciones', '/visitas', '/divulgacion', '/novedades', '/contacto']) assert.ok(locs.includes(`https://mupa.ar${fija}`), fija)
+    for (const fija of ['/', '/el-museo', '/exposiciones', '/visitas', '/divulgacion', '/educacion', '/circuitos', '/novedades', '/contacto']) assert.ok(locs.includes(`https://mupa.ar${fija}`), fija)
+    // El Museo (IN8), en el orden de la tabla de rutas (justo después de la Home, como en el menú) y sin lastmod.
+    assert.equal(locs.indexOf('https://mupa.ar/el-museo'), locs.indexOf('https://mupa.ar/') + 1)
+    assert.match(r.texto, /<loc>https:\/\/mupa\.ar\/el-museo<\/loc>\s*<\/url>/)
+    // Educación (IN8), en el orden de la tabla de rutas (después de Divulgación) y sin lastmod: no muestra nada del panel.
+    assert.ok(locs.indexOf('https://mupa.ar/divulgacion') < locs.indexOf('https://mupa.ar/educacion'))
+    assert.match(r.texto, /<loc>https:\/\/mupa\.ar\/educacion<\/loc>\s*<\/url>/)
+    // Circuitos (IN8), después de Educación y antes de Novedades, también sin lastmod.
+    assert.ok(locs.indexOf('https://mupa.ar/educacion') < locs.indexOf('https://mupa.ar/circuitos'))
+    assert.ok(locs.indexOf('https://mupa.ar/circuitos') < locs.indexOf('https://mupa.ar/novedades'))
+    assert.match(r.texto, /<loc>https:\/\/mupa\.ar\/circuitos<\/loc>\s*<\/url>/)
     // Divulgación, con la misma fecha que la Home (DV7: muestra las mismas últimas novedades).
     const fechaDe = (loc) => new RegExp(`<loc>${loc.replaceAll('.', '\\.')}</loc>\\s*<lastmod>([^<]+)</lastmod>`).exec(r.texto)?.[1]
     assert.ok(fechaDe('https://mupa.ar/divulgacion'))
@@ -778,6 +818,10 @@ describe('IndexNow (E4.6): avisa lo publicado, nunca un borrador, sin pedidos de
         keyLocation: `https://mupa.ar/${CLAVE}.txt`,
         urlList: [`https://mupa.ar/novedades/${alta.slug}`, 'https://mupa.ar/novedades', 'https://mupa.ar/', 'https://mupa.ar/divulgacion'],
       })
+      // Educación no cambia con el panel: IndexNow no la avisa (IN8).
+      assert.ok(!pedidos[0].cuerpo.urlList.includes('https://mupa.ar/educacion'))
+      assert.ok(!pedidos[0].cuerpo.urlList.includes('https://mupa.ar/circuitos'))
+      assert.ok(!pedidos[0].cuerpo.urlList.includes('https://mupa.ar/el-museo'))
       // Cambiar algo publicado, despublicar: un aviso cada uno, también con la Home y Divulgación (que muestran las
       // últimas novedades: DV7). Publicar otra vez lo ya publicado: nada.
       assert.equal((await api('PUT', `/novedades/${alta.id}`, { ...cuerpo, slug: alta.slug, resumen: 'Otro' })).status, 200)
@@ -878,6 +922,27 @@ describe('sin base', () => {
       assert.equal(cuantas(divulgacion.texto, 'novedades-titulo'), 0)
       assert.equal(cuantas(divulgacion.texto, '<h1'), 1)
       assert.match(divulgacion.texto, /aria-labelledby="divulgacion-newsletter"/)
+      // Educación no lee la base (cargarFija): 200 con todo, datos vacíos.
+      const educacion = await pedir(puerto, 'GET', '/educacion')
+      assert.equal(educacion.status, 200)
+      assert.equal(estadoDe(educacion.texto).pagina, 'educacion')
+      assert.deepEqual(estadoDe(educacion.texto).datos, {})
+      assert.equal(cuantas(educacion.texto, '<h1'), 1)
+      assert.match(educacion.texto, /aria-labelledby="educacion-recursos"/)
+      // Circuitos tampoco lee la base (cargarFija): 200 con todo, datos vacíos.
+      const circuitos = await pedir(puerto, 'GET', '/circuitos')
+      assert.equal(circuitos.status, 200)
+      assert.equal(estadoDe(circuitos.texto).pagina, 'circuitos')
+      assert.deepEqual(estadoDe(circuitos.texto).datos, {})
+      assert.equal(cuantas(circuitos.texto, '<h1'), 1)
+      assert.match(circuitos.texto, /aria-labelledby="circuito-parque-las-huellas"/)
+      // El Museo tampoco lee la base (cargarFija): 200 con todo, datos vacíos.
+      const elMuseo = await pedir(puerto, 'GET', '/el-museo')
+      assert.equal(elMuseo.status, 200)
+      assert.equal(estadoDe(elMuseo.texto).pagina, 'el-museo')
+      assert.deepEqual(estadoDe(elMuseo.texto).datos, {})
+      assert.equal(cuantas(elMuseo.texto, '<h1'), 1)
+      assert.match(elMuseo.texto, /aria-labelledby="el-museo-equipo"/)
       for (const ruta of ['/exposiciones', '/exposiciones/una', '/visitas', '/novedades', '/novedades/una', '/contacto']) {
         const r = await pedir(puerto, 'GET', ruta)
         assert.equal(r.status, 503, ruta)
@@ -997,8 +1062,11 @@ describe('sin base', () => {
       assert.equal(r.texto.split('<article').length - 1, 6)
       assert.match(r.texto, /<p aria-hidden="true" class="[^"]*">1<!-- -->\/<!-- -->6<\/p>/)
       assert.equal(cuantas(r.texto, '<h1'), 1)
-      // Lo que no existe debajo de /divulgacion, 404.
+      // Lo que no existe debajo de /divulgacion, 404; también debajo de /educacion.
       assert.equal((await pedir(puerto, 'GET', '/divulgacion/algo')).status, 404)
+      assert.equal((await pedir(puerto, 'GET', '/educacion/algo')).status, 404)
+      assert.equal((await pedir(puerto, 'GET', '/circuitos/algo')).status, 404)
+      assert.equal((await pedir(puerto, 'GET', '/el-museo/algo')).status, 404)
     } finally {
       await new Promise((r) => servidor.close(r))
     }
@@ -1213,13 +1281,21 @@ describe('sin base', () => {
 
   test('sitemap: la Home lleva la fecha más nueva entre el build y la última novedad publicada (COD-03/PAN-04)', () => {
     const urlPublica = 'https://mupa.ar/'
-    const fijas = ['/', '/exposiciones', '/visitas', '/divulgacion', '/novedades']
+    const fijas = ['/', '/el-museo', '/exposiciones', '/visitas', '/divulgacion', '/educacion', '/circuitos', '/novedades']
     const lastmod = (contenidos, fechaHome) =>
       Object.fromEntries(entradasDelSitemap({ urlPublica, fijas, contenidos, fechaHome }).map((e) => [e.loc, e.lastmod]))
     // Divulgación muestra las mismas últimas novedades que la Home y textos fijos (DV7): en todos los casos, la misma
-    // fecha que la Home.
+    // fecha que la Home. Educación no muestra nada del panel (IN8): en todos los casos, sin lastmod.
     const comoLaHome = (fechas) => {
       assert.equal(fechas['https://mupa.ar/divulgacion'], fechas['https://mupa.ar/'])
+      assert.ok(Object.hasOwn(fechas, 'https://mupa.ar/educacion'))
+      assert.equal(fechas['https://mupa.ar/educacion'], undefined)
+      // Circuitos, igual (IN8).
+      assert.ok(Object.hasOwn(fechas, 'https://mupa.ar/circuitos'))
+      assert.equal(fechas['https://mupa.ar/circuitos'], undefined)
+      // El Museo, igual (IN8).
+      assert.ok(Object.hasOwn(fechas, 'https://mupa.ar/el-museo'))
+      assert.equal(fechas['https://mupa.ar/el-museo'], undefined)
       return fechas
     }
     const build = new Date('2026-10-30T15:00:00Z')
@@ -1266,6 +1342,9 @@ describe('sin base', () => {
     const precargas = {
       visitas: ['/assets/Visitas-c.js', '/assets/HeroPagina-d.js'],
       divulgacion: ['/assets/Divulgacion-e.js', '/assets/HeroPagina-d.js'],
+      educacion: ['/assets/Educacion-f.js', '/assets/HeroPagina-d.js'],
+      circuitos: ['/assets/Circuitos-g.js', '/assets/HeroPagina-d.js'],
+      'el-museo': ['/assets/ElMuseo-h.js', '/assets/HeroPagina-d.js'],
     }
     const conVite = async () => ({ partes: partir(plantilla), render: entrada.render, precargas })
     const museoPublico = Object.assign(async () => MUSEO_MAXIMO, { conEstado: async () => ({ museo: MUSEO_MAXIMO, alDia: true }) })
@@ -1308,6 +1387,46 @@ describe('sin base', () => {
       assert.ok(headD.indexOf('rel="stylesheet"') < headD.indexOf('/assets/Divulgacion-e.js'))
       assert.equal((d.texto.match(/<img [^>]*area-ciencia[^>]*loading="lazy"/g) ?? []).length, 4, 'las cuatro fotos de los bloques, lazy')
       assert.ok(!/<link rel="preload" as="image"[^>]*area-ciencia/.test(d.texto))
+      // Educación (06/11/2026), igual: la foto de su hero primero; la de "Visitas Escolares", lazy y sin precargar.
+      const e = await pedir(servidor.address().port, 'GET', '/educacion')
+      assert.equal(e.status, 200)
+      const headE = e.texto.slice(0, e.texto.indexOf('</head>'))
+      const fotoE = e.texto.match(/<link rel="preload" as="image"[^>]*fetchPriority="high"[^>]*>/gi) ?? []
+      assert.equal(fotoE.length, 1, fotoE.join('\n'))
+      assert.match(fotoE[0], /hero-educacion-/)
+      assert.ok(headE.indexOf(fotoE[0]) > 0 && headE.indexOf(fotoE[0]) < headE.indexOf('<title>'))
+      assert.ok(headE.indexOf('rel="stylesheet"') < headE.indexOf('/assets/Educacion-f.js'))
+      assert.equal((e.texto.match(/<img [^>]*educacion-escolares[^>]*loading="lazy"/g) ?? []).length, 1)
+      assert.ok(!/<link rel="preload" as="image"[^>]*educacion-escolares/.test(e.texto))
+      // Circuitos (06/11/2026), igual: la foto de su hero primero; las de los dos circuitos, lazy y sin precargar.
+      const c = await pedir(servidor.address().port, 'GET', '/circuitos')
+      assert.equal(c.status, 200)
+      const headC = c.texto.slice(0, c.texto.indexOf('</head>'))
+      const fotoC = c.texto.match(/<link rel="preload" as="image"[^>]*fetchPriority="high"[^>]*>/gi) ?? []
+      assert.equal(fotoC.length, 1, fotoC.join('\n'))
+      assert.match(fotoC[0], /hero-circuitos-/)
+      assert.ok(headC.indexOf(fotoC[0]) > 0 && headC.indexOf(fotoC[0]) < headC.indexOf('<title>'))
+      assert.ok(headC.indexOf('rel="stylesheet"') < headC.indexOf('/assets/Circuitos-g.js'))
+      assert.equal((c.texto.match(/<img [^>]*bloque-ciencia[^>]*loading="lazy"/g) ?? []).length, 2)
+      assert.ok(!/<link rel="preload" as="image"[^>]*bloque-ciencia/.test(c.texto))
+      // El Museo (06/11/2026), igual: la foto de su hero primero; las demás (el patio, los documentales, los logos de la
+      // cogestión y las piedritas), lazy y sin precargar.
+      const m = await pedir(servidor.address().port, 'GET', '/el-museo')
+      assert.equal(m.status, 200)
+      const headM = m.texto.slice(0, m.texto.indexOf('</head>'))
+      const fotoM = m.texto.match(/<link rel="preload" as="image"[^>]*fetchPriority="high"[^>]*>/gi) ?? []
+      assert.equal(fotoM.length, 1, fotoM.join('\n'))
+      assert.match(fotoM[0], /hero-el-museo-/)
+      assert.ok(headM.indexOf(fotoM[0]) > 0 && headM.indexOf(fotoM[0]) < headM.indexOf('<title>'))
+      assert.ok(headM.indexOf('rel="stylesheet"') < headM.indexOf('/assets/ElMuseo-h.js'))
+      // En el <main>, la única foto sin lazy es la del hero (los logos del header, como en todas las páginas, no son lazy).
+      const mainM = m.texto.slice(m.texto.indexOf('<main'), m.texto.indexOf('</main>'))
+      const sinLazy = (mainM.match(/<img [^>]*>/g) ?? []).filter((i) => !i.includes('loading="lazy"'))
+      assert.equal(sinLazy.length, 1, sinLazy.join(' | '))
+      assert.match(sinLazy[0], /hero-el-museo/)
+      for (const asset of ['carrusel-', 'patron-', 'logo-unsj', 'logo-gobierno']) {
+        assert.ok(!new RegExp(`<link rel="preload" as="image"[^>]*${asset}`).test(m.texto), asset)
+      }
       // Sin la foto con prioridad (la 404), el <head> arranca como siempre, con el título.
       const no = await pedir(servidor.address().port, 'GET', '/no-existe')
       assert.equal(no.status, 404)

@@ -1,17 +1,20 @@
 import { Icono } from './Iconos.jsx'
 
 // Los íconos de 24x24 de los bloques de texto y foto y de las tarjetas de recursos del tablero "Web" de la diseñadora
-// (Divulgación, Figma 2857:5439, 06/11/2026; en el tablero también Educación y Circuitos): los de Feather Icons
+// (Divulgación, Figma 2857:5439, y Educación, Figma 2846:1561, 06/11/2026; en el tablero también Circuitos): los de Feather Icons
 // (licencia MIT), que son los del "Icon System" del archivo, con el trazo de 2 px y del color del texto de Iconos.jsx.
 // Van en línea y con aria-hidden: el nombre lo da el texto que los acompaña. Están aparte de Iconos.jsx (que va en el
 // JS principal: la 404 lo usa) y de IconosTarjetas.jsx (Visitas y Contacto), así solo los baja la página que los usa.
 // - FlechaCirculo (arrow-right-circle): los enlaces de un bloque de texto y foto (BloqueTextoFoto.jsx: «Coordinar
 //   visita» y las cuatro actividades del laboratorio; en el tablero, la cuarta lleva un arrow-right, un descuido del
 //   archivo). El trazado de Figma (figma/iconos/arrow-right-circle-22.svg del relevamiento) es el de Feather.
-// - Descarga, Video y Enlace (download, video y link): las tres tarjetas de "NEWSLETTER" de Divulgación (en naranja;
-//   en Educación, en crema).
+// - Descarga, Video y Enlace (download, video y link): las tres tarjetas de SeccionRecursos.jsx ("NEWSLETTER" de
+//   Divulgación, en naranja; "Recursos educativos" de Educación, en crema).
 // - FlechaDerecha24 (arrow-right de 24): el "enlace" de cada tarjeta ("Ver guías", "Ver videos", "Explorar"). La de
 //   Iconos.jsx es la de 20.
+// - Reproducir (play): el de los documentales de El Museo ("Haciendo el MuPa", Figma 2825:203, 06/11/2026), de 32 en
+//   un círculo de 64; es un decorado (no hay video ni destino: IN2). Con el trazo de 1,5 en la caja de 24, así a 32
+//   mide 2, como en el tablero.
 
 /** arrow-right-circle (Feather). @param {{ className?: string }} props */
 export function FlechaCirculo({ className = 'size-6' }) {
@@ -57,6 +60,15 @@ export function FlechaDerecha24({ className = 'size-6' }) {
   return (
     <Icono className={className} caja={24}>
       <path d="M5 12h14M12 5l7 7-7 7" />
+    </Icono>
+  )
+}
+
+/** play (Feather). @param {{ className?: string }} props */
+export function Reproducir({ className = 'size-8' }) {
+  return (
+    <Icono className={className} caja={24}>
+      <polygon points="5 3 19 12 5 21 5 3" strokeWidth="1.5" />
     </Icono>
   )
 }

@@ -106,13 +106,19 @@ export const TITULO_HERO_PAGINA =
  * Circuitos; Figma 2857:5749, 06/11/2026): la de la Home (HeroHome.jsx, que la tiene escrita ahí y no cambia), Regular
  * 32/56 crema y centrada desde lg (32/48 entre 32rem y lg, 20/30 debajo), con la sombra del tablero y el halo oscuro
  * pegado a las letras de la Home (A11Y-01: tres sombras de 0,125, 0,25 y 0,5 em; el tablero tiene solo la de 16 px). A
- * 16 del h1 (en la Home, a 32) y en una caja de 840 (la del h1, con bajada, mide 932). Circuitos la tiene en 32/40: se
- * ajusta con esa página.
+ * 16 del h1 (en la Home, a 32) y en una caja de 840 (la del h1, con bajada, mide 932). Circuitos la tiene en 32/40
+ * (Figma 2860:5939, dos renglones): BAJADA_HERO_PAGINA_JUSTA, la misma con el interlineado de 1,25 desde lg (HeroPagina,
+ * prop bajadaJusta). Debajo de lg las dos van en leading-normal (sin diseño, D2). La base va aparte para no repetir la
+ * cadena: BAJADA_HERO_PAGINA es, carácter por carácter, la de antes de Circuitos.
  */
-export const BAJADA_HERO_PAGINA =
+const BAJADA_HERO_BASE =
   'mx-auto mt-4 max-w-none text-center text-[1.25rem] leading-normal font-normal text-paper ' +
   '[text-shadow:0_0_1rem_rgb(0_0_0/0.25),0_0_0.125em_rgb(1_1_1/0.9),0_0_0.25em_rgb(1_1_1/0.8),0_0_0.5em_rgb(1_1_1/0.5)] ' +
-  'min-[32rem]:text-[2rem] lg:max-w-[52.5rem] lg:leading-[1.75]'
+  'min-[32rem]:text-[2rem] lg:max-w-[52.5rem]'
+/** Divulgación: 32/56 desde lg, en un renglón. */
+export const BAJADA_HERO_PAGINA = BAJADA_HERO_BASE + ' lg:leading-[1.75]'
+/** Circuitos: 32/40 desde lg, en dos renglones. */
+export const BAJADA_HERO_PAGINA_JUSTA = BAJADA_HERO_BASE + ' lg:leading-[1.25]'
 
 /*
  * Los párrafos llevan text-wrap: pretty (text-pretty): el navegador evita que el último renglón quede con una sola
