@@ -28,6 +28,18 @@
 // el de Google, "Museo accesible" con el texto del panel o los párrafos del tablero, y lo que la página dejó de mostrar
 // (el aviso, la compra, las tarifas, las notas, cómo llegar y las normas) que no sale aunque esté cargado. Aviso,
 // ListaTarifas y TablaHorarios quedan sin usar (se decide al cierre) y se prueban solos.
+// Desde el rediseño de Exposiciones, Novedades y sus fichas con el lenguaje del tablero (04/11/2026, decisiones R1 a
+// R7): las listas con el hero de las páginas internas (la foto con prioridad, sus cuatro anchos y su punto de interés)
+// y sobreFoto; cada sección con su rótulo y su h2; las tarjetas con la etiqueta, la fecha y el resumen, todas las fotos
+// lazy (la del LCP es la del hero) y, desde el ajuste del LCP del 05/11/2026, con prioridad baja (también las de las
+// salas y las de las galerías); las salas con su ancla, su h3 y la portada entera; la paginación con flechas, solo
+// con más de una página; y las fichas sin hero ni sobreFoto, con el título arriba, la portada entera con prioridad y su
+// tope de alto, los datos de la actividad y la galería con su rótulo. Lo que no está no se dibuja.
+// Desde el rediseño de Contacto y la 404 (05/11/2026, R1 a R4): Contacto con el hero y sobreFoto, los datos como las
+// tarjetas de información de Visitas (en un <dl>, con su ícono, solo los cargados), el mapa de 1280x400 con "Abrir en
+// Google Maps" y el formulario con los campos, el botón y los avisos del tablero en todos sus estados (errores, 429,
+// 503 con el cuadro de solo lectura, "Recibimos tu mensaje"); la 404 como las fichas, con el título sin foto y las
+// secciones como enlaces con flecha.
 import assert from 'node:assert/strict'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -221,7 +233,9 @@ describe('Layout, header, menú y pie (sin base)', () => {
     const modulo = await vite.ssrLoadModule('/src/Raiz.jsx')
     Raiz = modulo.default
     // Desde E4 cada página va en su archivo (src/Raiz.jsx): se cargan antes, como hacen el servidor y el navegador.
-    for (const nombre of ['home', 'visitas', 'no-encontrada', 'rara']) paginasCargadas[nombre] = await modulo.cargarPagina(nombre)
+    for (const nombre of ['home', 'visitas', 'exposiciones', 'muestra', 'novedades', 'novedad', 'contacto', 'no-encontrada', 'rara']) {
+      paginasCargadas[nombre] = await modulo.cargarPagina(nombre)
+    }
     Header = (await vite.ssrLoadModule('/src/components/Header.jsx')).default
     Pie = (await vite.ssrLoadModule('/src/components/Pie.jsx')).default
     contenido = await vite.ssrLoadModule('/src/content.js')
@@ -451,6 +465,22 @@ describe('Layout, header, menú y pie (sin base)', () => {
     assert.equal(cuantas(html, '<footer'), 1)
     // El contenido deja el lugar del header (absolute): el mismo padding que las páginas internas.
     assert.match(main, /<main id="main" tabindex="-1"><div class="[^"]*pt-32 [^"]*md:pt-40 [^"]*lg:pt-52/)
+    // Desde el rediseño con el lenguaje del tablero (05/11/2026, R2): como las fichas, el título sin foto (el ancho del
+    // contenido del tablero y el h1 de los hero, a la izquierda y sin sombra), el texto como bajada, "Volver al inicio"
+    // con la flecha hacia atrás y las secciones como enlaces con flecha, debajo del rótulo; ninguna imagen ni sobreFoto.
+    assert.match(main, /<main id="main" tabindex="-1"><div class="mx-auto w-full max-w-tablero [^"]*lg:px-20 [^"]*">/)
+    const h1 = /<h1 class="([^"]*)">([^<]*)<\/h1>/.exec(main)
+    assert.equal(h1[2], contenido.noEncontrada.titulo)
+    assert.match(h1[1], /font-hero .*font-\[weight:755\] \[font-stretch:130%\] text-paper/)
+    assert.doesNotMatch(h1[1], /text-center|text-shadow/)
+    assert.ok(main.includes(`<p class="text-lg leading-7 font-normal text-muted mt-6">${contenido.noEncontrada.texto}</p>`))
+    assert.match(main, new RegExp(`<a href="/" class="inline-flex min-h-11 [^"]*font-mono[^"]*"><svg [^>]*aria-hidden="true"[^>]*><path d="M15\\.83 10H4\\.17[^"]*"></path></svg>${contenido.noEncontrada.volver}</a>`))
+    const nav = parte(main, '<nav aria-labelledby="secciones-404"', '</nav>')
+    assert.match(nav, new RegExp(`<h2 id="secciones-404" class="font-mono text-sm [^"]*uppercase">${contenido.noEncontrada.secciones}</h2>`))
+    const enlaces = [...nav.matchAll(/<a href="([^"]*)" class="inline-flex min-h-11 [^"]*">([^<]*)<svg [^>]*aria-hidden="true"/g)]
+    assert.deepEqual(enlaces.map((m) => m[1]), SECCIONES_QUE_EXISTEN)
+    assert.equal(cuantas(main, '<img'), 0)
+    for (const img of sinDialogo(delHeader(html)).match(/<img [^>]*>/g)) assert.ok(img.includes('data-logo-blanco=""'), img.slice(0, 120))
     // Una página que la tabla no conoce también va con el Layout.
     assert.equal(cuantas(pagina({ pagina: 'rara', ruta: '/x', museo: MUSEO_VACIO }), '<footer'), 1)
   })
@@ -555,30 +585,33 @@ describe('Layout, header, menú y pie (sin base)', () => {
     assert.match(sinDialogo(delHeader(home)), /<ul aria-label="Instituciones"[^>]*><li><img [^>]*alt="Universidad Nacional de San Juan"/)
   })
 
-  test('las tarjetas: la primera de la página con la foto con prioridad, las demás lazy (PAG-02); lo largo se parte (PAG-01)', async () => {
+  test('las tarjetas (tablero, R4): todas las fotos lazy y con prioridad baja (la del LCP es la del hero, R1); lo largo se parte (PAG-01)', async () => {
     const { SeccionDeTarjetas } = await vite.ssrLoadModule('/src/components/Seccion.jsx')
     const foto = (n) => ({ clave: `${n}`.repeat(16), ancho: 1600, alto: 1067, variantes: [480, 960, 1600], alt: `Foto ${n}`, decorativa: false })
     const tarjetas = [1, 2, 3].map((n) => ({ titulo: `Título ${n}`, url: `/novedades/t${n}`, portada: foto(n), resumen: 'Un resumen.' }))
-    const imgs = (primera) =>
-      renderToStaticMarkup(createElement(SeccionDeTarjetas, { id: 'x', titulo: 'X', tarjetas, primera })).match(/<img [^>]*>/g)
-    const [a, b, c] = imgs(true)
-    assert.match(a, /fetchPriority="high"/)
-    assert.doesNotMatch(a, /loading="lazy"/)
-    for (const img of [b, c]) assert.match(img, /loading="lazy"/)
-    // Una lista que no es la primera de la página: todas lazy.
-    for (const img of imgs(false)) assert.match(img, /loading="lazy"/)
-    const html = renderToStaticMarkup(createElement(SeccionDeTarjetas, { id: 'x', titulo: 'X', tarjetas }))
+    const html = renderToStaticMarkup(createElement(SeccionDeTarjetas, { id: 'x', rotulo: 'Novedades', titulo: 'X', tarjetas }))
+    // Desde el hero de las listas, ninguna foto de tarjeta va con prioridad (antes, la de la primera: PAG-02), y desde
+    // el ajuste del LCP (05/11/2026) van con prioridad baja: no le disputan el ancho de banda a la foto del hero (Foto.jsx).
+    const imgs = html.match(/<img [^>]*>/g)
+    assert.equal(imgs.length, 3)
+    for (const img of imgs) {
+      assert.match(img, /loading="lazy"/)
+      assert.match(img, /fetchPriority="low"/)
+      assert.doesNotMatch(img, /fetchPriority="high"/)
+    }
     assert.equal(cuantas(html, '<li class="min-w-0">'), 3)
     assert.match(html, /<h3 class="[^"]*wrap-anywhere/)
+    // El rótulo y el h2 de la sección (el lenguaje del tablero: Roboto Mono 14 y Thin 64).
+    assert.match(html, /<section aria-labelledby="x" class="py-16 lg:py-20"><div class="mx-auto w-full max-w-tablero [^"]*"><p class="font-mono text-sm [^"]*uppercase">Novedades<\/p><h2 id="x" class="font-titulo [^"]*font-thin[^"]* mt-6">X<\/h2>/)
   })
 
-  test('la portada de una ficha: sizes con el tope de alto, así una vertical no baja el archivo de 1600 (PAG-03)', async () => {
+  test('la portada de una ficha: sizes con el tope de alto (PAG-03), con el ancho del contenido del tablero', async () => {
     const { tamanoPortada } = await vite.ssrLoadModule('/src/components/Ficha.jsx')
     // Vertical 1:2: 75vh × 0,5 = 37,5vh.
-    assert.equal(tamanoPortada({ ancho: 1200, alto: 2400 }), '(min-width: 80rem) min(72rem, 37.5vh), min(100vw, 37.5vh)')
+    assert.equal(tamanoPortada({ ancho: 1200, alto: 2400 }), '(min-width: 90rem) min(80rem, 37.5vh), min(100vw, 37.5vh)')
     // 3:2: 112,5vh.
-    assert.equal(tamanoPortada({ ancho: 1500, alto: 1000 }), '(min-width: 80rem) min(72rem, 112.5vh), min(100vw, 112.5vh)')
-    assert.equal(tamanoPortada({ ancho: 0, alto: 0 }), '(min-width: 80rem) 72rem, 100vw')
+    assert.equal(tamanoPortada({ ancho: 1500, alto: 1000 }), '(min-width: 90rem) min(80rem, 112.5vh), min(100vw, 112.5vh)')
+    assert.equal(tamanoPortada({ ancho: 0, alto: 0 }), '(min-width: 90rem) 80rem, 100vw')
   })
 
   test('Aviso y ListaTarifas (sin uso desde la Visitas del tablero, D1): los renglones del museo (PAG-04) y lo que se parte (PAG-01)', async () => {
@@ -801,7 +834,10 @@ describe('Layout, header, menú y pie (sin base)', () => {
     )
     assert.deepEqual(titulosH3(accesible), ['Rampas y ascensor', ...v.accesible.tarjetas.map((t) => t.titulo)])
     assert.ok(accesible.includes('<p>Hay rampa en la entrada.</p>'))
-    assert.match(accesible, /<ul class="list-disc pl-\[1\.25em\]"><li class="mt-3 pl-\[0\.25em\]">Sillas de ruedas<\/li><\/ul>/)
+    // La lista y el subtítulo, los de una columna de texto del tablero (EST-05 de la verificación del rediseño de las
+    // internas): cada ítem 16/24, la viñeta un círculo crema de 6 px a 12 del texto, 12 entre ítems; el subtítulo Thin.
+    assert.match(accesible, /<ul class="\[&amp;&gt;li\]:relative \[&amp;&gt;li\]:pl-\[1\.125rem\] [^"]*\[&amp;&gt;li\]:before:size-1\.5 \[&amp;&gt;li\]:before:rounded-full \[&amp;&gt;li\]:before:bg-paper"><li class="mt-3 text-base leading-6">Sillas de ruedas<\/li><\/ul>/)
+    assert.match(accesible, /<h3 class="font-titulo [^"]*font-thin[^"]*">Rampas y ascensor<\/h3>/)
     assert.match(accesible, /<a href="mailto:museo@example\.com" class="[^"]*underline[^"]*">Escribinos<\/a>/)
     for (const p of v.accesible.parrafos) assert.equal(cuantas(accesible, p.texto), 0)
   })
@@ -1099,6 +1135,518 @@ describe('Layout, header, menú y pie (sin base)', () => {
     assert.deepEqual([...lista.matchAll(/<li>([^<]*)<\/li>/g)].map((m) => m[1]), mapa.espacios)
     assert.equal(mapa.espacios.length, 14)
     assert.ok(mapa.espacios.includes('Jardín Triásico'))
+  })
+
+  // Exposiciones, Novedades y las fichas de una muestra y de una novedad con el lenguaje del tablero "Web" (04/11/2026,
+  // decisiones R1 a R7 del desarrollador): las listas con el hero de las páginas internas y su foto (con prioridad: el
+  // LCP) y la página sobreFoto; las fichas sin hero, con el título arriba y la portada entera con su tope de alto; lo
+  // que no está no se dibuja.
+  const fotoN = (n, extra = {}) => ({
+    clave: String(n % 10).repeat(16),
+    ancho: 1600,
+    alto: 1067,
+    variantes: [480, 960, 1600],
+    alt: `Foto ${n}`,
+    decorativa: false,
+    epigrafe: null,
+    credito: null,
+    ...extra,
+  })
+  const conSubtitulo = (titulo, texto) => ({
+    type: 'doc',
+    content: [
+      { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: titulo }] },
+      { type: 'paragraph', content: [{ type: 'text', text: texto }] },
+    ],
+  })
+  /** Las fotos del <main>: la del hero (una de src/assets) y las del panel (/fotos/…). */
+  const fotosDelPanel = (html) => (html.match(/<img [^>]*>/g) ?? []).filter((img) => img.includes('src="/fotos/'))
+  /** La foto del hero de una página: sin lazy, con prioridad, sus cuatro anchos, su alt y su punto de interés. */
+  function comprobarHero(main, id, titulo, imagen) {
+    const hero = seccion(main, id)
+    assert.ok(hero.includes(`<h1 id="${id}" class="`), id)
+    assert.ok(hero.includes(`>${titulo}</h1>`), titulo)
+    assert.match(clasesDe(hero, /<h1 id="[^"]*" class="([^"]*)"/).join(' '), /font-hero .*font-\[weight:755\]/)
+    const fotos = hero.match(/<img [^>]*>/g)
+    assert.equal(fotos.length, 1)
+    assert.match(fotos[0], /fetchPriority="high"/)
+    assert.doesNotMatch(fotos[0], /loading=/)
+    assert.deepEqual([...fotos[0].matchAll(/ (\d+)w/g)].map((m) => Number(m[1])), [960, 1440, 1920, 2880])
+    assert.ok(fotos[0].includes(`alt="${imagen.alt}"`), imagen.alt)
+    assert.ok(fotos[0].includes(`style="object-position:${imagen.posicion}"`), imagen.posicion)
+    // El degradé del tablero, también con colores forzados.
+    assert.match(hero, /<div aria-hidden="true" class="absolute inset-0 bg-\[linear-gradient[^"]*forced-color-adjust-none"><\/div>/)
+  }
+  /** El header de una página con o sin foto debajo (sobreFoto: los logos no se invierten con colores forzados). */
+  const logosDelHeader = (html) => sinDialogo(delHeader(html)).match(/<img [^>]*>/g)
+
+  test('Exposiciones (R1, R4): el hero con su foto (sobreFoto); Muestras y Salas con su rótulo y su h2; cada sala con su ancla', async () => {
+    const e = contenido.paginas.exposiciones
+    const muestras = [
+      {
+        titulo: 'Muestra actual con un título largo para ver cómo se parte',
+        url: '/exposiciones/muestra-actual',
+        resumen: 'El resumen de la actual.',
+        portada: fotoN(1),
+        etiqueta: 'Actual',
+        detalle: 'Hasta el 30 de noviembre de 2026',
+      },
+      { titulo: 'Muestra permanente', url: '/exposiciones/muestra-permanente', resumen: null, portada: null, etiqueta: 'Permanente', detalle: null },
+    ]
+    const salas = [
+      {
+        nombre: 'Sala Triásico',
+        ancla: 'sala-sala-triasico',
+        resumen: 'La sala del Triásico.',
+        descripcion: conSubtitulo('Lo que hay', 'Fósiles de Ischigualasto.'),
+        portada: fotoN(2, { epigrafe: 'Un epígrafe', credito: 'Archivo MuPa' }),
+        muestras: [
+          { titulo: 'Muestra actual con un título largo para ver cómo se parte', url: '/exposiciones/muestra-actual' },
+          { titulo: 'Muestra Paleontológicamente-Ischigualastoensemuestra', url: '/exposiciones/palabra-larga' },
+        ],
+      },
+      { nombre: 'Sala sin nada', ancla: 'sala-sala-sin-nada', resumen: null, descripcion: null, portada: null, muestras: [] },
+    ]
+    const html = pagina({ pagina: 'exposiciones', ruta: '/exposiciones', museo: MUSEO_VACIO, datos: { muestras, salas } })
+    const main = delMain(html)
+    assert.equal(cuantas(html, '<h1'), 1)
+    comprobarHero(main, 'exposiciones-titulo', e.titulo, e.imagen)
+    assert.equal(e.imagen.posicion, '40% 45%')
+    // sobreFoto: el logo y los isotipos del header no llevan data-logo-blanco (A11Y-08).
+    assert.equal(paginasCargadas.exposiciones.sobreFoto, true)
+    for (const img of logosDelHeader(html)) assert.ok(!img.includes('data-logo-blanco'), img.slice(0, 120))
+
+    // Muestras: el rótulo (el título de la página) y el h2; las tarjetas con la etiqueta, el título (el enlace,
+    // estirado), la fecha y el resumen; la que no tiene portada, sin foto. Todas las fotos de las tarjetas, lazy.
+    assert.ok(main.includes(`>${e.titulo}</p><h2 id="muestras" class="`))
+    assert.ok(main.includes(`>${e.muestras}</h2>`))
+    const lista = parte(main, '<ul class="mt-12 grid', '</ul>')
+    assert.equal(cuantas(lista, '<article class="group relative flex flex-col">'), 2)
+    assert.match(lista, /<p class="font-mono text-xs [^"]*uppercase order-2 mt-6">Actual<\/p><h3 class="[^"]*font-mono[^"]*uppercase[^"]*wrap-anywhere[^"]* order-3 mt-2"><a href="\/exposiciones\/muestra-actual" class="[^"]*after:absolute after:inset-0[^"]*">/)
+    assert.ok(lista.includes('>Hasta el 30 de noviembre de 2026</p>'))
+    assert.ok(lista.includes('>El resumen de la actual.</p>'))
+    // La permanente, sin portada: la etiqueta arranca arriba (sin el aire de debajo de la foto).
+    assert.match(lista, /<p class="font-mono text-xs [^"]*uppercase order-2">Permanente<\/p><h3 class="[^"]* order-3 mt-2">/)
+    const [fotoTarjeta, ...otras] = lista.match(/<img [^>]*>/g)
+    assert.equal(otras.length, 0)
+    assert.match(fotoTarjeta, /loading="lazy" fetchPriority="low"/)
+    assert.match(fotoTarjeta, /class="aspect-\[485\/355\] w-full rounded-xl object-cover order-1"/)
+
+    // Salas: el rótulo y el h2; cada sala con su ancla (la usa "Ver en el sitio" del panel) y su h3. El ancla deja arriba
+    // el aire de una sección (scroll-mt: PAN-01 de la verificación del rediseño).
+    assert.ok(main.includes(`>${e.titulo}</p><h2 id="salas" class="`))
+    const triasico = parte(main, '<section id="sala-sala-triasico" aria-labelledby="sala-sala-triasico-titulo"', '</section>')
+    assert.ok(main.includes('<section id="sala-sala-triasico" aria-labelledby="sala-sala-triasico-titulo" class="grid scroll-mt-16 gap-8 lg:scroll-mt-20 '))
+    assert.match(triasico, /<h3 id="sala-sala-triasico-titulo" class="font-titulo [^"]*font-thin[^"]*">Sala Triásico<\/h3>/)
+    assert.ok(triasico.includes('>La sala del Triásico.</p>'))
+    // La descripción: sus subtítulos en h4 (debajo del h3 de la sala), un nivel más chicos que el subtítulo del tablero
+    // (el nombre de la sala ya lo es).
+    assert.ok(triasico.includes('<h4 class="pt-2 text-xl leading-7 font-medium">Lo que hay</h4>'))
+    // "En esta sala" y la muestra, como enlace con flecha, con la flecha pegada a la última palabra (PAN-02 de la
+    // verificación del rediseño: en un título de varios renglones, al final del texto); 7,6 arriba y abajo.
+    assert.match(triasico, new RegExp(`<h4 class="font-mono text-xs [^"]*mt-10">${e.enLaSala}</h4>`))
+    assert.match(triasico, /<a href="\/exposiciones\/muestra-actual" class="inline-flex min-h-11 [^"]*max-w-full py-\[0\.475rem\]"><span class="min-w-0 wrap-anywhere">Muestra actual con un título largo para ver cómo se <span class="whitespace-nowrap">parte<svg [^>]*class="shrink-0 ml-2 inline-block size-5 align-\[-0\.25em\]"/)
+    // De una última palabra de más de 24 caracteres, solo las últimas 10 letras van pegadas a la flecha (el resto se
+    // parte si no entra); el texto del enlace es el título.
+    assert.match(triasico, /<a href="\/exposiciones\/palabra-larga" [^>]*><span class="min-w-0 wrap-anywhere">Muestra Paleontológicamente-Ischigualastoe<span class="whitespace-nowrap">nsemuestra<svg /)
+    // La portada entera (sin recorte), con esquinas de 16, lazy, con su epígrafe y su crédito, y con el tope de alto de la
+    // de una ficha (75 % de la pantalla: el ancho sale de su proporción) y su sizes (EST-02 de la verificación).
+    assert.match(triasico, /<figure><img src="\/fotos\/2{16}\/960\.webp"[^>]*loading="lazy"[^>]*class="h-auto rounded-2xl" style="width:min\(100%, calc\(75svh \* 1\.4995[0-9]*\)\)"\/><figcaption class="mt-3 text-sm leading-\[1\.375rem\] text-muted wrap-anywhere">Un epígrafe Foto: Archivo MuPa<\/figcaption><\/figure>/)
+    const { tamanoSala } = await vite.ssrLoadModule('/src/paginas/Exposiciones.jsx')
+    assert.ok(triasico.includes(`sizes="${tamanoSala(salas[0].portada)}"`))
+    // La sala sin nada: solo su nombre.
+    const vacia = parte(main, '<section id="sala-sala-sin-nada"', '</section>')
+    assert.ok(vacia.includes('>Sala sin nada</h3>'))
+    for (const fuera of ['<p', '<img', '<h4', '<ul']) assert.equal(cuantas(vacia, fuera), 0, fuera)
+    // Ninguna foto del panel va con prioridad: la del primer pantallazo es la del hero (todas lazy y con prioridad baja).
+    assert.equal(fotosDelPanel(main).length, 2)
+    for (const img of fotosDelPanel(main)) assert.match(img, /loading="lazy" fetchPriority="low"/)
+
+    // Sin muestras ni salas: solo el hero (sin rótulos ni secciones vacías).
+    const sola = delMain(pagina({ pagina: 'exposiciones', ruta: '/exposiciones', museo: MUSEO_VACIO, datos: { muestras: [], salas: [] } }))
+    assert.equal(cuantas(sola, '<section'), 1)
+    assert.equal(cuantas(sola, `>${e.titulo}</p>`), 0)
+    assert.equal(cuantas(sola, '<h2'), 0)
+  })
+
+  test('la portada de una sala no pasa del 75 % de la pantalla: su sizes, con su proporción (tamanoSala, EST-02)', async () => {
+    const { tamanoSala } = await vite.ssrLoadModule('/src/paginas/Exposiciones.jsx')
+    const columna = [
+      '(min-width: 90rem) 600px',
+      '(min-width: 64rem) calc((100vw - 15rem) / 2)',
+      '(min-width: 48rem) calc(100vw - 5rem)',
+      'calc(100vw - 3rem)',
+    ]
+    // Sin medidas, el ancho de su columna (como hasta la corrección).
+    assert.equal(tamanoSala({}), columna.join(', '))
+    // Una vertical de 1680x4000: el tope de alto le deja 75 × 1680 / 4000 = 31,5vh de ancho; una apaisada, igual con su
+    // proporción (el navegador se queda con lo menor).
+    const conTope = (vh) => columna.map((c) => c.replace(/^(\(min-width: [^)]*\) )?(.*)$/, (_, m = '', t) => `${m}min(${t}, ${vh})`)).join(', ')
+    assert.equal(tamanoSala({ ancho: 1680, alto: 4000 }), conTope('31.5vh'))
+    assert.equal(tamanoSala({ ancho: 2400, alto: 1600 }), conTope('112.5vh'))
+  })
+
+  test('el h1 de las páginas internas: 64 desde md, 48 desde 32rem y 30 debajo, en rem y con guiones (A11Y-01)', () => {
+    // Con 64 desde 32rem, entre 512 y ~600 px (el zoom de un escritorio) "Exposiciones" y "encontramos" se partían por
+    // la mitad, y "paleontológicos" (el título de una ficha) hasta 767; a 320, con 32, "encontramo / s".
+    const tamanos = ['text-[1.875rem]', 'min-[32rem]:text-[3rem]', 'md:text-[4rem]', 'hyphens-auto']
+    const h1De = (html) => clasesDe(delMain(html), /<h1(?: id="[^"]*")? class="([^"]*)"/)
+    const casos = {
+      hero: h1De(pagina({ pagina: 'exposiciones', ruta: '/exposiciones', museo: MUSEO_VACIO, datos: { muestras: [], salas: [] } })),
+      visitas: h1De(pagina({ pagina: 'visitas', ruta: '/visitas', museo: MUSEO_VACIO, datos: { accesibilidad: null } })),
+      ficha: h1De(pagina({ pagina: 'muestra', ruta: '/exposiciones/x', museo: MUSEO_VACIO, datos: { titulo: 'Herrerasaurus ischigualastensis' } })),
+      noEncontrada: h1De(pagina({ pagina: 'no-encontrada', ruta: '/no-existe', museo: MUSEO_VACIO })),
+    }
+    for (const [nombre, clases] of Object.entries(casos)) {
+      for (const t of tamanos) assert.ok(clases.includes(t), `${nombre}: ${t} en ${clases.join(' ')}`)
+      assert.ok(!clases.includes('min-[32rem]:text-[4rem]') && !clases.some((c) => /vw|clamp/.test(c)), `${nombre}: ${clases.join(' ')}`)
+    }
+    // El de la Home no cambió (sus palabras entran desde 32rem): 32 y 64 desde 32rem.
+    const home = clasesDe(pagina({ pagina: 'home', museo: MUSEO_VACIO, datos: { novedades: [] } }), /<h1 id="home-titulo" class="([^"]*)"/)
+    assert.ok(home.includes('text-[2rem]') && home.includes('min-[32rem]:text-[4rem]'), home.join(' '))
+  })
+
+  test('Novedades (R1, R4): el hero en todas las páginas; las secciones con su rótulo; la paginación con flechas, solo con más de una página', () => {
+    const n = contenido.paginas.novedades
+    const proximas = [
+      {
+        titulo: 'Actividad que viene',
+        url: '/novedades/actividad-que-viene',
+        resumen: 'El resumen de la actividad.',
+        portada: fotoN(3),
+        detalle: 'Sábado 14 de noviembre de 2026, 18:00',
+        fechaIso: '2026-11-14T18:00-03:00',
+      },
+    ]
+    const noticias = [
+      { titulo: 'Noticia 1', url: '/novedades/noticia-1', resumen: 'El resumen de la noticia.', portada: fotoN(4), detalle: '3 de noviembre de 2026', fechaIso: '2026-11-03' },
+      { titulo: 'Noticia sin foto', url: '/novedades/noticia-sin-foto', resumen: null, portada: null, detalle: null, fechaIso: null },
+    ]
+    const html = pagina({ pagina: 'novedades', ruta: '/novedades', museo: MUSEO_VACIO, datos: { pagina: 1, paginas: 1, proximas, noticias } })
+    const main = delMain(html)
+    assert.equal(cuantas(html, '<h1'), 1)
+    comprobarHero(main, 'novedades-titulo', n.titulo, n.imagen)
+    assert.equal(paginasCargadas.novedades.sobreFoto, true)
+    for (const img of logosDelHeader(html)) assert.ok(!img.includes('data-logo-blanco'), img.slice(0, 120))
+    assert.ok(main.includes(`>${n.titulo}</p><h2 id="proximas" class="`))
+    assert.ok(main.includes(`>${n.proximas}</h2>`))
+    assert.ok(main.includes(`>${n.titulo}</p><h2 id="noticias" class="`))
+    assert.ok(main.includes(`>${n.noticias}</h2>`))
+    // La fecha con <time>; la que no tiene fecha ni resumen ni foto, solo su título.
+    assert.ok(main.includes('<time dateTime="2026-11-14T18:00-03:00">Sábado 14 de noviembre de 2026, 18:00</time>'))
+    assert.ok(main.includes('<time dateTime="2026-11-03">3 de noviembre de 2026</time>'))
+    const sinFoto = main.split('<article').find((a) => a.includes('>Noticia sin foto</a>'))
+    assert.match(sinFoto, /^ class="group relative flex flex-col"><h3 class="[^"]* order-3"><a [^>]*>Noticia sin foto<\/a><\/h3><\/article>/)
+    for (const img of fotosDelPanel(main)) assert.match(img, /loading="lazy" fetchPriority="low"/)
+    // Con una sola página, sin paginación.
+    assert.equal(cuantas(main, '<nav'), 0)
+
+    // La página 2 de 3: el mismo hero, sin las próximas, y la paginación debajo de las noticias, dentro de su sección.
+    const dos = delMain(pagina({ pagina: 'novedades', ruta: '/novedades', museo: MUSEO_VACIO, datos: { pagina: 2, paginas: 3, proximas: [], noticias } }))
+    comprobarHero(dos, 'novedades-titulo', n.titulo, n.imagen)
+    assert.equal(cuantas(dos, 'id="proximas"'), 0)
+    const nav = parte(dos, `<nav aria-label="${n.paginas}"`, '</nav>')
+    // Desde sm, en tres columnas: cada cosa en la suya, esté o no la otra (no se corren de una página a otra: EST-04).
+    assert.match(nav, /^<nav aria-label="[^"]*" class="mt-16 flex [^"]*sm:grid sm:grid-cols-\[1fr_auto_1fr\]">/)
+    assert.match(nav, /<a href="\/novedades" rel="prev" class="inline-flex min-h-11 [^"]*font-mono[^"]* sm:col-start-1 sm:justify-self-start"><svg [^>]*aria-hidden="true"[^>]*>[\s\S]*?<\/svg>Anterior<\/a>/)
+    // "Página 2 de 3" como el contador del carrusel de la Home (Roboto Mono Medium 24 en blanco: EST-04), en el medio.
+    assert.ok(nav.includes(`<p class="font-mono text-2xl leading-[1.2] font-medium text-blanco sm:col-start-2">${n.pagina(2, 3)}</p>`))
+    assert.match(nav, /<a href="\/novedades\?pagina=3" rel="next" class="inline-flex min-h-11 [^"]* sm:col-start-3 sm:justify-self-end">Siguiente<svg /)
+    assert.ok(seccion(dos, 'noticias').includes('<nav'), 'la paginación va en la sección de las noticias')
+    // En la última, sin "Siguiente"; en la primera, sin "Anterior" (no se dibuja un "Anterior" que no lleva a ningún lado).
+    const tres = delMain(pagina({ pagina: 'novedades', ruta: '/novedades', museo: MUSEO_VACIO, datos: { pagina: 3, paginas: 3, proximas: [], noticias } }))
+    assert.equal(cuantas(tres, 'rel="next"'), 0)
+    assert.equal(cuantas(tres, 'rel="prev"'), 1)
+    const una = delMain(pagina({ pagina: 'novedades', ruta: '/novedades', museo: MUSEO_VACIO, datos: { pagina: 1, paginas: 3, proximas, noticias } }))
+    assert.equal(cuantas(una, 'rel="prev"'), 0)
+    assert.match(una, /<a href="\/novedades\?pagina=2" rel="next"/)
+    const navUna = parte(una, `<nav aria-label="${n.paginas}"`, '</nav>')
+    assert.match(navUna, /^<nav [^>]*><p class="[^"]* sm:col-start-2">/)
+    assert.equal(cuantas(navUna, n.anterior), 0)
+    // Sin nada que mostrar: solo el hero.
+    const sola = delMain(pagina({ pagina: 'novedades', ruta: '/novedades', museo: MUSEO_VACIO, datos: { pagina: 1, paginas: 1, proximas: [], noticias: [] } }))
+    assert.equal(cuantas(sola, '<section'), 1)
+    assert.equal(cuantas(sola, '<h2'), 0)
+  })
+
+  test('las fichas (R2): sin hero ni sobreFoto; el título arriba; la portada entera con prioridad y su tope de alto; lo que no está no se dibuja', async () => {
+    const { tamanoPortada } = await vite.ssrLoadModule('/src/components/Ficha.jsx')
+    const e = contenido.paginas.exposiciones
+    const portada = fotoN(5, { ancho: 1200, alto: 2400, epigrafe: 'Epígrafe de la portada', credito: 'Ana Pérez' })
+    const muestra = {
+      titulo: 'Muestra actual',
+      slug: 'muestra-actual',
+      resumen: 'El resumen de la muestra.',
+      situacion: 'Actual',
+      fechas: 'Del 1 de octubre al 30 de noviembre de 2026',
+      sala: { nombre: 'Sala Triásico', url: '/exposiciones#sala-sala-triasico' },
+      portada,
+      descripcion: conSubtitulo('Un subtítulo', 'La descripción.'),
+      galeria: [fotoN(6), fotoN(7, { epigrafe: 'Otra' })],
+    }
+    const html = pagina({ pagina: 'muestra', ruta: '/exposiciones/muestra-actual', museo: MUSEO_VACIO, datos: muestra })
+    const main = delMain(html)
+    assert.equal(cuantas(html, '<h1'), 1)
+    // Sin hero: ni la foto del hero ni su degradé, y la página no es sobreFoto (el logo se invierte con colores forzados).
+    assert.equal(paginasCargadas.muestra.sobreFoto, undefined)
+    assert.equal(cuantas(main, 'linear-gradient'), 0)
+    assert.equal(cuantas(main, 'hero-'), 0)
+    for (const img of logosDelHeader(html)) assert.ok(img.includes('data-logo-blanco=""'), img.slice(0, 120))
+    // El contenedor del tablero con el lugar del header; el enlace a la sección con la flecha; la etiqueta y el h1.
+    assert.match(main, /<article class="mx-auto w-full max-w-tablero px-6 md:px-10 lg:px-20 pt-32 pb-16 md:pt-40 lg:pt-52 lg:pb-20">/)
+    assert.match(main, new RegExp(`<p><a href="/exposiciones" class="inline-flex min-h-11 [^"]*font-mono[^"]*"><svg [^>]*>[\\s\\S]*?</svg>${e.titulo}</a></p>`))
+    assert.match(main, /<p class="font-mono text-sm [^"]*uppercase">Actual<\/p><h1 class="font-hero [^"]*font-\[weight:755\][^"]*wrap-anywhere[^"]* mt-6">Muestra actual<\/h1>/)
+    assert.ok(main.includes('>Del 1 de octubre al 30 de noviembre de 2026</p>'))
+    // La sala, como los datos de una actividad (EST-06): en un <dl> (a lo ancho: es un dato solo), el rótulo "Sala" y
+    // debajo el enlace (que sube 8 px: mide 44 y su texto, 28).
+    assert.match(main, /<dl class="mt-8"><div class="flex min-w-0 flex-col gap-2"><dt class="font-mono text-xs [^"]*uppercase">Sala<\/dt><dd class="text-lg leading-7 [^"]*text-muted[^"]* -mt-2"><a href="\/exposiciones#sala-sala-triasico" class="inline-flex min-h-11 [^"]*">Sala Triásico<\/a><\/dd><\/div><\/dl>/)
+    assert.equal(cuantas(main, 'Sala:'), 0)
+    assert.ok(main.includes('<p class="text-xl leading-8 font-normal text-paper wrap-anywhere text-pretty mt-8">El resumen de la muestra.</p>'))
+    // La portada: entera (sin recorte ni proporción forzada), con prioridad (el LCP), su tope de alto, esquinas de 16 y
+    // su epígrafe y su crédito.
+    const fotos = fotosDelPanel(main)
+    assert.equal(fotos.length, 3)
+    const [fotoPortada, ...deLaGaleria] = fotos
+    assert.match(fotoPortada, /fetchPriority="high"/)
+    assert.doesNotMatch(fotoPortada, /loading=/)
+    assert.ok(fotoPortada.includes(`sizes="${tamanoPortada(portada)}"`))
+    assert.match(fotoPortada, /class="h-auto rounded-2xl" style="width:min\(100%, calc\(75svh \* 0\.5\)\)"/)
+    assert.doesNotMatch(fotoPortada, /object-cover|aspect-/)
+    assert.ok(main.includes('<figcaption class="mt-3 text-sm leading-[1.375rem] text-muted wrap-anywhere">Epígrafe de la portada Foto: Ana Pérez</figcaption>'))
+    // El texto: sus subtítulos en h2 (debajo del h1), con las clases del tablero (el subtítulo de una columna de texto del
+    // tablero: Thin 40/52, EST-05), en su columna de 42 em.
+    assert.match(main, /<div class="text-lg leading-\[1\.875rem\] [^"]*\[&amp;&gt;\*\+\*\]:mt-6 mt-12 max-w-\[42em\]"><h2 class="font-titulo text-\[1\.75rem\] leading-9 font-thin min-\[32rem\]:text-\[2\.5rem\] min-\[32rem\]:leading-\[3\.25rem\]">Un subtítulo<\/h2><p>La descripción\.<\/p><\/div>/)
+    // La galería: su sección con el rótulo (la sección del sitio) y el h2; las fotos enteras, lazy y con prioridad baja
+    // (no le disputan el ancho de banda a la portada: ajuste del LCP, 05/11/2026).
+    const galeria = seccion(main, 'fotos')
+    assert.match(galeria, new RegExp(`<section aria-labelledby="fotos" class="mt-16 lg:mt-20"><p class="font-mono text-sm [^"]*">${e.titulo}</p><h2 id="fotos" class="font-titulo [^"]* mt-6">${contenido.paginas.fotos}</h2><ul class="mt-12 columns-1 gap-10 sm:columns-2 lg:columns-3">`))
+    for (const img of deLaGaleria) {
+      assert.match(img, /loading="lazy" fetchPriority="low"/)
+      assert.match(img, /class="h-auto w-full rounded-2xl"/)
+    }
+
+    // Una muestra con solo el título: nada más que el enlace a la sección y el h1.
+    const sola = delMain(pagina({ pagina: 'muestra', ruta: '/exposiciones/sola', museo: MUSEO_VACIO, datos: { titulo: 'Solo el título' } }))
+    assert.match(sola, /<h1 class="font-hero [^"]*">Solo el título<\/h1>/)
+    assert.equal(cuantas(sola, '<img'), 0)
+    assert.equal(cuantas(sola, '<section'), 0)
+    assert.equal(cuantas(sola, 'Sala:'), 0)
+    assert.equal(cuantas(sola, '<p class="font-mono text-sm'), 0)
+
+    // Una noticia: su fecha con <time>, sin datos de actividad ni etiqueta ni inscripción.
+    const nov = contenido.paginas.novedad
+    const noticia = delMain(
+      pagina({
+        pagina: 'novedad',
+        ruta: '/novedades/noticia',
+        museo: MUSEO_VACIO,
+        datos: { tipo: 'noticia', titulo: 'Una noticia', resumen: null, fecha: '3 de noviembre de 2026', fechaIso: '2026-11-03', actividad: null, portada: fotoN(8), cuerpo: null, galeria: [] },
+      }),
+    )
+    assert.match(noticia, new RegExp(`<p><a href="/novedades" class="inline-flex min-h-11 [^"]*"><svg [^>]*>[\\s\\S]*?</svg>${contenido.paginas.novedades.titulo}</a></p>`))
+    assert.ok(noticia.includes('<time dateTime="2026-11-03">3 de noviembre de 2026</time>'))
+    for (const fuera of ['<dl', nov.inscripcion, nov.realizada, 'id="fotos"', '<p class="font-mono text-sm']) assert.equal(cuantas(noticia, fuera), 0, fuera)
+    assert.match(fotosDelPanel(noticia)[0], /fetchPriority="high"/)
+
+    // Una actividad que viene: cuándo, dónde y cuánto, cada uno con su rótulo, e "Inscribirse" (el botón naranja con el
+    // texto oscuro).
+    const viene = delMain(
+      pagina({
+        pagina: 'novedad',
+        ruta: '/novedades/actividad',
+        museo: MUSEO_VACIO,
+        datos: {
+          tipo: 'actividad',
+          titulo: 'Una actividad',
+          fecha: '1 de noviembre de 2026',
+          fechaIso: '2026-11-01',
+          actividad: { cuando: 'Sábado 14 de noviembre de 2026, 18:00', cuandoIso: '2026-11-14T18:00-03:00', realizada: false, lugar: 'https://example.com/un-lugar-que-es-una-direccion-larguisima', costo: 'Gratis', inscripcion: 'https://example.com/inscripcion' },
+          portada: null,
+          cuerpo: null,
+          galeria: [],
+        },
+      }),
+    )
+    const dl = parte(viene, '<dl', '</dl>')
+    assert.deepEqual([...dl.matchAll(/<dt class="[^"]*">([^<]*)<\/dt>/g)].map((m) => m[1]), [nov.cuando, nov.lugar, nov.costo])
+    assert.ok(dl.includes('<time dateTime="2026-11-14T18:00-03:00">Sábado 14 de noviembre de 2026, 18:00</time>'))
+    assert.match(dl, /<dd class="[^"]*wrap-anywhere">https:\/\/example\.com\/un-lugar/)
+    assert.match(viene, new RegExp(`<a href="https://example.com/inscripcion" class="inline-flex min-h-11 [^"]*bg-naranja [^"]*text-ink [^"]*">${nov.inscripcion}</a>`))
+    // Una actividad no lleva la fecha de publicación (como antes) y, sin portada, no hay ninguna foto.
+    assert.equal(cuantas(viene, '1 de noviembre de 2026'), 0)
+    assert.equal(cuantas(viene, '<img'), 0)
+    // La realizada: "Realizada" como etiqueta, solo cuándo y sin la inscripción.
+    const realizada = delMain(
+      pagina({
+        pagina: 'novedad',
+        ruta: '/novedades/realizada',
+        museo: MUSEO_VACIO,
+        datos: { tipo: 'actividad', titulo: 'Una realizada', actividad: { cuando: 'Ayer', cuandoIso: '2026-11-03T18:00-03:00', realizada: true, lugar: null, costo: null, inscripcion: null }, portada: null, cuerpo: null, galeria: [] },
+      }),
+    )
+    assert.match(realizada, new RegExp(`<p class="font-mono text-sm [^"]*uppercase">${nov.realizada}</p><h1 class="[^"]* mt-6">Una realizada</h1>`))
+    assert.deepEqual([...realizada.matchAll(/<dt class="[^"]*">([^<]*)<\/dt>/g)].map((m) => m[1]), [nov.cuando])
+    assert.equal(cuantas(realizada, nov.inscripcion), 0)
+  })
+
+  // Contacto con el lenguaje del tablero "Web" (05/11/2026, decisiones R1, R3 y R4): el hero con su foto y la página
+  // sobreFoto; los datos como las tarjetas de información de Visitas (en un <dl>, cada una con su ícono) y el mapa de
+  // 1280x400; el formulario con los campos, los avisos y el botón del tablero, en todos sus estados (los arma el
+  // servidor: server/paginas.js y server/contacto.js). Lo que no está no se dibuja.
+  const SIN_AVISOS = { formulario: true, enviado: false, valores: null, errores: null, error: null }
+  const contacto = (museo, datos = SIN_AVISOS) => delMain(pagina({ pagina: 'contacto', ruta: '/contacto', museo, datos }))
+  /** El aviso con que llega la página (el resumen de errores, el error de todo el formulario o "Recibimos tu mensaje"). */
+  const avisoDe = (main) => /<(div|p) tabindex="-1" role="([^"]*)"(?: aria-labelledby="[^"]*")? class="([^"]*)">([\s\S]*?)<\/\1>/.exec(main)
+
+  test('Contacto (R1, R4): el hero con su foto (sobreFoto); los datos como tarjetas con su ícono y el mapa de 1280x400; el formulario del tablero', () => {
+    const c = contenido.contacto
+    const f = c.formulario
+    const html = pagina({ pagina: 'contacto', ruta: '/contacto', museo: MUSEO_MAXIMO, datos: SIN_AVISOS })
+    const main = delMain(html)
+    assert.equal(cuantas(html, '<h1'), 1)
+    comprobarHero(main, 'contacto-titulo', c.titulo, c.imagen)
+    // El punto de interés: el cartel, entero y debajo del h1 también más allá de 1440 (EST-03 de la verificación).
+    assert.equal(c.imagen.posicion, '50% 88%')
+    assert.equal(paginasCargadas.contacto.sobreFoto, true)
+    for (const img of logosDelHeader(html)) assert.ok(!img.includes('data-logo-blanco'), img.slice(0, 120))
+    // Las dos secciones, en este orden: los datos y el formulario.
+    assert.ok(main.indexOf('aria-labelledby="datos-contacto"') < main.indexOf('<section id="formulario"'))
+
+    // Los datos: el rótulo (el título de la página) y el h2; cuatro tarjetas en un <dl>, cada una con su ícono
+    // (aria-hidden), su rótulo (Roboto Mono 12) y su dato (Regular 18/28 en gris); en dos columnas de 620 con 40 entre sí
+    // desde lg (no en cuatro: el correo se partía, EST-01 de la verificación), con el padding de las de Visitas.
+    const datos = seccion(main, 'datos-contacto')
+    assert.ok(datos.includes(`>${c.titulo}</p><h2 id="datos-contacto" class="`))
+    assert.ok(datos.includes(`>${c.datos}</h2>`))
+    const dl = parte(datos, '<dl', '</dl>')
+    assert.match(dl, /^<dl class="mt-12 grid gap-10 lg:grid-cols-2 lg:gap-x-10 lg:gap-y-0">/)
+    assert.equal(cuantas(dl, 'xl:grid-cols-4'), 0)
+    const tarjetas = [...dl.matchAll(/<div class="flex min-w-0 flex-col gap-5 lg:px-6 lg:py-10 xl:px-10"><dt class="flex items-center gap-4"><span class="([^"]*)"><svg ([^>]*)>[\s\S]*?<\/svg><\/span><span class="([^"]*)">([^<]*)<\/span><\/dt><dd class="([^"]*)">/g)]
+    assert.deepEqual(tarjetas.map((m) => m[4]), [c.direccion, c.telefono, c.correo, c.redes])
+    for (const [, cuadro, svg, rotulo, , dato] of tarjetas) {
+      assert.match(cuadro, /size-12 [^"]*rounded-xl bg-caja/)
+      assert.match(svg, /aria-hidden="true"/)
+      assert.match(rotulo, /^font-mono text-xs [^"]*uppercase$/)
+      assert.match(dato, /^text-lg leading-7 font-normal text-muted wrap-anywhere/)
+    }
+    assert.ok(dl.includes('<address class="not-italic"><span class="block">EJEMPLO · Avenida de ejemplo 1234 (Oeste), entre calle Uno y calle Dos, edificio de la ex estación</span><span class="block">5400 EJEMPLO · Ciudad de San Juan, San Juan</span></address>'))
+    // El teléfono, el correo y las redes son enlaces de 44 px: su dato sube 8 px (-mt-2); la dirección, no.
+    assert.deepEqual(tarjetas.map((m) => m[5].endsWith(' -mt-2')), [false, true, true, true])
+    assert.match(dl, /<a href="tel:\+542640000000" class="inline-flex min-h-11 [^"]*underline[^"]*">\+54 264 000-0000<\/a>/)
+    assert.match(dl, /<a href="mailto:museo@example\.com" class="inline-flex min-h-11 [^"]*">museo@example\.com<\/a>/)
+    const redes = [...dl.matchAll(/<li class="min-w-0"><a href="([^"]*)" class="inline-flex min-h-11 [^"]*">([^<]*)<\/a><\/li>/g)]
+    assert.deepEqual(redes.map((m) => [m[1], m[2]]), MUSEO_MAXIMO.redes.map((r) => [r.url, REDES[r.red]]))
+    // El mapa como en Visitas: 1280x400 con esquinas de 16, title y lazy; 16 abajo "Abrir en Google Maps" con la flecha.
+    assert.match(datos, /<iframe src="https:\/\/www\.google\.com\/maps\/embed\?pb=EJEMPLO" title="[^"]+" loading="lazy" class="block h-\[25rem\] w-full rounded-2xl [^"]*"><\/iframe><p class="mt-4"><a href="https:\/\/example\.com\/mapa" class="inline-flex min-h-11 [^"]*font-mono[^"]*">/)
+    assert.ok(datos.includes(`${c.abrirMapa}<svg `))
+
+    // El formulario: el rótulo y el h2; "Todos los campos son obligatorios." como bajada; las etiquetas con la letra del
+    // rótulo de una sección, pero sin pasar a mayúsculas (son el nombre del campo para el lector de pantalla: A11Y-03 de
+    // la verificación); los campos con el fondo, el borde y el foco del tablero; el nombre y el correo lado a lado y el
+    // mensaje a lo ancho (se agranda solo hacia abajo); el botón naranja con el texto oscuro (D4) y un borde transparente
+    // (con colores forzados se ve: A11Y-02). Sin aviso.
+    const form = parte(main, '<section id="formulario"', '</section>')
+    assert.match(form, /^<section id="formulario" aria-labelledby="formulario-titulo" class="py-16 lg:py-20">/)
+    assert.ok(form.includes(`>${c.titulo}</p><h2 id="formulario-titulo" class="`))
+    assert.ok(form.includes(`>${f.titulo}</h2>`))
+    assert.equal(avisoDe(form), null)
+    assert.match(form, /<form class="mt-12 grid gap-x-10 gap-y-8 lg:grid-cols-2" action="\/contacto#formulario" method="post">/)
+    assert.ok(form.includes(`<p class="text-lg leading-7 font-normal text-muted lg:col-span-2">${f.obligatorios}</p>`))
+    for (const [campo, columnas] of [['nombre', 'min-w-0'], ['email', 'min-w-0'], ['mensaje', 'min-w-0 lg:col-span-2']]) {
+      assert.match(form, new RegExp(`<div class="${columnas}"><label for="contacto-${campo}" class="block font-mono text-sm leading-5 font-medium text-paper">`), campo)
+      const control = new RegExp(`<(?:input|textarea)[^>]*id="contacto-${campo}"[^>]*>`).exec(form)[0]
+      assert.match(control, /class="mt-3 block w-full scroll-mt-32 [^"]*border bg-caja [^"]*text-paper [^"]*focus-visible:outline-blanco border-muted/, campo)
+    }
+    assert.match(form, /<textarea [^>]*class="[^"]* resize-y"/)
+    assert.match(form, new RegExp(`<button type="submit" class="inline-flex min-h-11 [^"]*border border-transparent bg-naranja [^"]*text-ink [^"]* cursor-pointer aria-disabled:cursor-wait">${f.enviar}</button>`))
+    assert.equal(cuantas(form, 'uppercase'), 1, 'solo el rótulo de la sección va en mayúsculas')
+    // La trampa, igual que siempre.
+    assert.ok(form.includes('<div aria-hidden="true" class="sr-only"><label for="contacto-sitio-web">'))
+  })
+
+  test('Contacto: los avisos del formulario con su caja (errores, 429, 503 con el cuadro de solo lectura, "Recibimos tu mensaje")', () => {
+    const f = contenido.contacto.formulario
+    const valores = { nombre: 'Ana', email: 'no es un correo', mensaje: 'corto' }
+    // Los errores de los campos: el resumen (grupo con su título) con enlaces de 44 px a cada campo; cada campo con su
+    // error (16/24 en naranja, entre la etiqueta y el control) y el borde naranja; lo escrito vuelve.
+    let main = contacto(MUSEO_MAXIMO, { ...SIN_AVISOS, valores, errores: { email: 'invalido', mensaje: 'corto' } })
+    let aviso = avisoDe(main)
+    assert.equal(aviso[2], 'group')
+    assert.match(aviso[3], /^mt-12 w-fit max-w-full rounded-xl border bg-caja [^"]* border-naranja$/)
+    assert.ok(aviso[4].includes(`<h3 id="contacto-revisar" class="font-medium">${f.revisar}</h3>`))
+    assert.deepEqual([...aviso[4].matchAll(/<a href="(#[^"]*)" class="[^"]*underline[^"]* inline-flex min-h-11 items-center">/g)].map((m) => m[1]), ['#contacto-email', '#contacto-mensaje'])
+    for (const campo of ['email', 'mensaje']) {
+      assert.match(main, new RegExp(`</label><p id="contacto-${campo}-error" class="mt-2 text-base leading-6 font-normal text-naranja">`), campo)
+      assert.match(new RegExp(`<(?:input|textarea)[^>]*id="contacto-${campo}"[^>]*>`).exec(main)[0], /aria-invalid="true" aria-describedby="contacto-[a-z]+-error" class="[^"]* border-naranja/, campo)
+    }
+    assert.match(/<input[^>]*id="contacto-nombre"[^>]*>/.exec(main)[0], /border-muted/)
+    assert.match(main, /<input type="text" [^>]*value="Ana"\/>/)
+    assert.match(main, /<textarea [^>]*>corto<\/textarea>/)
+
+    // El 429 (y cualquier error de todo el formulario): el aviso (alert) con el correo público como enlace del tablero,
+    // y el formulario con lo escrito. Sin correo público, sin "o escribinos a".
+    main = contacto(MUSEO_MAXIMO, { ...SIN_AVISOS, valores, error: 'limite_ip' })
+    aviso = avisoDe(main)
+    assert.equal(aviso[2], 'alert')
+    assert.match(aviso[3], / border-naranja$/)
+    assert.match(aviso[4], new RegExp(`^<p>${f.generales.limite_ip} ${f.oEscribinos} <a href="mailto:museo@example\\.com" class="rounded-sm underline [^"]*">museo@example\\.com</a>\\.</p>$`))
+    assert.ok(main.includes('<form '))
+    aviso = avisoDe(contacto(MUSEO_VACIO, { ...SIN_AVISOS, valores, error: 'limite_dia' }))
+    assert.equal(aviso[4], `<p>${f.generales.limite_dia}.</p>`)
+
+    // El 503 no_disponible (el formulario se apagó mientras la persona escribía): el aviso, sin formulario, y lo escrito
+    // en el cuadro de solo lectura, con su etiqueta como las de los campos.
+    main = contacto(MUSEO_MAXIMO, { ...SIN_AVISOS, formulario: false, valores, error: 'no_disponible' })
+    assert.equal(avisoDe(main)[2], 'alert')
+    assert.equal(cuantas(main, '<form'), 0)
+    assert.match(main, /<div class="mt-12 min-w-0"><label for="contacto-escrito" class="block font-mono text-sm leading-5 font-medium text-paper">Tu mensaje<\/label><textarea id="contacto-escrito" readOnly="" rows="8" class="[^"]*bg-caja [^"]*border-muted resize-y">corto<\/textarea><\/div>/)
+
+    // "Recibimos tu mensaje" (status), con el borde verde, y el formulario debajo.
+    main = contacto(MUSEO_MAXIMO, { ...SIN_AVISOS, enviado: true })
+    aviso = avisoDe(main)
+    assert.equal(aviso[1], 'p')
+    assert.equal(aviso[2], 'status')
+    assert.match(aviso[3], / border-verde-claro$/)
+    assert.equal(aviso[4], f.enviado)
+    assert.ok(main.indexOf(f.enviado) < main.indexOf('<form '))
+  })
+
+  test('Contacto: cada tarjeta solo con su dato; el mapa solo el de Google; sin datos ni formulario, solo el hero', () => {
+    const c = contenido.contacto
+    /** Los rótulos de las tarjetas de los datos (o null si la sección no se dibuja). */
+    const tarjetas = (museo, datos = SIN_AVISOS) => {
+      const main = contacto({ ...MUSEO_VACIO, ...museo }, datos)
+      if (!main.includes('aria-labelledby="datos-contacto"')) return null
+      return [...seccion(main, 'datos-contacto').matchAll(/<\/span><span class="font-mono text-xs [^"]*">([^<]*)<\/span><\/dt>/g)].map((m) => m[1])
+    }
+    // Sin nada del museo y sin formulario: solo el hero (ni las secciones ni sus rótulos).
+    const solo = contacto(MUSEO_VACIO, { ...SIN_AVISOS, formulario: false })
+    assert.equal(cuantas(solo, '<section'), 1)
+    assert.equal(cuantas(solo, '<h2'), 0)
+    // Sin nada del museo y con formulario: el hero y el formulario.
+    assert.equal(tarjetas({}), null)
+    assert.ok(contacto(MUSEO_VACIO).includes('<section id="formulario"'))
+    // Con formulario apagado y datos: solo los datos.
+    assert.equal(cuantas(contacto(MUSEO_MAXIMO, { ...SIN_AVISOS, formulario: false }), '<section id="formulario"'), 0)
+    // Cada tarjeta, solo con su dato; en el orden de siempre.
+    assert.deepEqual(tarjetas({ localidad: 'San Juan' }), [c.direccion])
+    assert.deepEqual(tarjetas({ emailPublico: 'museo@example.com', redes: MUSEO_MAXIMO.redes.slice(0, 1) }), [c.correo, c.redes])
+    assert.equal(tarjetas({ emailPublico: 'no es un correo' }), null)
+    // El teléfono: con tel: si es un número (sube 8 px); si no, como texto.
+    let main = contacto({ ...MUSEO_VACIO, telefono: '4200000 / 4200001' })
+    assert.ok(main.includes('<dd class="text-lg leading-7 font-normal text-muted wrap-anywhere">4200000 / 4200001</dd>'))
+    assert.equal(cuantas(main, 'href="tel:'), 0)
+    main = contacto({ ...MUSEO_VACIO, telefono: '+54 264 000-0000' })
+    assert.match(main, /<dd class="[^"]* -mt-2"><a href="tel:\+542640000000"/)
+    // El mapa: solo el src de "Insertar mapa" de Google Maps; sin "Abrir en Google Maps", el mapa solo.
+    main = contacto({ ...MUSEO_VACIO, mapaEmbedUrl: 'https://www.google.com/maps/embed?pb=1' })
+    assert.deepEqual(tarjetas({ mapaEmbedUrl: 'https://www.google.com/maps/embed?pb=1' }), [])
+    assert.match(main, /<div class="mt-12"><iframe src="https:\/\/www\.google\.com\/maps\/embed\?pb=1" title="[^"]+" loading="lazy"[^>]*><\/iframe><\/div>/)
+    assert.equal(tarjetas({ mapaEmbedUrl: 'https://example.com/maps/embed?pb=1' }), null)
+    // Solo "Abrir en Google Maps": el enlace solo, sin el mapa ni el aire de debajo del mapa.
+    main = contacto({ ...MUSEO_VACIO, mapaUrl: 'https://example.com/mapa' })
+    assert.equal(cuantas(main, '<iframe'), 0)
+    assert.match(main, /<div class="mt-12"><p><a href="https:\/\/example\.com\/mapa" class="inline-flex min-h-11 /)
   })
 })
 

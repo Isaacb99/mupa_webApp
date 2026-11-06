@@ -74,9 +74,36 @@ import heroVisitas2880 from './assets/hero-visitas-2880.webp'
 import visitasAccesibilidad600 from './assets/visitas-accesibilidad-600.webp'
 import visitasAccesibilidad900 from './assets/visitas-accesibilidad-900.webp'
 import visitasAccesibilidad1200 from './assets/visitas-accesibilidad-1200.webp'
+import heroExposiciones960 from './assets/hero-exposiciones-960.webp'
+import heroExposiciones1440 from './assets/hero-exposiciones-1440.webp'
+import heroExposiciones1920 from './assets/hero-exposiciones-1920.webp'
+import heroExposiciones2880 from './assets/hero-exposiciones-2880.webp'
+import heroNovedades960 from './assets/hero-novedades-960.webp'
+import heroNovedades1440 from './assets/hero-novedades-1440.webp'
+import heroNovedades1920 from './assets/hero-novedades-1920.webp'
+import heroNovedades2880 from './assets/hero-novedades-2880.webp'
+import heroContacto960 from './assets/hero-contacto-960.webp'
+import heroContacto1440 from './assets/hero-contacto-1440.webp'
+import heroContacto1920 from './assets/hero-contacto-1920.webp'
+import heroContacto2880 from './assets/hero-contacto-2880.webp'
 
 // srcSet de las fotos del carrusel, con versión de 700 y de 1400 px.
 const doble = (chica, grande) => `${chica} 700w, ${grande} 1400w`
+
+// La foto del hero de una página interna sin hero en el tablero (Exposiciones, Novedades y Contacto: HeroPagina.jsx,
+// decisión R1 del desarrollador, 04/11/2026), como la de Visitas: 3:1, de la "Seleccion Fotográfica" con
+// tools/convertir-fotos.mjs, en sus cuatro anchos (960, 1440, 1920 y 2880). sizes: desde lg el hero mide 480 de alto y la
+// foto lo cubre, así que nunca es más angosta que 1440 px; debajo, el hero mide 20rem (320) como mínimo: 960 o más.
+// posicion: su punto de interés (object-position, HeroPagina.jsx). El alt es nuestro: a validar con el museo.
+const fotoDeHero = ([f960, f1440, f1920, f2880], posicion, alt) => ({
+  src: f1440,
+  srcSet: `${f960} 960w, ${f1440} 1440w, ${f1920} 1920w, ${f2880} 2880w`,
+  sizes: '(min-width: 64rem) max(100vw, 1440px), max(100vw, 960px)',
+  ancho: 2880,
+  alto: 960,
+  posicion,
+  alt,
+})
 
 export const site = {
   nombre: 'MuPa',
@@ -149,8 +176,24 @@ export const noEncontrada = {
 // noviembre de 2026") y las situaciones ("Actual", "Finalizó el …") ya vienen como texto del servidor
 // (server/paginas.js, plan 6.2). Los títulos de las páginas son los del menú; el servidor repite los mismos en el
 // <title> (server/seo.js).
+// Desde el rediseño con el lenguaje del tablero (04/11/2026, R1 a R7): Exposiciones y Novedades llevan el hero de las
+// páginas internas (HeroPagina.jsx) con su foto (imagen); el título de la página es el h1 del hero y también el rótulo
+// de cada una de sus secciones (como "Circuitos paleontológicos" en el tablero), así no hace falta ningún texto nuevo.
+// - Exposiciones: el cráneo y la columna del carnívoro del hall; posicion: el cráneo, que queda en su lugar más allá
+//   de 1440 (la foto se recorta arriba y abajo) y en el celular (a los costados).
+// - Novedades: el taller grande con el equipo trabajando; posicion: la gente, abajo.
 export const paginas = {
-  exposiciones: { titulo: 'Exposiciones', muestras: 'Muestras', salas: 'Salas', enLaSala: 'En esta sala' },
+  exposiciones: {
+    titulo: 'Exposiciones',
+    muestras: 'Muestras',
+    salas: 'Salas',
+    enLaSala: 'En esta sala',
+    imagen: fotoDeHero(
+      [heroExposiciones960, heroExposiciones1440, heroExposiciones1920, heroExposiciones2880],
+      '40% 45%',
+      'Cráneo de fauces abiertas y columna de un esqueleto de dinosaurio carnívoro montado en una sala del museo',
+    ),
+  },
   muestra: { sala: 'Sala' },
   // Los de la página Visitas de E4. Desde la Visitas del tablero "Web" (03/11/2026, `visitas`, más abajo) la página ya
   // no los usa: los leen TablaHorarios.jsx y ListaTarifas.jsx, que quedan sin usar hasta que se decida al cierre (D1).
@@ -174,6 +217,11 @@ export const paginas = {
     anterior: 'Anterior',
     siguiente: 'Siguiente',
     pagina: (n, total) => `Página ${n} de ${total}`,
+    imagen: fotoDeHero(
+      [heroNovedades960, heroNovedades1440, heroNovedades1920, heroNovedades2880],
+      '50% 70%',
+      'El taller grande del museo, con el equipo trabajando en sus mesas',
+    ),
   },
   novedad: {
     realizada: 'Realizada',
@@ -193,8 +241,21 @@ export const paginas = {
 // dibuja. El formulario sale solo si hay casilla de envío y dirección de destino (server/contacto.js). Los errores
 // llegan del servidor como códigos (compartido/contacto.js) y acá están sus textos: los de cada campo y los de todo el
 // formulario, que terminan con "o escribinos a <correo público>" si el museo cargó uno.
+// Desde el rediseño con el lenguaje del tablero (05/11/2026, R1 a R7): el título es el h1 del hero y también el rótulo
+// de sus dos secciones ("Datos de contacto" y "Escribinos"), como en Exposiciones y Novedades: ningún texto nuevo.
 export const contacto = {
   titulo: 'Contacto',
+  // La foto del hero (HeroPagina.jsx, decisión R1 del desarrollador, 04/11/2026): la fachada con el cartel "Museo
+  // Paleontológico" (el h1 queda sobre el cielo y las torres, y el cartel entero debajo: tools/convertir-fotos.mjs);
+  // posicion: el cartel (sus letras van del 72 al 93 % del alto de la foto), que así queda entero más allá de 1440, con
+  // el h1 encima: a 1920 y a 2560 (medido) el borde de abajo no corta el «co» del final y el h1 no pisa las letras. Hasta
+  // la corrección del rediseño (EST-03 de su verificación, 05/11/2026) el recorte cortaba el «co» en todos los anchos y,
+  // con '50% 80%', a 2560 se leía «Museo Paleont…».
+  imagen: fotoDeHero(
+    [heroContacto960, heroContacto1440, heroContacto1920, heroContacto2880],
+    '50% 88%',
+    'Fachada del museo con el cartel «Museo Paleontológico» bajo el cielo azul',
+  ),
   datos: 'Datos de contacto',
   direccion: 'Dirección',
   telefono: 'Teléfono',

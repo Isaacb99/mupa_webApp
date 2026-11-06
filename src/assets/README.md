@@ -15,6 +15,9 @@ para `srcset`), ya recortado al aspecto de su celda cuando hizo falta. Tres orí
 | hero-esqueletos-{800,1280,1440,1920,2394} | Tablero "Web" de la diseñadora (Figma, 02/11/2026): la foto del hero de la Home ("image 1", 2627:1169), el original que tiene el archivo (2394x1346, el más grande que hay: no está en la "Seleccion Fotográfica"; pedir el original al museo), bajado con `download_assets` y convertido con `sharp` a WebP 80, sin recorte (`tools/salida/e6-impl-b/herr/hero.mjs`, no versionado) | Hero de la Home (HeroHome.jsx, srcset; el encuadre del tablero lo hace el CSS) |
 | hero-visitas-{960,1440,1920,2880} | V04 "Carrusel - IMG_1862 (1)" (el pincel sobre el fósil, 6000x4000), la foto del hero de Visitas del tablero "Web" (Figma, nodo 2846:999, 03/11/2026). El tablero la estira (la de 1400x933 en un rectángulo de 1439x720); acá va sin deformar: 3:1 a todo el ancho del original y con la punta del pincel sobre el fósil a la misma altura que en el tablero, filas del 33,9 al 83,9 % (`tools/convertir-fotos.mjs`, WebP 80) | Hero de Visitas (HeroPagina.jsx, srcset) |
 | visitas-accesibilidad-{600,900,1200} | V04 "Carrusel - IMG_1817" (la mano con el torno, 6000x4000), recortada a 5:3 desde el centro (sin el 5 % de arriba y de abajo), como la cubre el tablero en su caja de 600x360 (nodo 2849:104) | "Museo accesible" de Visitas (srcset) |
+| hero-exposiciones-{960,1440,1920,2880} | V04 "Id. Eje narrativo - IMG_2033" (el cráneo del carnívoro del hall, 6000x4000; en la landing, el eje Eje narrativo de Identidad, que master no usa), 3:1 a todo el ancho, filas del 10 al 60 % (`tools/convertir-fotos.mjs`, WebP 80). El tablero no dibuja esta página: la foto es nuestra (decisión R1 del desarrollador, 04/11/2026; las candidatas y por qué esta, en `tools/salida/e6-restyle/impl-listas/fotos/candidatas.md`, no versionado) | Hero de Exposiciones (HeroPagina.jsx, srcset; su punto de interés, el cráneo, en `paginas.exposiciones.imagen` de content.js) |
+| hero-novedades-{960,1440,1920,2880} | "IMG_1910" de la selección (el taller grande con el equipo trabajando, 6000x4000; hasta ahora no la usaba ninguna página), 3:1 a todo el ancho, filas del 20 al 70 %, WebP 75 (con mucho detalle: en 80 el de 2880 pesaba 241 kB) | Hero de Novedades (HeroPagina.jsx, srcset; `paginas.novedades.imagen`) |
+| hero-contacto-{960,1440,1920,2880} | V04 "Header - IMG_1526 v2" (la fachada con el cartel "Museo Paleontológico", 6000x5283; el hero de la landing, que master no usa), 3:1 a todo el ancho, filas del 27,14 al 65 %: el cielo y las torres arriba (el h1) y el cartel entero abajo (sus letras, del 54 al 62,2 % del original; hasta la corrección del rediseño, EST-03 del 05/11/2026, filas del 24 al 61,9 %, que cortaban el "co" del final) | Hero de Contacto (HeroPagina.jsx, srcset; `contacto.imagen`) |
 | mapa-museo.svg | Tablero "Web": "Group 4" (2999:6555, el plano bordó con los nombres de los espacios) de "Mapa del Museo", exportado en SVG con `download_assets`; sin los id ni los atributos del export en la raíz y con las coordenadas redondeadas a 2 decimales (91 → 77 kB, 19 kB con Brotli; rasterizado al doble, 381 píxeles de 2,9 millones cambian algo: `tools/salida/e6-impl-b/herr/svg-limpiar.mjs`, no versionado) | "Mapa del Museo" de la Home (MapaMuseo.jsx). Los nombres del dibujo son trazados: van además como texto en `home.mapa.espacios` de content.js |
 | patron-galeria.svg | Tablero "Web": las piedritas de "El MuPa en imágenes" (2629:2321, 406x460 con trazo crema #EBE3DE de 2 px), exportadas y limpiadas igual que el plano (7,3 → 6,2 kB). Es el dibujo de patron-a.svg, pero a otra escala y con otro grosor de trazo | "El MuPa en imágenes" de la Home (GaleriaHome.jsx): arriba a la izquierda y, girado, abajo a la derecha |
 | logo-mupa-marca.svg | Figma, header (nodo 2318:4776) | Header y pie (la marca MuPa de 120x40 del tablero "Web", 02/11/2026); también en las bandas de Áreas, como máscara en color |
@@ -47,6 +50,13 @@ Figma de la landing (2318:4776 y 2392:192) tampoco existen; los de Visitas (2846
 Sin uso en el sitio desde el header del tablero "Web" (02/11/2026): logo-mupa-texto.svg (el texto "Museo
 Paleontológico / San Juan · Argentina" del logo de 458 px del V04; el header nuevo lleva la marca sola y los isotipos).
 
+Las fotos de la selección que usa master, para no repetirlas en un hero nuevo (R1): el pincel (IMG_1862, el hero de
+Visitas y el carrusel), la mano con el torno (IMG_1817, "Museo accesible" y el carrusel), el cráneo del hall
+(IMG_2033, Exposiciones), el taller grande (IMG_1910, Novedades), la fachada con el cartel (IMG_1526, Contacto) y las
+otras tres del carrusel de «El MuPa en imágenes» (IMG_1648, IMG_2001 e IMG_1605); la del hero de la Home no es de la
+selección. Sin usar en master: IMG_7735, IMG_8110, IMG_7746, IMG_7822, IMG_1085, IMG_1676, IMG_1613 y las dos del
+acordeón.
+
 Sin uso en master desde la Home del tablero "Web" (02/11/2026: reemplaza a la landing, que sigue en la rama `landing`):
 lo de la landing que la Home nueva ya no muestra. Sus componentes (Hero, Intro, Identidad, ObraHistorica, Areas) quedan
 sin importarse hasta el cierre, donde se decide si se borran: hero-fachada-*, eje-*, mid-fachada-piedra-*, obra-*,
@@ -62,8 +72,8 @@ og.jpg y, con `--solo-pdf`, la portada del manual sale sin el logo y sin aviso.
 Sin uso desde el V04 del 28/09/2026 (quedan por si el museo prefiere alguna): las cinco del collage del Figma
 (collage-esqueleto-hall, collage-restaurador, collage-fachada-cartel, collage-render-hall y collage-exterior-cupula,
 en 500 y 1000), obra-preparacion-{352,704} (era la quinta del mosaico), preparacion-fosil (IMG_1878, era Ciencia) y
-la Visión del V03 (la cúpula desde abajo) quedó reemplazada en el mismo archivo. De la selección del V04 no se usa
-`IMG_1910.jpg` (el taller grande): no aparece en ninguna página del archivo.
+la Visión del V03 (la cúpula desde abajo) quedó reemplazada en el mismo archivo. De la selección del V04, `IMG_1910.jpg`
+(el taller grande) no aparece en ninguna página del archivo: desde el 04/11/2026 es el hero de Novedades.
 
 Sin uso desde el V03 del 25/09/2026: render-cupula-esqueletos-{800,1400} (era el eje Eje narrativo), cartel-fachada (era
 Visión) y eje-mision-{500,1000} (era Misión, la que mandó el museo el 22/09/2026).

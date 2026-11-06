@@ -1,11 +1,17 @@
 // Aspecto provisorio hasta el diseño de las páginas internas (E6.3): solo clases; los datos y la lógica no cambian.
 //
-// Las clases que comparten las páginas internas (Exposiciones, una muestra, Novedades, una novedad y Contacto; Visitas
-// tiene desde el 03/11/2026 las del tablero "Web", tablero.js) y sus componentes, con el lenguaje de la landing (la
-// Home hasta el 02/11/2026: src/index.css y las Decisiones de CLAUDE.md): el ancho del contenido (max-w-sitio), los
-// títulos finos de Google Sans Flex (el h1 al tamaño del título de Obra: 61,5 px a 1440, 4,27vw), los párrafos en 300
-// a 22,5/36 (1,5625vw), las etiquetas en Roboto Mono y la paleta. Sin efectos de scroll ni animaciones: a lo sumo
-// transiciones de color al pasar el puntero (con reduced-motion las apaga index.css).
+// Desde el rediseño del 04/11/2026 (decisiones R1 a R7) Exposiciones, Novedades, las fichas de una muestra y de una
+// novedad y sus componentes (Seccion, Tarjeta, Ficha, Foto, GaleriaFotos y Paginacion) usan las clases del tablero
+// (tablero.js), como Visitas desde el 03/11/2026; y desde el 05/11/2026 también Contacto (DatosDeContacto y
+// FormularioContacto) y la 404. Ninguna página usa ya las de acá: solo BotonCompra.jsx (BOTON), que quedó sin uso con la
+// Visitas del tablero. Se decide al cierre si se borran (D1); mientras tanto Tailwind las sigue leyendo y sus clases
+// siguen en el CSS.
+// Eran las clases que compartían las páginas internas (Exposiciones, una muestra, Novedades, una novedad y Contacto)
+// y sus componentes, con el lenguaje de la landing (la Home hasta el 02/11/2026: src/index.css y las Decisiones de
+// CLAUDE.md): el ancho del contenido (max-w-sitio), los títulos finos de Google Sans Flex (el h1 al tamaño del título
+// de Obra: 61,5 px a 1440, 4,27vw), los párrafos en 300 a 22,5/36 (1,5625vw), las etiquetas en Roboto Mono y la
+// paleta. Sin efectos de scroll ni animaciones: a lo sumo transiciones de color al pasar el puntero (con
+// reduced-motion las apaga index.css).
 // Tailwind escanea src/ entero: cada clase escrita acá (también en un comentario) entra en el CSS del sitio.
 // Todo texto que carga el museo se parte si una palabra no entra (una dirección web, un correo): si no, ensanchaba la
 // página en el celular (PAG-01 de la verificación de E4). Y los enlaces sueltos (los que no van dentro de un párrafo)

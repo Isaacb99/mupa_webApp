@@ -6,8 +6,12 @@
 // - FlechaDiagonal: "Ver todas las novedades" (arrow-up-right) y "Abrir en Google Maps" de Visitas.
 // - FlechaIzquierda y FlechaDerecha: Anterior y Siguiente del carrusel (arrow-left y arrow-right) y "Ir a Contacto" de
 //   la tarjeta Contacto de Visitas.
+// Desde el rediseño de las páginas que el tablero no dibuja (04 y 05/11/2026) las usan también las fichas, la
+// paginación, las salas de Exposiciones, "Abrir en Google Maps" de Contacto y la 404 ("Volver al inicio" y las
+// secciones). La 404 va en el bundle principal, así que desde el 05/11/2026 este archivo también (hasta entonces Vite lo
+// ponía en un JS aparte, que bajaban todas las páginas salvo la 404).
 // Los de las tarjetas (24x24) están en IconosTarjetas.jsx, con este mismo Icono: así la Home, que usa solo las flechas,
-// no los baja (Vite pone este archivo, que comparten la Home y Visitas, en un JS aparte).
+// no los baja.
 
 /**
  * El <svg> de un ícono de trazo: fill none, trazo de 2 del color del texto, puntas y uniones redondeadas, aria-hidden.

@@ -11,9 +11,10 @@
 // - Lo que no conoce (un nodo que el esquema no admite) no lo dibuja.
 // - clases: las de cada elemento ({ p, h, ul, ol, li, a }), que pone la página que lo usa. Este archivo no trae estilos
 //   propios a propósito: Tailwind escanea src/ entero y cualquier clase nueva escrita acá cambiaría el CSS del sitio.
-// Lo usan las salas de Exposiciones y las fichas de una muestra y de una novedad (E4.2 y E4.4), con las clases de
-// src/components/estilos.js (CLASES_TEXTO), y Visitas (E4.3; desde el 03/11/2026, solo el texto "Accesibilidad" de
-// "Museo accesible"), con las del tablero (CLASES_TEXTO_TABLERO de src/components/tablero.js).
+// Lo usan las salas de Exposiciones y las fichas de una muestra y de una novedad (E4.2 y E4.4) y Visitas (E4.3; desde el
+// 03/11/2026, solo el texto "Accesibilidad" de "Museo accesible"), con las clases del tablero (CLASES_TEXTO_TABLERO de
+// src/components/tablero.js; las salas y las fichas, desde el rediseño del 04/11/2026: hasta entonces, CLASES_TEXTO de
+// src/components/estilos.js).
 import { esEnlacePermitido } from '../../compartido/enlaces.js'
 
 const tiene = (nodo, tipo) => Array.isArray(nodo.marks) && nodo.marks.some((m) => m?.type === tipo)

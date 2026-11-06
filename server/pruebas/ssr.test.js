@@ -26,6 +26,15 @@
 //   "Accesibilidad", sin nada de lo que ya no muestra aunque esté cargado, y la descripción nueva; sin base, cargarVisitas
 //   (solo el texto de accesibilidad, y la 503 sin el museo de ahora) y la página con el museo máximo y el vacío (la foto
 //   del hero precargada con prioridad).
+// - Exposiciones, Novedades y sus fichas con el lenguaje del tablero (04/11/2026, R1 a R3): en las listas la foto del
+//   hero es la única precargada con prioridad (las de las tarjetas, lazy y sin precargar, también en la página 2 de
+//   Novedades); las fichas, sin hero y con la portada como única foto precargada.
+// - El ajuste del LCP (05/11/2026): las fotos lazy, con prioridad baja; el orden del <head> (la precarga de la foto con
+//   prioridad primero, fuera de lo dibujado; el JS y el CSS de Vite; los modulepreload al final) con una plantilla como
+//   la del build, y separarPrecargasConPrioridad sola.
+// - Contacto y la 404 con el lenguaje del tablero (05/11/2026, R1 y R2): /contacto con un museo falso, con la foto del
+//   hero precargada con prioridad en el <head>, los datos y el mapa; el vacío, solo el hero; sin el museo de ahora, la
+//   503 simple. La 404 sigue sin foto (el <head> arranca con el título).
 import assert from 'node:assert/strict'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -44,7 +53,7 @@ import { cargarVisitas, horarioDeLaSemana } from '../paginas.js'
 import { RUTAS } from '../rutas-publicas.js'
 import { CSP_PANEL } from '../seguridad.js'
 import { cortarEnPalabra, entradasDelSitemap, horarioSchema, medidasOg } from '../seo.js'
-import { crearSsr, partir, precargasDePaginas } from '../ssr.js'
+import { crearSsr, partir, precargasDePaginas, separarPrecargasConPrioridad } from '../ssr.js'
 import { cerrarBase, levantar, pedir, prepararBase, salteoVisible, sql } from './ayudas.js'
 
 const RAIZ = fileURLToPath(new URL('../../', import.meta.url))
@@ -280,12 +289,26 @@ describe('las páginas internas con base', { skip: base.motivo ?? false }, () =>
     assert.match(r.texto, /<section id="sala-sala-triasico" aria-labelledby="sala-sala-triasico-titulo"/)
     assert.match(r.texto, new RegExp(`<a href="${urlPublica('muestras', creadas.permanente.slug)}"`))
     assert.ok(!r.texto.includes('Muestra finalizada') && !r.texto.includes('en borrador'))
-    // Las fotos de las tarjetas, con su srcset y sus medidas. La de la primera tarjeta, la del primer pantallazo del
-    // celular, con prioridad y sin lazy (PAG-02 de la verificación de E4); todas las demás fotos de la página, lazy.
-    assert.match(r.texto, /<img src="\/fotos\/[0-9a-f]{16}\/960\.webp" srcSet="\/fotos\/[0-9a-f]{16}\/480\.webp 480w, [^"]*1600\.webp 1600w" sizes="[^"]+" width="3000" height="2000" alt="Portada de Muestra actual" fetchPriority="high"/)
+    // Las fotos de las tarjetas, con su srcset y sus medidas, todas lazy: desde el rediseño con el lenguaje del tablero
+    // (04/11/2026, R1) la del primer pantallazo, la del LCP, es la del hero (antes, la de la primera tarjeta: PAG-02 de
+    // la verificación de E4). React la precarga con prioridad, al principio de lo dibujado (antes del header).
+    assert.match(r.texto, /<img src="\/fotos\/[0-9a-f]{16}\/960\.webp" srcSet="\/fotos\/[0-9a-f]{16}\/480\.webp 480w, [^"]*1600\.webp 1600w" sizes="[^"]+" width="3000" height="2000" alt="Portada de Muestra actual" loading="lazy"/)
     const fotos = r.texto.match(/<img src="\/fotos\/[^>]*>/g) ?? []
-    assert.equal(fotos.filter((img) => img.includes('fetchPriority="high"')).length, 1)
-    assert.ok(fotos.filter((img) => !img.includes('fetchPriority="high"')).every((img) => img.includes('loading="lazy"')))
+    assert.ok(fotos.length >= 4, `${fotos.length}`)
+    // Y con prioridad baja (ajuste del LCP, 05/11/2026): no le disputan el ancho de banda a la foto del hero.
+    assert.ok(fotos.every((img) => img.includes('loading="lazy" fetchPriority="low"')))
+    const hero = /<img [^>]*hero-exposiciones-[^>]*>/.exec(r.texto)?.[0]
+    assert.ok(hero, 'la foto del hero')
+    assert.match(hero, /fetchPriority="high"/)
+    const precargas = r.texto.match(/<link rel="preload" as="image"[^>]*>/g) ?? []
+    const delHero = precargas.filter((l) => l.includes('hero-exposiciones-'))
+    assert.equal(delHero.length, 1, precargas.join('\n'))
+    assert.match(delHero[0], /fetchpriority="high"/i)
+    assert.ok(r.texto.indexOf(delHero[0]) < r.texto.indexOf('<header'))
+    // Desde el ajuste del LCP (05/11/2026), en el <head>, antes del título (server/ssr.js, separarPrecargasConPrioridad).
+    assert.ok(r.texto.indexOf(delHero[0]) < r.texto.indexOf('<title>'))
+    // Ninguna foto del panel se precarga (todas lazy).
+    assert.equal(precargas.filter((l) => l.includes('/fotos/')).length, 0)
   })
 
   test('/exposiciones/<slug>: 200 también finalizada ("Finalizó el …"); un borrador o lo que no existe, 404', async () => {
@@ -298,6 +321,10 @@ describe('las páginas internas con base', { skip: base.motivo ?? false }, () =>
     // La portada no es lazy (React la precarga) y va con su epígrafe y su crédito.
     assert.match(actual.texto, /<img src="\/fotos\/[0-9a-f]{16}\/960\.webp"[^>]*alt="Portada de Muestra actual" fetchPriority="high"/)
     assert.match(actual.texto, /Foto: Crédito de prueba/)
+    // Sin hero (rediseño del 04/11/2026, R2): el título arriba, sin foto detrás; la única foto precargada es la portada.
+    assert.equal(cuantas(actual.texto, 'hero-'), 0)
+    const precargas = actual.texto.match(/<link rel="preload" as="image"[^>]*>/g) ?? []
+    assert.deepEqual(precargas.filter((l) => l.includes('/fotos/')).length, 1)
     const finalizada = await s.pedir('GET', urlPublica('muestras', creadas.finalizada.slug))
     assert.equal(finalizada.status, 200)
     assert.equal(estadoDe(finalizada.texto).datos.situacion, 'Finalizada')
@@ -370,6 +397,17 @@ describe('las páginas internas con base', { skip: base.motivo ?? false }, () =>
     assert.deepEqual(d2.noticias.map((n) => n.titulo), ['Noticia 02', 'Noticia 01'])
     assert.match(dos.texto, /<title>Novedades, página 2 · MuPa<\/title>/)
     assert.match(dos.texto, /<link rel="canonical" href="https:\/\/mupa\.ar\/novedades\?pagina=2" \/>/)
+    // El hero de la página (rediseño del 04/11/2026, R1), en las dos: su foto, la del LCP, precargada con prioridad; las
+    // de las tarjetas, lazy y sin precargar.
+    for (const html of [r.texto, dos.texto]) {
+      assert.equal(cuantas(html, '<h1 id="novedades-titulo"'), 1)
+      const precargas = html.match(/<link rel="preload" as="image"[^>]*>/g) ?? []
+      assert.equal(precargas.filter((l) => l.includes('hero-novedades-') && /fetchpriority="high"/i.test(l)).length, 1, precargas.join('\n'))
+      assert.equal(precargas.filter((l) => l.includes('/fotos/')).length, 0)
+      assert.ok((html.match(/<img src="\/fotos\/[^>]*>/g) ?? []).every((img) => img.includes('loading="lazy" fetchPriority="low"')))
+      // La del hero, en el <head> (ajuste del LCP, 05/11/2026).
+      assert.ok(html.indexOf('hero-novedades-') < html.indexOf('</head>'))
+    }
 
     const uno = await s.pedir('GET', '/novedades?pagina=1')
     assert.equal(uno.status, 301)
@@ -1021,6 +1059,57 @@ describe('sin base', () => {
     }
   })
 
+  test('/contacto con un museo falso (R1): la foto del hero precargada con prioridad en el <head>; los datos y el mapa; el vacío, solo el hero; sin el de ahora, la 503', async () => {
+    // Sin casilla de envío (la configuración de la prueba no tiene SMTP_USUARIO): sin formulario, como en producción
+    // antes de cargar la casilla. El formulario y sus estados están en contacto.test.js y en layout.test.js.
+    const config = leerConfig({ NODE_ENV: 'production', URL_PUBLICA: 'https://mupa.ar/', DATABASE_URL: 'postgres://nadie:nada@127.0.0.1:1/no_existe' })
+    let ahora = { museo: MUSEO_MAXIMO, alDia: true }
+    const museoPublico = Object.assign(async () => ahora.museo, { conEstado: async () => ahora })
+    const ssr = crearSsr({ config, obtener, museoPublico, lector: LECTOR_VACIO })
+    const app = crearApp({ config, ssr, estaticos: () => {} })
+    const servidor = app.listen(0, '127.0.0.1')
+    await new Promise((r) => servidor.once('listening', r))
+    const puerto = servidor.address().port
+    const dibujado = (html) => html.slice(html.indexOf('<div id="root">'), html.indexOf('<script id="estado"'))
+    const original = console.log
+    console.log = () => {}
+    try {
+      let r = await pedir(puerto, 'GET', '/contacto')
+      assert.equal(r.status, 200)
+      assert.equal(estadoDe(r.texto).datos.formulario, false)
+      let app = dibujado(r.texto)
+      assert.equal(cuantas(app, '<h1'), 1)
+      assert.match(app, /<h1 id="contacto-titulo" class="[^"]*">Contacto<\/h1>/)
+      assert.match(app, /<section aria-labelledby="datos-contacto"/)
+      assert.match(app, /<iframe src="https:\/\/www\.google\.com\/maps\/embed\?pb=EJEMPLO" title="[^"]+" loading="lazy"/)
+      assert.equal(cuantas(app, '<form'), 0)
+      // La foto del hero (el LCP), con prioridad: una sola precarga, en el <head> antes del título (server/ssr.js).
+      const precargas = r.texto.match(/<link rel="preload" as="image"[^>]*>/g) ?? []
+      const delHero = precargas.filter((l) => l.includes('hero-contacto-'))
+      assert.equal(delHero.length, 1, precargas.join('\n'))
+      assert.match(delHero[0], /fetchpriority="high"/i)
+      assert.ok(r.texto.indexOf(delHero[0]) < r.texto.indexOf('<title>'))
+      assert.match(app, /<img src="[^"]*hero-contacto-1440[^"]*" srcSet="[^"]*" sizes="[^"]*" width="2880" height="960" alt="[^"]+" fetchPriority="high"/)
+      // El vacío: solo el hero (sin los datos ni sus rótulos; sin casilla, sin formulario).
+      ahora = { museo: MUSEO_VACIO, alDia: true }
+      r = await pedir(puerto, 'GET', '/contacto')
+      assert.equal(r.status, 200)
+      app = dibujado(r.texto)
+      assert.equal(cuantas(app, 'datos-contacto'), 0)
+      assert.equal(cuantas(app, '<h2'), 0)
+      assert.match(app, /<section aria-labelledby="contacto-titulo" class="relative"><div [^>]*><img src="[^"]*hero-contacto-1440/)
+      // Sin el museo de ahora (la base no respondió: el último bueno), la 503 simple, como antes del rediseño.
+      ahora = { museo: MUSEO_MAXIMO, alDia: false }
+      r = await pedir(puerto, 'GET', '/contacto')
+      assert.equal(r.status, 503)
+      assert.equal(r.h['cache-control'], 'no-store')
+      assert.doesNotMatch(r.texto, /<script/)
+    } finally {
+      console.log = original
+      await new Promise((r) => servidor.close(r))
+    }
+  })
+
   test('sitemap: la Home lleva la fecha más nueva entre el build y la última novedad publicada (COD-03/PAN-04)', () => {
     const urlPublica = 'https://mupa.ar/'
     const fijas = ['/', '/exposiciones', '/novedades', '/visitas']
@@ -1042,6 +1131,69 @@ describe('sin base', () => {
     // Sin fecha del build válida y sin novedades: sin lastmod.
     assert.equal(lastmod([], new Date('x'))['https://mupa.ar/'], undefined)
     assert.equal(lastmod([novedad], undefined)['https://mupa.ar/'], '2026-11-02')
+  })
+
+  test('separarPrecargasConPrioridad: aparta las precargas de imagen con fetchPriority="high" del principio de lo dibujado', () => {
+    const alta = '<link rel="preload" as="image" imageSrcSet="/a-960.webp 960w, /a-1440.webp 1440w" imageSizes="(min-width: 64rem) max(100vw, 1440px)" fetchPriority="high"/>'
+    const comun = '<link rel="preload" as="image" href="/logo.svg"/>'
+    // La de la foto con prioridad sale aparte; la otra (un logo del header) queda donde estaba, en su orden.
+    assert.deepEqual(separarPrecargasConPrioridad(`${comun}${alta}<header>x</header>`), [alta, `${comun}<header>x</header>`])
+    // Un ">" de un valor llega escapado (&gt;): no corta la etiqueta.
+    const conMayor = '<link rel="preload" as="image" imageSizes="(min-width: 64rem) 1440px" title="a &gt; b" fetchPriority="high"/>'
+    assert.deepEqual(separarPrecargasConPrioridad(`${conMayor}<main/>`), [conMayor, '<main/>'])
+    // Solo lo del principio: una etiqueta igual más adelante (dentro de la página) no se toca.
+    assert.deepEqual(separarPrecargasConPrioridad(`<header>${alta}</header>`), ['', `<header>${alta}</header>`])
+    // Sin precargas, o con una sin terminar, todo queda igual.
+    assert.deepEqual(separarPrecargasConPrioridad('<header>x</header>'), ['', '<header>x</header>'])
+    assert.deepEqual(separarPrecargasConPrioridad('<link rel="preload" as="image"'), ['', '<link rel="preload" as="image"'])
+  })
+
+  test('el orden del <head> (ajuste del LCP, 05/11/2026): la foto del hero primero; el JS y el CSS de Vite; los modulepreload al final', async () => {
+    const config = leerConfig({ NODE_ENV: 'production', URL_PUBLICA: 'https://mupa.ar/', DATABASE_URL: 'postgres://nadie:nada@127.0.0.1:1/no_existe' })
+    // La plantilla como la deja el build de Vite: el JS principal y el CSS al final del <head>.
+    const plantilla =
+      '<!doctype html><html lang="es"><head><meta charset="UTF-8" /><!--head-->\n' +
+      '    <script type="module" crossorigin src="/assets/index-a.js"></script>\n' +
+      '    <link rel="stylesheet" crossorigin href="/assets/index-b.css">\n  </head>' +
+      '<body><div id="root"><!--app--></div><!--estado--></body></html>\n'
+    const precargas = { visitas: ['/assets/Visitas-c.js', '/assets/HeroPagina-d.js'] }
+    const conVite = async () => ({ partes: partir(plantilla), render: entrada.render, precargas })
+    const museoPublico = Object.assign(async () => MUSEO_MAXIMO, { conEstado: async () => ({ museo: MUSEO_MAXIMO, alDia: true }) })
+    const ssr = crearSsr({ config, obtener: conVite, museoPublico, lector: LECTOR_VACIO })
+    const app = crearApp({ config, ssr, estaticos: () => {} })
+    const servidor = app.listen(0, '127.0.0.1')
+    await new Promise((r) => servidor.once('listening', r))
+    const original = console.log
+    console.log = () => {}
+    try {
+      const r = await pedir(servidor.address().port, 'GET', '/visitas')
+      assert.equal(r.status, 200)
+      const head = r.texto.slice(0, r.texto.indexOf('</head>'))
+      const raiz = r.texto.slice(r.texto.indexOf('<div id="root">'), r.texto.indexOf('<script id="estado"'))
+      // La foto del hero (el LCP), una sola vez y en el <head>, antes de todo lo demás que pide la página.
+      const precargasFoto = r.texto.match(/<link rel="preload" as="image"[^>]*fetchPriority="high"[^>]*>/gi) ?? []
+      assert.equal(precargasFoto.length, 1, precargasFoto.join('\n'))
+      assert.match(precargasFoto[0], /hero-visitas-/)
+      const enHead = (texto) => head.indexOf(texto)
+      assert.ok(enHead(precargasFoto[0]) > 0)
+      assert.ok(enHead(precargasFoto[0]) < enHead('<title>'))
+      assert.ok(enHead('<title>') < enHead('<script type="module"'))
+      assert.ok(enHead('<script type="module"') < enHead('rel="stylesheet"'))
+      // Los modulepreload, después del CSS (con HTTP/1.1 no le quitan una conexión al CSS ni a la foto).
+      assert.ok(enHead('rel="stylesheet"') < enHead('<link rel="modulepreload" crossorigin href="/assets/Visitas-c.js" />'))
+      assert.ok(enHead('/assets/Visitas-c.js') < enHead('/assets/HeroPagina-d.js'))
+      // Lo dibujado sigue igual, sin la precarga de la foto: arranca con la de los logos del header (no son lazy).
+      assert.equal(cuantas(raiz, 'fetchPriority="high"'), 1, 'solo el <img> del hero')
+      assert.match(raiz, /^<div id="root"><link rel="preload" as="image" href="[^"]*isotipo-unsj[^"]*"\/><header/)
+      assert.equal(cuantas(raiz, '<h1'), 1)
+      // Sin la foto con prioridad (la 404), el <head> arranca como siempre, con el título.
+      const no = await pedir(servidor.address().port, 'GET', '/no-existe')
+      assert.equal(no.status, 404)
+      assert.match(no.texto, /<meta charset="UTF-8" \/><title>/)
+    } finally {
+      console.log = original
+      await new Promise((r) => servidor.close(r))
+    }
   })
 
   test('cada página de la tabla de rutas tiene su archivo (src/Raiz.jsx) y se dibuja con un solo h1', async () => {

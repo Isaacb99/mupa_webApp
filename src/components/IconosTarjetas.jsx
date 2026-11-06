@@ -5,7 +5,9 @@ import { Icono } from './Iconos.jsx'
 // (ICONO_TARJETA de tablero.js). Van en línea y con aria-hidden: la tarjeta tiene su rótulo (un h3). Están aparte de
 // las flechas para que la Home no los baje.
 // - Brujula, Reloj e Info: las tarjetas Dirección, Horarios y Contacto, los del tablero (compass, clock e info del "Icon
-//   System" de su archivo, que son los de Feather Icons, licencia MIT; con los trazados del Figma).
+//   System" de su archivo, que son los de Feather Icons, licencia MIT; con los trazados del Figma). Brujula va también
+//   en la tarjeta Dirección de /contacto (desde el 05/11/2026; los de Teléfono, Correo y Redes están en
+//   IconosContacto.jsx, así Visitas no los baja).
 // - Accesibilidad, Ojo, Oreja y Cerebro: las cuatro tarjetas de "Museo accesible" (física, visual, auditiva y
 //   neurodivergencia). Los del tablero son de relleno (navigation, info, navigation-2 y calendar): van unos que
 //   corresponden a cada tema, de Lucide (accessibility, eye, ear y brain, versión 1.60.0, con sus trazados tal cual;

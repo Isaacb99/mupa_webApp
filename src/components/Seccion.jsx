@@ -1,42 +1,58 @@
 import Tarjeta from './Tarjeta.jsx'
-import { LISTA_TARJETAS, SUBTITULO } from './estilos.js'
+import { CONTENEDOR_TABLERO, LISTA_TARJETAS_TABLERO, ROTULO_SECCION, SECCION_TABLERO, TITULO_SECCION } from './tablero.js'
 
-// Aspecto provisorio hasta el diseño de las páginas internas (E6.3): solo clases y orden; los datos y la lógica no
-// cambian.
-//
-// Una sección de una página interna: su h2 (con el id que la nombra, aria-labelledby) y lo que tiene adentro. Quien la
-// usa la dibuja solo si tiene contenido (plan 6.1: una sección vacía no se dibuja, ni su título).
+// Una sección de una página interna, con el lenguaje del tablero "Web" de la diseñadora (decisión R4 del desarrollador,
+// 04/11/2026; como las de Visitas): el rótulo en Roboto Mono (ROTULO_SECCION), 24 abajo el h2 Thin 64 (TITULO_SECCION,
+// con el id que nombra la sección: aria-labelledby) y lo que tiene adentro; 80 de aire arriba y abajo y 1280 de
+// contenido a 1440 (SECCION_TABLERO y CONTENEDOR_TABLERO). Quien la usa la dibuja solo si tiene contenido (plan 6.1:
+// una sección vacía no se dibuja, ni su título ni su rótulo).
+// - rotulo: el título de la página ("Exposiciones", "Novedades"), como el tablero repite "Circuitos paleontológicos"
+//   arriba de cada circuito: así no hace falta ningún texto nuevo (D13). Sin rotulo, solo el h2.
+// - contenedor: false dentro de algo que ya tiene el ancho del contenido (la galería de una ficha, Ficha.jsx), con su
+//   propio className (el aire de arriba).
 
-/** @param {{ id: string, titulo: string, className?: string, children: import('react').ReactNode }} props */
-export default function Seccion({ id, titulo, className = 'mt-14 md:mt-20', children }) {
-  return (
-    <section aria-labelledby={id} className={className}>
-      <h2 id={id} className={SUBTITULO}>
+/**
+ * @param {{ id: string, rotulo?: string | null, titulo: string, contenedor?: boolean, className?: string,
+ *   children: import('react').ReactNode }} props
+ */
+export default function Seccion({ id, rotulo = null, titulo, contenedor = true, className = SECCION_TABLERO, children }) {
+  const contenido = (
+    <>
+      {rotulo ? <p className={ROTULO_SECCION}>{rotulo}</p> : null}
+      <h2 id={id} className={rotulo ? `${TITULO_SECCION} mt-6` : TITULO_SECCION}>
         {titulo}
       </h2>
       {children}
+    </>
+  )
+  return (
+    <section aria-labelledby={id} className={className}>
+      {contenedor ? <div className={CONTENEDOR_TABLERO}>{contenido}</div> : contenido}
     </section>
   )
 }
 
 /**
- * Una sección con una lista de tarjetas (las muestras de Exposiciones, las próximas actividades y las noticias de
+ * Una sección con una grilla de tarjetas (las muestras de Exposiciones, las próximas actividades y las noticias de
  * Novedades). Cada tarjeta llega del servidor con la forma de Tarjeta.jsx ({ titulo, url, resumen, portada, etiqueta,
- * detalle, fechaIso }).
- * primera: es la primera lista de la página; su primera tarjeta lleva la foto con prioridad (Tarjeta.jsx).
+ * detalle, fechaIso }). children: lo que va debajo de la grilla (la paginación de Novedades).
+ * Ninguna foto de las tarjetas va con prioridad: desde el hero (R1) la foto del primer pantallazo, la del LCP, es la del
+ * hero (antes era la de la primera tarjeta: PAG-02 de la verificación de E4); las de las tarjetas, lazy.
  * min-w-0 en cada tarjeta: una palabra larga no ensancha la columna de la grilla (PAG-01 de la verificación de E4).
- * @param {{ id: string, titulo: string, tarjetas: object[], primera?: boolean }} props
+ * @param {{ id: string, rotulo?: string | null, titulo: string, tarjetas: object[],
+ *   children?: import('react').ReactNode }} props
  */
-export function SeccionDeTarjetas({ id, titulo, tarjetas, primera = false }) {
+export function SeccionDeTarjetas({ id, rotulo = null, titulo, tarjetas, children = null }) {
   return (
-    <Seccion id={id} titulo={titulo}>
-      <ul className={LISTA_TARJETAS}>
-        {tarjetas.map((t, i) => (
+    <Seccion id={id} rotulo={rotulo} titulo={titulo}>
+      <ul className={LISTA_TARJETAS_TABLERO}>
+        {tarjetas.map((t) => (
           <li key={t.url} className="min-w-0">
-            <Tarjeta {...t} prioridad={primera && i === 0} />
+            <Tarjeta {...t} />
           </li>
         ))}
       </ul>
+      {children}
     </Seccion>
   )
 }

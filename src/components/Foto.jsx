@@ -1,9 +1,6 @@
 import { urlFoto } from '../../compartido/fotos.js'
 import { paginas } from '../content.js'
 
-// Aspecto provisorio hasta el diseño de las páginas internas (E6.3): solo clases y orden; los datos y la lógica no
-// cambian.
-//
 // Una foto del panel en el sitio (plan 7, "Foto.jsx"): las que se suben al panel se publican en /fotos/<clave>/ con
 // 480, 960 y 1600 px de ancho en WebP (compartido/fotos.js). La foto llega del servidor con sus campos públicos
 // (server/contenido-publico.js, fotoPublica): { clave, ancho, alto, variantes, alt, decorativa, epigrafe, credito }.
@@ -13,7 +10,16 @@ import { paginas } from '../content.js'
 //   decorativa.
 // - loading="lazy" salvo la portada de una ficha (prioridad): React precarga las imágenes que no son lazy, así que
 //   todo lo que no está en el primer pantallazo va lazy (CLAUDE.md, Buscadores). decoding="async".
-// - conPie: en un <figure> con el epígrafe y el crédito, si tiene alguno.
+// - Y la lazy, con fetchPriority="low" (05/11/2026, el ajuste del LCP de las listas): lazy no alcanza para que no
+//   compita con la foto del primer pantallazo (la del hero de Exposiciones y Novedades, la portada de una ficha). Chrome
+//   pide al cargar las lazy que están a menos de ~1250 px de la pantalla, y la que asoma en el primer pantallazo (la
+//   primera fila de tarjetas, debajo del hero) pasaba a prioridad alta, como la del hero. Con "low" se pide igual y se
+//   ve igual, pero sigue en prioridad baja: con HTTP/2 o HTTP/3 (el borde del hosting) el servidor le da antes el
+//   ancho de banda a lo que tiene prioridad. Con HTTP/1.1 (la red lenta de tools/servir.mjs, en local) no cambia nada:
+//   ahí cada respuesta en curso se lleva una parte igual.
+// - conPie: en un <figure> con el epígrafe y el crédito, si tiene alguno: 12 debajo de la foto, Regular 14/22 en gris
+//   (el texto chico del tablero "Web"; desde el rediseño de las páginas internas, 04/11/2026). Las esquinas y el tamaño
+//   de la foto los pone quien la usa (className).
 
 const ANCHOS = [480, 960, 1600]
 
@@ -44,7 +50,7 @@ export default function Foto({ foto, sizes, className = '', prioridad = false, c
       height={alto}
       alt={foto.decorativa ? '' : foto.alt}
       loading={prioridad ? undefined : 'lazy'}
-      fetchPriority={prioridad ? 'high' : undefined}
+      fetchPriority={prioridad ? 'high' : 'low'}
       decoding="async"
       className={className}
       style={altoMaximo ? { width: `min(100%, calc(${altoMaximo} * ${ancho / alto}))` } : undefined}
@@ -54,7 +60,7 @@ export default function Foto({ foto, sizes, className = '', prioridad = false, c
   return (
     <figure>
       {img}
-      <figcaption className="mt-3 text-sm leading-relaxed text-muted wrap-anywhere">
+      <figcaption className="mt-3 text-sm leading-[1.375rem] text-muted wrap-anywhere">
         {epigrafe}
         {epigrafe && credito ? ' ' : null}
         {credito ? `${paginas.credito} ${credito}` : null}

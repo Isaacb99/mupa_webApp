@@ -1,26 +1,17 @@
-import Ficha from '../components/Ficha.jsx'
-import { BOTON, ROTULO } from '../components/estilos.js'
+import Ficha, { DatoFicha, DatosFicha } from '../components/Ficha.jsx'
+import { BOTON_NARANJA, DATO_TARJETA } from '../components/tablero.js'
 import { paginas } from '../content.js'
 
-// Aspecto provisorio hasta el diseño de las fichas (E6.3): solo clases y orden; los datos y la lógica no cambian.
-//
 // /novedades/<slug> (E4.4, plan 6.1): una noticia (con su fecha de publicación) o una actividad (cuándo, dónde y
 // cuánto cuesta, y el enlace para inscribirse mientras no se realizó; ya realizada: 200, con "Realizada" y sin la
 // inscripción) y, con Ficha.jsx, el resumen, la portada, el texto y la galería. Los datos, de server/paginas.js.
+// Con el lenguaje del tablero "Web" de la diseñadora (decisiones R2 a R4 del desarrollador, 04/11/2026): sin hero (el
+// título arriba, sobre el fondo; Ficha.jsx). La fecha, como el texto de las tarjetas de información de Visitas (Regular
+// 18/28 en gris, DATO_TARJETA); los datos de la actividad, cada uno con su rótulo (el de una tarjeta del tablero) y su
+// valor debajo, en tres columnas desde md (en una en el celular: DatosFicha y DatoFicha de Ficha.jsx, que usa también
+// la sala de una muestra); y "Inscribirse", el botón naranja del tablero con el texto oscuro (BOTON_NARANJA, decisión
+// D4).
 const t = paginas.novedad
-
-/**
- * Un dato de la actividad: el rótulo y el valor. Columnas minmax(0,1fr) y el valor que se parte: un lugar que es una
- * dirección web no ensancha la página (PAG-01 de la verificación de E4).
- */
-function Dato({ rotulo, children }) {
-  return (
-    <div className="grid grid-cols-[minmax(0,1fr)] gap-1 sm:grid-cols-[8rem_minmax(0,1fr)] sm:gap-6">
-      <dt className={`${ROTULO} sm:pt-[0.35rem]`}>{rotulo}</dt>
-      <dd className="text-lg font-light wrap-anywhere">{children}</dd>
-    </div>
-  )
-}
 
 /** @param {{ estado: { datos: object } }} props */
 export default function Novedad({ estado }) {
@@ -37,24 +28,24 @@ export default function Novedad({ estado }) {
       galeria={d.galeria}
     >
       {!a && d.fecha ? (
-        <p className="mt-4 text-lg font-light text-muted">
+        <p className={`${DATO_TARJETA} mt-6`}>
           <time dateTime={d.fechaIso}>{d.fecha}</time>
         </p>
       ) : null}
       {a && (a.cuando || a.lugar || a.costo) ? (
-        <dl className="mt-8 grid max-w-3xl grid-cols-[minmax(0,1fr)] gap-4">
+        <DatosFicha>
           {a.cuando ? (
-            <Dato rotulo={t.cuando}>
+            <DatoFicha rotulo={t.cuando}>
               <time dateTime={a.cuandoIso}>{a.cuando}</time>
-            </Dato>
+            </DatoFicha>
           ) : null}
-          {a.lugar ? <Dato rotulo={t.lugar}>{a.lugar}</Dato> : null}
-          {a.costo ? <Dato rotulo={t.costo}>{a.costo}</Dato> : null}
-        </dl>
+          {a.lugar ? <DatoFicha rotulo={t.lugar}>{a.lugar}</DatoFicha> : null}
+          {a.costo ? <DatoFicha rotulo={t.costo}>{a.costo}</DatoFicha> : null}
+        </DatosFicha>
       ) : null}
       {a?.inscripcion ? (
         <p className="mt-8">
-          <a href={a.inscripcion} className={BOTON}>
+          <a href={a.inscripcion} className={BOTON_NARANJA}>
             {t.inscripcion}
           </a>
         </p>

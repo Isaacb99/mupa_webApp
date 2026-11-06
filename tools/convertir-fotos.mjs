@@ -6,7 +6,8 @@ if (!orig || !out) { console.error('Uso: node tools/convertir-fotos.mjs <carpeta
 // filtro (opcional): solo los archivos de salida cuyo nombre lo contiene ("hero-visitas", "visitas-"). Sin él se
 // regeneran todos los que tengan su original en la carpeta, y sharp puede dar otros bytes (otro hash en el build).
 // x0/x1: franja horizontal a conservar (fracción del ancho) antes de recortar al aspecto final; y0/y1, lo mismo en
-// vertical (los recortes del V04 vienen de los rectángulos de recorte del PDF, medidos con pdf.js).
+// vertical (los recortes del V04 vienen de los rectángulos de recorte del PDF, medidos con pdf.js); calidad (opcional):
+// la del WebP, si no es la de siempre.
 const JOBS = [
   ['IMG_1526.jpg',   'fachada-mupa-1920', 1920, 1280],
   ['IMG_1526.jpg',   'fachada-mupa-1280', 1280,  853],
@@ -86,10 +87,34 @@ const JOBS = [
   ['Carrusel - IMG_1817.jpg',     'visitas-accesibilidad-1200', 1200,  720, 0, 1, 0.05, 0.95],
   ['Carrusel - IMG_1817.jpg',     'visitas-accesibilidad-900',   900,  540, 0, 1, 0.05, 0.95],
   ['Carrusel - IMG_1817.jpg',     'visitas-accesibilidad-600',   600,  360, 0, 1, 0.05, 0.95],
+  // Los hero de Exposiciones, Novedades y Contacto (HeroPagina.jsx, 1440x480 a 1440; decisión R1 del desarrollador,
+  // 04/11/2026): el tablero no dibuja estas páginas, así que las fotos son nuestras (de la selección, sin repetir las
+  // que ya usa el sitio de master). 3:1 a todo el ancho del original, con los mismos cuatro anchos que hero-visitas.
+  // Exposiciones: el cráneo del carnívoro del hall (el eje narrativo de la landing), filas del 10 al 60 %: el h1 cae
+  // sobre el cráneo y las vértebras.
+  ['Id. Eje narrativo - IMG_2033.jpg', 'hero-exposiciones-2880', 2880, 960, 0, 1, 0.10, 0.60],
+  ['Id. Eje narrativo - IMG_2033.jpg', 'hero-exposiciones-1920', 1920, 640, 0, 1, 0.10, 0.60],
+  ['Id. Eje narrativo - IMG_2033.jpg', 'hero-exposiciones-1440', 1440, 480, 0, 1, 0.10, 0.60],
+  ['Id. Eje narrativo - IMG_2033.jpg', 'hero-exposiciones-960',   960, 320, 0, 1, 0.10, 0.60],
+  // Novedades: el taller grande con el equipo trabajando (IMG_1910, que hasta ahora no usaba ninguna página), filas del
+  // 20 al 70 %: el h1 sobre la pared, entre las ventanas redondas, y la gente debajo. Con calidad 75 (la novena
+  // columna): es una foto con mucho detalle y en 80 el de 2880 pesaba 241 kB (en 75, ~195; a la vista, igual).
+  ['IMG_1910.jpg',                'hero-novedades-2880',        2880,  960, 0, 1, 0.20, 0.70, 75],
+  ['IMG_1910.jpg',                'hero-novedades-1920',        1920,  640, 0, 1, 0.20, 0.70, 75],
+  ['IMG_1910.jpg',                'hero-novedades-1440',        1440,  480, 0, 1, 0.20, 0.70, 75],
+  ['IMG_1910.jpg',                'hero-novedades-960',          960,  320, 0, 1, 0.20, 0.70, 75],
+  // Contacto: la fachada con el cartel "Museo Paleontológico" (el hero de la landing, que master no usa), filas del
+  // 27,14 al 65 % (3:1 de un original de 6000x5283): el h1 sobre el cielo y las torres, y el cartel entero debajo (sus
+  // letras van del 54 al 62,2 % del original: el final, "…gico", baja con la pared curva). Hasta la corrección del
+  // rediseño (EST-03 de su verificación, 05/11/2026) iban del 24 al 61,9 % y el borde de abajo cortaba el "co".
+  ['Header - IMG_1526 v2.jpg',    'hero-contacto-2880',         2880,  960, 0, 1, 0.2714, 0.65],
+  ['Header - IMG_1526 v2.jpg',    'hero-contacto-1920',         1920,  640, 0, 1, 0.2714, 0.65],
+  ['Header - IMG_1526 v2.jpg',    'hero-contacto-1440',         1440,  480, 0, 1, 0.2714, 0.65],
+  ['Header - IMG_1526 v2.jpg',    'hero-contacto-960',           960,  320, 0, 1, 0.2714, 0.65],
 ];
 (async () => {
   let total = 0;
-  for (const [src, name, w, h, x0, x1, y0, y1] of JOBS) {
+  for (const [src, name, w, h, x0, x1, y0, y1, calidad] of JOBS) {
     if (filtro && !name.includes(filtro)) continue;
     // Cada tanda de originales llega por separado: los que no están en la carpeta se saltean.
     if (!existsSync(path.join(orig, src))) { console.log(`(sin ${src}: salteado ${name})`); continue; }
@@ -100,9 +125,10 @@ const JOBS = [
       const top = Math.round(m.height * (y0 ?? 0)), height = Math.round(m.height * ((y1 ?? 1) - (y0 ?? 0)));
       img = img.extract({ left, top, width, height });
     }
-    // El hero va a calidad 80 (es la foto más grande y la primera que se ve); el resto a 78.
+    // El hero va a calidad 80 (es la foto más grande y la primera que se ve); el resto a 78. Una foto puede traer la suya
+    // (la novena columna de JOBS).
     const info = await img.resize(w, h, { fit: 'cover', position: 'centre' })
-      .webp({ quality: name.startsWith('hero-') ? 80 : 78, effort: 5 }).toFile(path.join(out, name + '.webp'));
+      .webp({ quality: calidad ?? (name.startsWith('hero-') ? 80 : 78), effort: 5 }).toFile(path.join(out, name + '.webp'));
     total += info.size;
     console.log(`${(name + '.webp').padEnd(26)} ${info.width}x${info.height}  ${(info.size / 1024).toFixed(0)} KB`);
   }

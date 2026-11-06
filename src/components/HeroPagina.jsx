@@ -1,17 +1,21 @@
-import { TITULO_HERO } from './tablero.js'
+import { TITULO_HERO_PAGINA } from './tablero.js'
 
 // El hero de las páginas internas del tablero "Web" de la diseñadora (Figma: el de Visitas, nodo 2846:998, 03/11/2026;
 // decisión V7 del desarrollador). Lo usa Visitas y lo van a usar El Museo, Educación, Divulgación y Circuitos, que en el
-// tablero tienen el mismo (cada una con su foto y su título). Medidas a 1440:
+// tablero tienen el mismo (cada una con su foto y su título). Desde el 04/11/2026 (decisión R1) también Exposiciones,
+// Novedades y Contacto, que el tablero no dibuja, con fotos nuestras de la selección (content.js, fotoDeHero; las
+// fichas y la 404 van sin hero: tablero.js, TITULO_SIN_FOTO). Medidas a 1440:
 // - 480 de alto, sin esquinas redondeadas, con la foto a sangre: cubre el hero (object-cover; cada página da su foto ya
 //   recortada con el encuadre del tablero, en src/content.js, y su punto de interés, imagen.posicion: ver más abajo,
 //   "más allá de 1440"). Encima, el degradé del tablero: #0e100d al 75 % arriba que llega a 0 a los 527,5 px, el
 //   109,9 % del alto (la misma clase que el de la Home, HeroHome.jsx, que también llega a 0 en el 109,92 % de su
 //   alto). El header va encima, absolute (Header.jsx: la página declara sobreFoto).
 // - El h1 (el único de la página) centrado en una caja de 840 (x 300) que arranca a 208 px, 80 por debajo del header:
-//   TITULO_HERO de tablero.js (Google Sans Flex 755 con el ancho en 130 %, como lo dice el tablero: wght 755 y wdth 130
-//   leídos con use_figma; 64/72, crema, la sombra de 16 px al 25 % y un halo corto pegado a las letras). El corte de
-//   un título largo va en el texto ("\n": whitespace-pre-line), como en la Home.
+//   TITULO_HERO_PAGINA de tablero.js (Google Sans Flex 755 con el ancho en 130 %, como lo dice el tablero: wght 755 y
+//   wdth 130 leídos con use_figma; 64/72, crema, la sombra de 16 px al 25 % y un halo corto pegado a las letras). Es el
+//   de la Home con un paso intermedio entre 32rem y md (48 px) y guiones: con 64 desde 32rem, entre 512 y ~600 px (el
+//   zoom de un escritorio) «Exposiciones» se partía por la mitad (A11Y-01 de la verificación del rediseño de las
+//   internas, 05/11/2026). El corte de un título largo va en el texto ("\n": whitespace-pre-line), como en la Home.
 // - El hero mide 480 COMO MÍNIMO: con el espaciado de texto de WCAG 1.4.12 o la letra agrandada, el título crece y el
 //   hero con él (nada queda tapado ni cortado). Entre lg y 1440 mide lo mismo (los tamaños del tablero, como la Home) y
 //   más allá de 1440 sigue a sangre con 480 de alto.
@@ -23,7 +27,7 @@ import { TITULO_HERO } from './tablero.js'
 //   Hasta 1440 y con el hero más alto que la foto (la letra agrandada) no hay recorte vertical: solo cuenta la x.
 //   Sin posicion, centrada. Va en style (la CSP pública deja estilos en línea, como Foto.jsx).
 // - Debajo de lg no hay diseño (D2): el hero deja arriba el lugar del header (92 px en el celular, 108 desde md) y mide
-//   20rem como mínimo (el título, de 32 px debajo de 32rem, en el medio).
+//   20rem como mínimo (el título, de 30 px debajo de 32rem, en el medio).
 // - La foto es el LCP: sin lazy y con prioridad alta (React la precarga: <link rel="preload"> al principio del HTML).
 // - Colores forzados: el navegador saca los degradés (background-image) y la foto quedaría clara detrás del logo y los
 //   isotipos blancos del header (que sobre una foto no se invierten: Logo.jsx); la capa del degradé lleva
@@ -57,7 +61,7 @@ export default function HeroPagina({ id, titulo, imagen }) {
         />
         <div className="relative mx-auto max-w-tablero px-6 pt-32 pb-16 md:px-10 md:pt-40 lg:px-20 lg:pt-52">
           <div className="mx-auto lg:max-w-[52.5rem]">
-            <h1 id={id} className={`${TITULO_HERO} whitespace-pre-line`}>
+            <h1 id={id} className={`${TITULO_HERO_PAGINA} whitespace-pre-line`}>
               {titulo}
             </h1>
           </div>

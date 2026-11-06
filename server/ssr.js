@@ -20,6 +20,18 @@
 // - Cada página va en su archivo JS (src/Raiz.jsx, plan 6.2): render() es async (espera la página) y el <head> pide de
 //   antemano el archivo de la página y lo que comparte con otras (<link rel="modulepreload">, con el manifiesto del
 //   build: precargasDePaginas), así el navegador lo baja junto con el principal y no después.
+// - El orden del <head>, por el LCP (05/11/2026, el ajuste del LCP de las listas con la foto del hero): primero la
+//   precarga de la foto con prioridad (la del hero o la portada de una ficha: separarPrecargasConPrioridad), después lo
+//   de seo.js, el JS principal y el CSS (los pone Vite en la plantilla) y al final, antes de </head>, los
+//   modulepreload de la página. Con HTTP/1.1 el navegador abre 6 conexiones por servidor y las da en el orden en que
+//   encuentra los pedidos: con los modulepreload adelante (cinco archivos de 2 kB en las listas), el CSS y la foto del
+//   hero esperaban una conexión libre y pagaban dos veces la latencia (con la red lenta de tools/servir.mjs, el CSS
+//   salía 190 ms tarde). Los modulepreload no apuran nada: la página no se hidrata hasta que llega el principal, que es
+//   mucho más grande. Medido así, el primer pintado sale ~0,3 s antes en las listas y las fichas y el LCP queda igual
+//   o mejor en todas las páginas (en Visitas, donde el CSS ya salía primero, el primer pintado sale ~0,1 s después,
+//   porque arranca junto con la foto, y el LCP 0,16 a 0,35 s antes). Con HTTP/2 o HTTP/3 (el borde del hosting) hay
+//   una sola conexión y el orden lo pone la prioridad; a igual prioridad, un servidor que sigue el orden de los
+//   pedidos manda la foto antes que el JS principal.
 // - Desde E4.5, el formulario de contacto (server/contacto.js): cargar() recibe además contacto (¿se dibuja el
 //   formulario?), y POST /contacto vuelve a dibujar la página con dibujarPagina() (con lo escrito, los errores y
 //   no-store). El servicio va en ssr.contacto, para que la app use el mismo (server/app.js).
@@ -54,6 +66,32 @@ export function partir(plantilla, marcas = MARCAS) {
   }
   partes.push(plantilla.slice(desde))
   return partes
+}
+
+/**
+ * Las precargas de imágenes con prioridad que React pone al principio de lo que dibuja. renderToString no maneja el
+ * <head>: una imagen que no es lazy sale además como <link rel="preload" as="image" …/> antes del primer elemento de la
+ * página, y la del LCP (la que lleva fetchPriority="high": la foto del hero o la portada de una ficha) con
+ * fetchPriority="high". Devuelve [esas, lo dibujado sin ellas], para que la del LCP vaya al principio del <head>. Las
+ * otras etiquetas de ese principio (la precarga de los logos del header, que tampoco son lazy) quedan donde estaban.
+ * React no las hidrata (las saltea): sacarlas del #root no cambia la hidratación.
+ * @param {string} app  lo que devolvió render()
+ * @returns {[string, string]}
+ */
+export function separarPrecargasConPrioridad(app) {
+  let i = 0
+  let conPrioridad = ''
+  let otras = ''
+  // React escribe cada una como <link …/>, con los valores escapados (un ">" de un valor sale como &gt;).
+  while (app.startsWith('<link ', i)) {
+    const fin = app.indexOf('/>', i)
+    if (fin < 0) break
+    const etiqueta = app.slice(i, fin + 2)
+    if (/^<link rel="preload" as="image"[^>]* fetchPriority="high"/i.test(etiqueta)) conPrioridad += etiqueta
+    else otras += etiqueta
+    i = fin + 2
+  }
+  return [conPrioridad, otras + app.slice(i)]
 }
 
 /**
@@ -152,12 +190,18 @@ export function crearSsr({
     <link rel="modulepreload" crossorigin href="${escaparHtml(url)}" />`)
       .join('')
     const app = await render(JSON.parse(json))
+    // El orden del <head> (ver arriba): la foto con prioridad primero y los modulepreload al final, antes de </head>
+    // (después del JS principal y del CSS que puso Vite). Una plantilla sin </head> (no hay) los deja como antes.
+    const [fotos, dibujado] = separarPrecargasConPrioridad(app)
+    let cierre = antesApp.indexOf('</head>')
+    // Antes de los espacios que preceden a </head> (que el HTML quede prolijo).
+    while (cierre > 0 && /\s/.test(antesApp[cierre - 1])) cierre--
     const html =
       antesHead +
+      (fotos ? `${fotos}\n    ` : '') +
       armarHead(estado, { urlPublica: config.urlPublica, indexar: publico }) +
-      precarga +
-      antesApp +
-      app +
+      (cierre < 0 ? precarga + antesApp : antesApp.slice(0, cierre) + precarga + antesApp.slice(cierre)) +
+      dibujado +
       antesEstado +
       `<script id="estado" type="application/json">${json}</script>` +
       final
