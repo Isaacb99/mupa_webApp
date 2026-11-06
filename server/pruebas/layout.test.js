@@ -40,6 +40,11 @@
 // Google Maps" y el formulario con los campos, el botón y los avisos del tablero en todos sus estados (errores, 429,
 // 503 con el cuadro de solo lectura, "Recibimos tu mensaje"); la 404 como las fichas, con el título sin foto y las
 // secciones como enlaces con flecha.
+// Desde Divulgación (06/11/2026, DV1 a DV10): Divulgación en el menú, el del celular, el pie y la 404, con aria-current;
+// su hero con la bajada (el texto a 168, la caja de 932, la bajada a 16 con el halo) y sobreFoto; "Últimas noticias"
+// con 0, 1 y 6 novedades; los cuatro bloques de texto y foto y el newsletter con los textos del tablero; ningún control
+// sin destino (DV9: "Coordinar visita" a Contacto, y como texto sin esa página; las actividades y los "enlaces" de las
+// tarjetas, como texto); el límite de los guiones en los h1 de los hero (DV4) y HeroPagina sin bajada como antes.
 import assert from 'node:assert/strict'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -233,7 +238,7 @@ describe('Layout, header, menú y pie (sin base)', () => {
     const modulo = await vite.ssrLoadModule('/src/Raiz.jsx')
     Raiz = modulo.default
     // Desde E4 cada página va en su archivo (src/Raiz.jsx): se cargan antes, como hacen el servidor y el navegador.
-    for (const nombre of ['home', 'visitas', 'exposiciones', 'muestra', 'novedades', 'novedad', 'contacto', 'no-encontrada', 'rara']) {
+    for (const nombre of ['home', 'visitas', 'divulgacion', 'exposiciones', 'muestra', 'novedades', 'novedad', 'contacto', 'no-encontrada', 'rara']) {
       paginasCargadas[nombre] = await modulo.cargarPagina(nombre)
     }
     Header = (await vite.ssrLoadModule('/src/components/Header.jsx')).default
@@ -270,8 +275,8 @@ describe('Layout, header, menú y pie (sin base)', () => {
   const sinDialogo = (html) => html.replace(/<dialog[\s\S]*?<\/dialog>/g, '')
   // Las direcciones de los enlaces de un pedazo de HTML, en orden.
   const hrefs = (html) => [...html.matchAll(/<a href="([^"]*)"/g)].map((m) => m[1])
-  const SECCIONES_QUE_EXISTEN = ['/visitas', '/exposiciones', '/novedades', '/contacto']
-  const SECCIONES_FUTURAS = ['/el-museo', '/divulgacion', '/educacion', '/circuitos']
+  const SECCIONES_QUE_EXISTEN = ['/visitas', '/divulgacion', '/exposiciones', '/novedades', '/contacto']
+  const SECCIONES_FUTURAS = ['/el-museo', '/educacion', '/circuitos']
 
   test('la Home con el museo vacío: header absolute, menú con las secciones que existen, pie sin redes ni compra', () => {
     const html = pagina({ pagina: 'home', museo: MUSEO_VACIO })
@@ -290,6 +295,9 @@ describe('Layout, header, menú y pie (sin base)', () => {
     // dibuja su carrusel ni "Ver todas las novedades"); las secciones cuya página todavía no existe, en ningún lado.
     assert.equal(cuantas(html, 'href="/visitas"'), 4)
     assert.equal(cuantas(delHeader(html), 'href="/visitas"'), 2)
+    // Divulgación (desde el 06/11/2026), en el menú ancho, en el del celular y en el pie.
+    assert.equal(cuantas(html, 'href="/divulgacion"'), 3)
+    assert.equal(cuantas(delHeader(html), 'href="/divulgacion"'), 2)
     for (const ruta of ['/exposiciones', '/novedades', '/contacto']) assert.equal(cuantas(html, `href="${ruta}"`), 1, ruta)
     for (const ruta of SECCIONES_FUTURAS) assert.equal(cuantas(html, `href="${ruta}"`), 0, ruta)
     // Sin el selector de idioma del tablero.
@@ -364,6 +372,14 @@ describe('Layout, header, menú y pie (sin base)', () => {
     // Las demás, sin span ni subrayado (solo al pasar el puntero).
     assert.match(header('/'), /<a href="\/visitas" class="[^"]* decoration-1 underline-offset-\[0\.4em\] hover:underline">Visitas<\/a>/)
     assert.equal(cuantas(header('/visitas/algo'), 'aria-current="true"'), 2)
+    // Divulgación (desde el 06/11/2026): la suya, en el menú ancho y en el del celular, con el subrayado naranja.
+    const divulgacion = header('/divulgacion')
+    assert.equal(cuantas(divulgacion, 'aria-current="page"'), 2)
+    assert.match(
+      divulgacion,
+      /<a href="\/divulgacion" aria-current="page" class="[^"]* decoration-ink [^"]*"><span class="underline decoration-naranja[^"]*">Divulgación<\/span><\/a>/,
+    )
+    assert.match(divulgacion, /<a href="\/visitas" class="[^"]* hover:underline">Visitas<\/a>/)
     assert.equal(cuantas(header('/'), 'aria-current'), 0)
     assert.equal(cuantas(header('/visitasx'), 'aria-current'), 0)
     // Exposiciones no va en el menú del header: su ficha marca la sección solo en el pie.
@@ -386,15 +402,15 @@ describe('Layout, header, menú y pie (sin base)', () => {
     const delMenu = (html) => secciones(hrefs(sinDialogo(delHeader(html))))
     const delMenuMovil = (html) => secciones(hrefs(/<dialog[\s\S]*?<\/dialog>/.exec(html)[0]))
     const navDelPie = (html) => hrefs(parte(delPie(html), `<nav aria-label="${contenido.pie.secciones}"`, '</nav>'))
-    // Hoy: Visitas en el menú; en el pie, las del menú que existen y después las demás.
+    // Hoy: Visitas y Divulgación en el menú; en el pie, las del menú que existen y después las demás.
     let html = pagina({ pagina: 'visitas', ruta: '/visitas', museo: MUSEO_VACIO })
-    assert.deepEqual(delMenu(html), ['/visitas'])
-    assert.deepEqual(delMenuMovil(html), ['/visitas'])
+    assert.deepEqual(delMenu(html), ['/visitas', '/divulgacion'])
+    assert.deepEqual(delMenuMovil(html), ['/visitas', '/divulgacion'])
     assert.deepEqual(navDelPie(html), SECCIONES_QUE_EXISTEN)
-    assert.deepEqual(navegacionDelSitio.seccionesDelMenu().map((s) => s.ruta), ['/visitas'])
+    assert.deepEqual(navegacionDelSitio.seccionesDelMenu().map((s) => s.ruta), ['/visitas', '/divulgacion'])
     // Con las cuatro páginas del tablero construidas (sin tocar el header ni el pie): todas, en el orden del tablero.
     const futuras = navegacion.menu.filter((s) => !Object.hasOwn(tabla.PAGINAS, s.pagina)).map((s) => s.pagina)
-    assert.deepEqual(futuras, ['el-museo', 'divulgacion', 'educacion', 'circuitos'])
+    assert.deepEqual(futuras, ['el-museo', 'educacion', 'circuitos'])
     try {
       for (const p of futuras) tabla.PAGINAS[p] = async () => ({ default: () => null })
       html = pagina({ pagina: 'visitas', ruta: '/visitas', museo: MUSEO_VACIO })
@@ -410,11 +426,13 @@ describe('Layout, header, menú y pie (sin base)', () => {
     } finally {
       for (const p of futuras) delete tabla.PAGINAS[p]
     }
-    assert.deepEqual(delMenu(pagina({ pagina: 'visitas', ruta: '/visitas', museo: MUSEO_VACIO })), ['/visitas'])
+    assert.deepEqual(delMenu(pagina({ pagina: 'visitas', ruta: '/visitas', museo: MUSEO_VACIO })), ['/visitas', '/divulgacion'])
     // Sin ninguna sección ni compra, el menú no se dibuja (ni el botón "Menú" del celular).
     const visitas = tabla.PAGINAS.visitas
+    const divulgacion = tabla.PAGINAS.divulgacion
     try {
       delete tabla.PAGINAS.visitas
+      delete tabla.PAGINAS.divulgacion
       const vacio = renderToStaticMarkup(createElement(Header, { ruta: '/', compra: null }))
       assert.equal(cuantas(vacio, '<nav'), 0)
       assert.equal(cuantas(vacio, 'menu-movil'), 0)
@@ -423,6 +441,7 @@ describe('Layout, header, menú y pie (sin base)', () => {
       assert.equal(cuantas(conCompra, 'data-entradas'), 2)
     } finally {
       tabla.PAGINAS.visitas = visitas
+      tabla.PAGINAS.divulgacion = divulgacion
     }
   })
 
@@ -1294,6 +1313,7 @@ describe('Layout, header, menú y pie (sin base)', () => {
     const casos = {
       hero: h1De(pagina({ pagina: 'exposiciones', ruta: '/exposiciones', museo: MUSEO_VACIO, datos: { muestras: [], salas: [] } })),
       visitas: h1De(pagina({ pagina: 'visitas', ruta: '/visitas', museo: MUSEO_VACIO, datos: { accesibilidad: null } })),
+      divulgacion: h1De(pagina({ pagina: 'divulgacion', ruta: '/divulgacion', museo: MUSEO_VACIO, datos: { novedades: [] } })),
       ficha: h1De(pagina({ pagina: 'muestra', ruta: '/exposiciones/x', museo: MUSEO_VACIO, datos: { titulo: 'Herrerasaurus ischigualastensis' } })),
       noEncontrada: h1De(pagina({ pagina: 'no-encontrada', ruta: '/no-existe', museo: MUSEO_VACIO })),
     }
@@ -1301,6 +1321,12 @@ describe('Layout, header, menú y pie (sin base)', () => {
       for (const t of tamanos) assert.ok(clases.includes(t), `${nombre}: ${t} en ${clases.join(' ')}`)
       assert.ok(!clases.includes('min-[32rem]:text-[4rem]') && !clases.some((c) => /vw|clamp/.test(c)), `${nombre}: ${clases.join(' ')}`)
     }
+    // Los guiones con al menos 5 letras a cada lado, en los h1 de los hero (DV4, 06/11/2026: «divulgación científica»
+    // en tres renglones no se parte «cien- / tífica»); en el título de una ficha (lo carga el museo) y en el de la 404
+    // (TITULO_SIN_FOTO), sin ese límite.
+    const limite = '[hyphenate-limit-chars:auto_5_5]'
+    for (const nombre of ['hero', 'visitas', 'divulgacion']) assert.ok(casos[nombre].includes(limite), nombre)
+    for (const nombre of ['ficha', 'noEncontrada']) assert.ok(!casos[nombre].includes(limite), nombre)
     // El de la Home no cambió (sus palabras entran desde 32rem): 32 y 64 desde 32rem.
     const home = clasesDe(pagina({ pagina: 'home', museo: MUSEO_VACIO, datos: { novedades: [] } }), /<h1 id="home-titulo" class="([^"]*)"/)
     assert.ok(home.includes('text-[2rem]') && home.includes('min-[32rem]:text-[4rem]'), home.join(' '))
@@ -1647,6 +1673,176 @@ describe('Layout, header, menú y pie (sin base)', () => {
     main = contacto({ ...MUSEO_VACIO, mapaUrl: 'https://example.com/mapa' })
     assert.equal(cuantas(main, '<iframe'), 0)
     assert.match(main, /<div class="mt-12"><p><a href="https:\/\/example\.com\/mapa" class="inline-flex min-h-11 /)
+  })
+
+  // --- Divulgación (tablero "Web" de la diseñadora, Figma 2857:5439, 06/11/2026; decisiones DV1 a DV10) ---
+
+  const divulgacionCon = (novedades = [], museo = MUSEO_VACIO) =>
+    pagina({ pagina: 'divulgacion', ruta: '/divulgacion', museo, datos: { novedades } })
+  /** Lo que no tiene que aparecer nunca: el selector de idioma, las erratas del tablero y el texto de "pendiente". */
+  const NUNCA_EN_DIVULGACION = ['Contenido pendiente', 'Es (Arg)', 'Tikets', 'Ultimas', 'MuPA', 'manipulado', 'para si ']
+  /** Los enlaces de un pedazo de HTML: cada <a> con su href (o null si no tiene). */
+  const anclas = (html) => [...html.matchAll(/<a\b([^>]*)>/g)].map((m) => /\shref="([^"]*)"/.exec(m[1])?.[1] ?? null)
+
+  test('Divulgación (DV1, DV4, DV5): el hero con la bajada, sobreFoto, sin novedades sin "Últimas noticias"', () => {
+    const { hero } = contenido.divulgacion
+    const html = divulgacionCon()
+    const main = delMain(html)
+    assert.equal(cuantas(html, '<h1'), 1)
+    assert.equal(cuantas(html, '<footer'), 1)
+    // El h1 con su corte de renglón, la foto con prioridad, sus cuatro anchos, el alt, la posicion y el degradé.
+    assert.ok(main.includes(`<h1 id="divulgacion-titulo" class="`))
+    assert.ok(main.includes(`>${hero.titulo}</h1>`))
+    assert.ok(hero.titulo.includes('\n'))
+    comprobarHero(main, 'divulgacion-titulo', hero.titulo, hero.imagen)
+    const heroHtml = seccion(main, 'divulgacion-titulo')
+    // La bajada: un <p> debajo del h1, a 16 (mt-4), en la caja de 840, con el halo de la de la Home (A11Y-01).
+    const bajada = new RegExp(`<p class="([^"]*)">${hero.bajada}</p>`).exec(heroHtml)
+    assert.ok(bajada, 'la bajada')
+    const clasesBajada = bajada[1].split(' ')
+    for (const c of ['mt-4', 'lg:max-w-[52.5rem]', 'text-[1.25rem]', 'min-[32rem]:text-[2rem]', 'lg:leading-[1.75]', SOMBRA_BAJADA]) {
+      assert.ok(clasesBajada.includes(c), `${c} en ${bajada[1]}`)
+    }
+    assert.ok(heroHtml.indexOf('</h1>') < heroHtml.indexOf(hero.bajada))
+    // El texto arranca a 168 (no a 208) y la caja del h1 mide 932 (no 840).
+    const texto = clasesDe(heroHtml, /<div class="(relative mx-auto max-w-tablero [^"]*)"/)
+    assert.ok(texto.includes('lg:pt-[10.5rem]') && !texto.includes('lg:pt-52'), texto.join(' '))
+    const caja = clasesDe(heroHtml, /<div class="(mx-auto lg:max-w-[^"]*)"/)
+    assert.deepEqual(caja, ['mx-auto', 'lg:max-w-[58.25rem]'])
+    // Sin novedades, sin "Últimas noticias" (la página sale igual, DV3).
+    assert.equal(cuantas(html, 'novedades-titulo'), 0)
+    assert.equal(cuantas(html, contenido.divulgacion.noticias.titulo), 0)
+    // sobreFoto: los logos del header no se invierten con colores forzados (A11Y-08).
+    for (const img of logosDelHeader(html)) assert.ok(!img.includes('data-logo-blanco'), img.slice(0, 120))
+    for (const texto of NUNCA_EN_DIVULGACION) assert.equal(cuantas(html, texto), 0, texto)
+  })
+
+  test('Divulgación (DV1, DV9, DV10): los cuatro bloques de texto y foto y el newsletter, con los textos del tablero', () => {
+    const { bloques, newsletter } = contenido.divulgacion
+    const main = delMain(divulgacionCon())
+    // Las secciones, en el orden del tablero, cada una con su h2.
+    const ids = ['divulgacion-titulo', ...bloques.map((b) => b.id), 'divulgacion-newsletter']
+    const orden = ids.map((id) => main.indexOf(`<section aria-labelledby="${id}"`))
+    assert.ok(orden.every((i, n) => i >= 0 && (n === 0 || i > orden[n - 1])), orden.join(', '))
+    assert.equal(cuantas(main, '<section'), ids.length)
+    assert.equal(cuantas(main, '<h2'), bloques.length + 1)
+    for (const b of bloques) {
+      const html = seccion(main, b.id)
+      // El rótulo (en mayúsculas por CSS) y, 24 abajo, el h2 Thin 64 con su corte de renglón.
+      assert.match(html, new RegExp(`<p class="font-mono text-sm leading-5 font-medium text-paper uppercase">${b.rotulo}</p>`), b.id)
+      const h2 = new RegExp(`<h2 id="${b.id}" class="([^"]*)">([^<]*)</h2>`).exec(html)
+      assert.ok(h2, b.id)
+      assert.equal(h2[2], b.titulo)
+      for (const c of ['font-thin', 'min-[32rem]:text-[4rem]', 'mt-6', 'whitespace-pre-line']) assert.ok(h2[1].split(' ').includes(c), `${b.id}: ${c}`)
+      // Los párrafos, la nota en gris.
+      for (const parrafo of b.parrafos) {
+        const clase = parrafo.secundario ? 'text-muted' : 'text-paper'
+        assert.match(html, new RegExp(`<p class="text-lg leading-\\[1\\.875rem\\] font-normal ${clase} [^"]*">${parrafo.texto}</p>`), parrafo.texto)
+      }
+      // Dos columnas de 600 con 80 entre sí desde lg; la foto 10:7 con esquinas de 16, lazy y con prioridad baja.
+      assert.ok(html.includes('<div class="mt-12 grid gap-8 lg:grid-cols-2 lg:gap-x-20">'), b.id)
+      const fotos = html.match(/<img [^>]*>/g)
+      assert.equal(fotos.length, 1, b.id)
+      for (const a of ['loading="lazy"', 'decoding="async"', 'fetchPriority="low"', `alt="${b.imagen.alt}"`, 'aspect-[10/7]', 'rounded-2xl', 'object-cover']) {
+        assert.ok(fotos[0].includes(a), `${b.id}: ${a}`)
+      }
+    }
+    // Infraestructura: la lista con la viñeta de 6 px, 12 entre ítems, y "Coordinar visita" a Contacto (DV9).
+    const infra = seccion(main, 'divulgacion-infraestructura')
+    const lista = /<ul class="([^"]*)">((?:<li>[^<]*<\/li>)+)<\/ul>/.exec(infra)
+    assert.ok(lista, 'la lista')
+    assert.deepEqual([...lista[2].matchAll(/<li>([^<]*)<\/li>/g)].map((m) => m[1]), bloques[0].lista)
+    // (React escribe "&" y ">" de los atributos como entidades.)
+    const clasesLista = lista[1].replaceAll('&amp;', '&').replaceAll('&gt;', '>').split(' ')
+    for (const c of ['[&>li]:before:size-1.5', '[&>li]:before:rounded-full', 'gap-3', 'text-base', 'leading-6']) assert.ok(clasesLista.includes(c), c)
+    assert.match(infra, /<a href="\/contacto" class="inline-flex min-h-11 [^"]* -my-2 self-start">Coordinar visita<svg [^>]*aria-hidden="true"/)
+    // El laboratorio: las cuatro actividades como texto con la flecha (sin destino: DV9), ni enlaces ni botones.
+    const lab = seccion(main, 'divulgacion-laboratorio')
+    const acciones = [...lab.matchAll(/<li class="flex items-center gap-2 font-mono text-base leading-\[1\.8\] text-blanco">([^<]*)<svg [^>]*aria-hidden="true"/g)]
+    assert.deepEqual(acciones.map((m) => m[1]), bloques[1].acciones)
+    assert.equal(cuantas(lab, '<a'), 0)
+    assert.equal(cuantas(lab, '<button'), 0)
+    // Investigaciones: el h2 en dos renglones (el "\n" del tablero, whitespace-pre-line) y el párrafo del laboratorio.
+    assert.ok(seccion(main, 'divulgacion-investigaciones').includes('>Investigaciones recientes\ndel equipo MuPa - UNSJ</h2>'))
+    // Contenido multimedial: el texto con su corte de renglón, sin video ni enlace.
+    const multimedial = seccion(main, 'divulgacion-multimedial')
+    assert.ok(multimedial.includes('>Entrevistas con científicos:\nConocé quiénes son los científicos detrás del laboratorio triásico.</p>'))
+    assert.equal(cuantas(multimedial, '<a'), 0)
+    assert.equal(cuantas(multimedial, '<iframe'), 0)
+    // El newsletter: el h2 sin rótulo, la bajada en gris a 16, tres tarjetas con el ícono en naranja en su cuadrado, el
+    // rótulo en un h3, el texto en gris y el "enlace" como texto (DV9); sin campo, botón ni formulario.
+    const news = seccion(main, 'divulgacion-newsletter')
+    assert.match(news, new RegExp(`<h2 id="divulgacion-newsletter" class="[^"]*font-thin[^"]*">${newsletter.titulo}</h2><p class="text-lg leading-7 font-normal text-muted mt-4 max-w-none">${newsletter.bajada}</p>`))
+    assert.equal(cuantas(news, 'font-mono text-sm leading-5 font-medium text-paper uppercase'), 0)
+    const tarjetas = [...news.matchAll(/<li class="([^"]*)"><span class="flex size-12 [^"]*bg-caja[^"]*"><svg [^>]*class="shrink-0 size-6 text-naranja"[\s\S]*?<\/svg><\/span><div class="flex flex-col gap-2"><h3 class="font-mono text-xs [^"]*">([^<]*)<\/h3><p class="text-base [^"]*text-muted[^"]*">([^<]*)<\/p><\/div><p class="flex items-center gap-2 font-mono text-sm leading-5 font-normal text-paper">([^<]*)<svg [^>]*aria-hidden="true"/g)]
+    assert.deepEqual(tarjetas.map((m) => [m[2], m[3], m[4]]), newsletter.tarjetas.map((t) => [t.titulo, t.texto, t.accion]))
+    for (const m of tarjetas) for (const c of ['lg:px-6', 'lg:py-10', 'xl:px-10', 'gap-6']) assert.ok(m[1].split(' ').includes(c), c)
+    assert.ok(news.includes('<ul class="mt-12 grid gap-10 lg:grid-cols-3">'))
+    for (const t of ['<a', '<button', '<input', '<form']) assert.equal(cuantas(news, t), 0, t)
+    // DV9: en todo el <main>, ningún enlace sin destino ni con "#" (sin novedades, el único es "Coordinar visita"), y
+    // ningún botón (sin novedades no hay carrusel).
+    assert.deepEqual(anclas(main), ['/contacto'])
+    assert.equal(cuantas(main, '<button'), 0)
+    // Encabezados: un h1, un h2 por sección (sin novedades, cinco) y un h3 por tarjeta del newsletter.
+    assert.equal(cuantas(main, '<h3'), 3)
+    for (const texto of NUNCA_EN_DIVULGACION) assert.equal(cuantas(main, texto), 0, texto)
+  })
+
+  test('Divulgación (DV9): sin la página de Contacto, "Coordinar visita" va como texto (ningún control sin destino)', () => {
+    const contactoPagina = tabla.PAGINAS.contacto
+    try {
+      delete tabla.PAGINAS.contacto
+      const infra = seccion(delMain(divulgacionCon()), 'divulgacion-infraestructura')
+      assert.equal(cuantas(infra, '<a'), 0)
+      assert.match(infra, /<p class="flex items-center gap-2 font-mono text-base leading-\[1\.8\] text-blanco">Coordinar visita<svg [^>]*aria-hidden="true"/)
+    } finally {
+      tabla.PAGINAS.contacto = contactoPagina
+    }
+  })
+
+  test('Divulgación (DV2): con una novedad, la tarjeta sin botones; con seis, "Últimas noticias" con la bajada de la Home y "1/6"', () => {
+    const { noticias } = contenido.divulgacion
+    const textos = contenido.home.novedades
+    // Una: la sección con su tarjeta, sin flechas ni contador.
+    const una = seccion(delMain(divulgacionCon([novedad(1)])), 'novedades-titulo')
+    assert.match(una, new RegExp(`<h2 id="novedades-titulo"[^>]*>${noticias.titulo}</h2>`))
+    assert.equal(cuantas(una, '<li '), 1)
+    assert.equal(cuantas(una, '<button'), 0)
+    // Seis: el h2 "Últimas noticias" con el id de la Home, la bajada de la Home, "Ver todas las novedades" a /novedades
+    // y el contador "1/6"; entre el hero y el primer bloque.
+    const seis = [1, 2, 3, 4, 5, 6].map((n) => novedad(n))
+    const html = divulgacionCon(seis)
+    const main = delMain(html)
+    const s = seccion(main, 'novedades-titulo')
+    assert.match(s, new RegExp(`<h2 id="novedades-titulo" class="[^"]*">${noticias.titulo}</h2>`))
+    assert.ok(s.includes(`>${textos.bajada}</p>`))
+    assert.match(s, new RegExp(`<a href="/novedades" class="[^"]*">${textos.verTodas}<svg`))
+    assert.match(s, /<p aria-hidden="true" class="[^"]*">1(<!-- -->)?\/(<!-- -->)?6<\/p>/)
+    assert.equal(cuantas(s, '<article'), 6)
+    const i = (id) => main.indexOf(`aria-labelledby="${id}"`)
+    assert.ok(i('divulgacion-titulo') < i('novedades-titulo') && i('novedades-titulo') < i('divulgacion-infraestructura'))
+    // Ningún enlace sin destino ni con "#": las seis novedades, "Ver todas las novedades" y "Coordinar visita".
+    const enlaces = anclas(main)
+    assert.ok(enlaces.every((h) => h && h !== '#' && h.startsWith('/')), enlaces.join(', '))
+    assert.deepEqual(enlaces, ['/novedades', ...seis.map((n) => n.url), '/contacto'])
+    assert.equal(cuantas(main, '<h2'), 6)
+    assert.equal(cuantas(html, '<h1'), 1)
+    for (const texto of NUNCA_EN_DIVULGACION) assert.equal(cuantas(html, texto), 0, texto)
+  })
+
+  test('HeroPagina sin bajada (Visitas, Exposiciones, Novedades y Contacto): las clases de siempre y ningún <p> en el hero', () => {
+    const casos = {
+      'visitas-titulo': pagina({ pagina: 'visitas', ruta: '/visitas', museo: MUSEO_VACIO, datos: { accesibilidad: null } }),
+      'exposiciones-titulo': pagina({ pagina: 'exposiciones', ruta: '/exposiciones', museo: MUSEO_VACIO, datos: { muestras: [], salas: [] } }),
+      'novedades-titulo': pagina({ pagina: 'novedades', ruta: '/novedades', museo: MUSEO_VACIO, datos: { proximas: [], noticias: [], pagina: 1, paginas: 1 } }),
+      'contacto-titulo': pagina({ pagina: 'contacto', ruta: '/contacto', museo: MUSEO_VACIO, datos: { ...SIN_AVISOS, formulario: false } }),
+    }
+    for (const [id, html] of Object.entries(casos)) {
+      const hero = seccion(delMain(html), id)
+      assert.ok(hero.includes(`<h1 id="${id}"`), id)
+      assert.ok(hero.includes('<div class="relative mx-auto max-w-tablero px-6 pt-32 pb-16 md:px-10 md:pt-40 lg:px-20 lg:pt-52"><div class="mx-auto lg:max-w-[52.5rem]"><h1'), id)
+      assert.equal(cuantas(hero, '<p'), 0, id)
+    }
   })
 })
 

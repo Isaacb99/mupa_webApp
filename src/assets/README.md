@@ -18,6 +18,7 @@ para `srcset`), ya recortado al aspecto de su celda cuando hizo falta. Tres orí
 | hero-exposiciones-{960,1440,1920,2880} | V04 "Id. Eje narrativo - IMG_2033" (el cráneo del carnívoro del hall, 6000x4000; en la landing, el eje Eje narrativo de Identidad, que master no usa), 3:1 a todo el ancho, filas del 10 al 60 % (`tools/convertir-fotos.mjs`, WebP 80). El tablero no dibuja esta página: la foto es nuestra (decisión R1 del desarrollador, 04/11/2026; las candidatas y por qué esta, en `tools/salida/e6-restyle/impl-listas/fotos/candidatas.md`, no versionado) | Hero de Exposiciones (HeroPagina.jsx, srcset; su punto de interés, el cráneo, en `paginas.exposiciones.imagen` de content.js) |
 | hero-novedades-{960,1440,1920,2880} | "IMG_1910" de la selección (el taller grande con el equipo trabajando, 6000x4000; hasta ahora no la usaba ninguna página), 3:1 a todo el ancho, filas del 20 al 70 %, WebP 75 (con mucho detalle: en 80 el de 2880 pesaba 241 kB) | Hero de Novedades (HeroPagina.jsx, srcset; `paginas.novedades.imagen`) |
 | hero-contacto-{960,1440,1920,2880} | V04 "Header - IMG_1526 v2" (la fachada con el cartel "Museo Paleontológico", 6000x5283; el hero de la landing, que master no usa), 3:1 a todo el ancho, filas del 27,14 al 65 %: el cielo y las torres arriba (el h1) y el cartel entero abajo (sus letras, del 54 al 62,2 % del original; hasta la corrección del rediseño, EST-03 del 05/11/2026, filas del 24 al 61,9 %, que cortaban el "co" del final) | Hero de Contacto (HeroPagina.jsx, srcset; `contacto.imagen`) |
+| hero-divulgacion-{960,1440,1920,2880} | "Mosaico - IMG_7822" de la selección (el restaurador entre los huesos, 6000x4000; la foto 1 del mosaico de Obra de la landing, que master no usaba), 3:1 a todo el ancho, filas del 20 al 70 %: el h1 sobre los huesos fuera de foco y la mano, y la cara a la derecha del primer renglón (decisión DV6, 06/11/2026; la del tablero, de campo, mide 1000 px, no está en la selección y es la misma de Circuitos: pedir el original al museo) | Hero de Divulgación (HeroPagina.jsx, srcset; `divulgacion.hero.imagen`) |
 | mapa-museo.svg | Tablero "Web": "Group 4" (2999:6555, el plano bordó con los nombres de los espacios) de "Mapa del Museo", exportado en SVG con `download_assets`; sin los id ni los atributos del export en la raíz y con las coordenadas redondeadas a 2 decimales (91 → 77 kB, 19 kB con Brotli; rasterizado al doble, 381 píxeles de 2,9 millones cambian algo: `tools/salida/e6-impl-b/herr/svg-limpiar.mjs`, no versionado) | "Mapa del Museo" de la Home (MapaMuseo.jsx). Los nombres del dibujo son trazados: van además como texto en `home.mapa.espacios` de content.js |
 | patron-galeria.svg | Tablero "Web": las piedritas de "El MuPa en imágenes" (2629:2321, 406x460 con trazo crema #EBE3DE de 2 px), exportadas y limpiadas igual que el plano (7,3 → 6,2 kB). Es el dibujo de patron-a.svg, pero a otra escala y con otro grosor de trazo | "El MuPa en imágenes" de la Home (GaleriaHome.jsx): arriba a la izquierda y, girado, abajo a la derecha |
 | logo-mupa-marca.svg | Figma, header (nodo 2318:4776) | Header y pie (la marca MuPa de 120x40 del tablero "Web", 02/11/2026); también en las bandas de Áreas, como máscara en color |
@@ -37,7 +38,7 @@ para `srcset`), ya recortado al aspecto de su celda cuando hizo falta. Tres orí
 | obra-fachada-{500,1000} | Figma "08 1" | Mosaico, foto 3 (derecha) |
 | obra-montaje-sala-{500,1000} | Figma "09 1" | Mosaico, foto 4 (abajo) |
 | obra-soldador-{390,780} | V04 "Mosaico - IMG_1085", franja x 28,3..74,5 %, y 1,7..100 % | Mosaico, foto 5 (vertical, derecha) |
-| area-ciencia-570 | V04 "Acordeon - Ciencia" (920x633: no da para la versión de 1140; pedir el original al museo) | Área Ciencia |
+| area-ciencia-570 | V04 "Acordeon - Ciencia" (920x633: no da para la versión de 1140; pedir el original al museo) | Área Ciencia (landing); desde el 06/11/2026, en master, la foto de los cuatro bloques de Divulgación (600x420 con object-cover: con 570 px no llega a los 600 de la caja ni a una pantalla de densidad 2; relleno del tablero, `fotoDeBloque` de content.js) |
 | area-educacion-570 / -1140 | Museo, 22/09/2026 (magnific_mejorar_nVhF3TGYQD.png) | Área Educación |
 | area-produccion-570 / -1140 | V04 "Acordeon - Produccion" (render nocturno), recorte x 15,5..79,2 % | Área Producción |
 | area-formalab-570 / -1140 | Museo, 22/09/2026 (lab.png) | Área Forma Lab |
@@ -52,16 +53,18 @@ Paleontológico / San Juan · Argentina" del logo de 458 px del V04; el header n
 
 Las fotos de la selección que usa master, para no repetirlas en un hero nuevo (R1): el pincel (IMG_1862, el hero de
 Visitas y el carrusel), la mano con el torno (IMG_1817, "Museo accesible" y el carrusel), el cráneo del hall
-(IMG_2033, Exposiciones), el taller grande (IMG_1910, Novedades), la fachada con el cartel (IMG_1526, Contacto) y las
+(IMG_2033, Exposiciones), el taller grande (IMG_1910, Novedades), la fachada con el cartel (IMG_1526, Contacto), el
+restaurador entre los huesos (IMG_7822, Divulgación, desde el 06/11/2026) y las
 otras tres del carrusel de «El MuPa en imágenes» (IMG_1648, IMG_2001 e IMG_1605); la del hero de la Home no es de la
-selección. Sin usar en master: IMG_7735, IMG_8110, IMG_7746, IMG_7822, IMG_1085, IMG_1676, IMG_1613 y las dos del
-acordeón.
+selección; la de "Acordeon - Ciencia" va, como relleno del tablero, en los bloques de Divulgación (area-ciencia-570).
+Sin usar en master: IMG_7735, IMG_8110, IMG_7746, IMG_1085, IMG_1676, IMG_1613 y la otra del acordeón (Producción).
 
 Sin uso en master desde la Home del tablero "Web" (02/11/2026: reemplaza a la landing, que sigue en la rama `landing`):
 lo de la landing que la Home nueva ya no muestra. Sus componentes (Hero, Intro, Identidad, ObraHistorica, Areas) quedan
 sin importarse hasta el cierre, donde se decide si se borran: hero-fachada-*, eje-*, mid-fachada-piedra-*, obra-*,
-area-*, logo-formalab.svg y patron-a/b/c.svg. De la landing siguen en uso las cinco fotos del carrusel (carrusel-*: "El
-MuPa en imágenes", Collage.jsx) y los logos de la UNSJ y de Gobierno (el pie).
+area-* (salvo area-ciencia-570: desde el 06/11/2026, la foto de relleno de los bloques de Divulgación),
+logo-formalab.svg y patron-a/b/c.svg. De la landing siguen en uso las cinco fotos del carrusel (carrusel-*: "El MuPa en
+imágenes", Collage.jsx) y los logos de la UNSJ y de Gobierno (el pie).
 
 Antes de borrar alguno al cierre: fuera del sitio los siguen usando la portada del manual del panel (logo-mupa-texto.svg,
 en `docs/manual/manual.html`), las fotos de ejemplo de `tools/manual.mjs` (eje-narrativo-1400, eje-vision-1400,

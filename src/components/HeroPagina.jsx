@@ -1,10 +1,10 @@
-import { TITULO_HERO_PAGINA } from './tablero.js'
+import { BAJADA_HERO_PAGINA, TITULO_HERO_PAGINA } from './tablero.js'
 
 // El hero de las páginas internas del tablero "Web" de la diseñadora (Figma: el de Visitas, nodo 2846:998, 03/11/2026;
-// decisión V7 del desarrollador). Lo usa Visitas y lo van a usar El Museo, Educación, Divulgación y Circuitos, que en el
-// tablero tienen el mismo (cada una con su foto y su título). Desde el 04/11/2026 (decisión R1) también Exposiciones,
-// Novedades y Contacto, que el tablero no dibuja, con fotos nuestras de la selección (content.js, fotoDeHero; las
-// fichas y la 404 van sin hero: tablero.js, TITULO_SIN_FOTO). Medidas a 1440:
+// decisión V7 del desarrollador). Lo usan Visitas y, desde el 06/11/2026, Divulgación (con bajada), y lo van a usar El
+// Museo, Educación y Circuitos, que en el tablero tienen el mismo (cada una con su foto y su título). Desde el 04/11/2026
+// (decisión R1) también Exposiciones, Novedades y Contacto, que el tablero no dibuja, con fotos nuestras de la
+// selección (content.js, fotoDeHero; las fichas y la 404 van sin hero: tablero.js, TITULO_SIN_FOTO). Medidas a 1440:
 // - 480 de alto, sin esquinas redondeadas, con la foto a sangre: cubre el hero (object-cover; cada página da su foto ya
 //   recortada con el encuadre del tablero, en src/content.js, y su punto de interés, imagen.posicion: ver más abajo,
 //   "más allá de 1440"). Encima, el degradé del tablero: #0e100d al 75 % arriba que llega a 0 a los 527,5 px, el
@@ -32,15 +32,32 @@ import { TITULO_HERO_PAGINA } from './tablero.js'
 // - Colores forzados: el navegador saca los degradés (background-image) y la foto quedaría clara detrás del logo y los
 //   isotipos blancos del header (que sobre una foto no se invierten: Logo.jsx); la capa del degradé lleva
 //   forced-color-adjust: none, como en la Home (A11Y-05).
-// - Sin bajada: en el tablero la llevan Divulgación y Circuitos (Regular 32/56, con el título a 168 en vez de 208); se
-//   suma con esas páginas.
+// - La bajada (opcional, prop bajada; desde Divulgación, 06/11/2026, DV4: Figma 2857:5440): en el tablero la llevan
+//   Divulgación y Circuitos. Con bajada, a 1440, el texto arranca a 168 en vez de 208 (lg:pt-[10.5rem]), la caja del h1
+//   mide 932 (58,25rem, x 254) en vez de 840 («divulgación científica» mide 870,7 px a 64 con nuestra fuente: en 840 iba
+//   en tres renglones) y la bajada va 16 debajo del h1, en su caja de 840 (BAJADA_HERO_PAGINA de tablero.js: la de la
+//   Home, con su halo). 168 + 144 + 16 + 56 + 64 (pb-16) = 448, dentro de los 480. Entre 1024 y 1030 px el contenido
+//   mide 864 y el h1 va en tres renglones de palabras enteras («Investigación y / divulgación / científica»): se acepta
+//   (DV4) y el hero crece (mide 480 como mínimo). El degradé es el común (el tablero de Divulgación lo lleva a 0 a los
+//   344 px: desvío a confirmar con la diseñadora). Circuitos lleva la bajada en 32/40: se ajusta con esa página.
+//   Las clases van en constantes estáticas (TEXTO, TEXTO_CON_BAJADA, CAJA y CAJA_CON_BAJADA: nada pegado a una
+//   interpolación) y, sin bajada, el HTML es el mismo que antes, byte a byte (Visitas, Exposiciones, Novedades y
+//   Contacto).
+
+/** El bloque del texto: el lugar del header arriba y, desde lg, el h1 a 208 (sin bajada) o a 168 (con bajada). */
+const TEXTO = 'relative mx-auto max-w-tablero px-6 pt-32 pb-16 md:px-10 md:pt-40 lg:px-20 lg:pt-52'
+const TEXTO_CON_BAJADA = 'relative mx-auto max-w-tablero px-6 pt-32 pb-16 md:px-10 md:pt-40 lg:px-20 lg:pt-[10.5rem]'
+/** La caja del h1: 840 (sin bajada) o 932 (con bajada). */
+const CAJA = 'mx-auto lg:max-w-[52.5rem]'
+const CAJA_CON_BAJADA = 'mx-auto lg:max-w-[58.25rem]'
 
 /**
- * @param {{ id: string, titulo: string, imagen: { src: string, srcSet: string, sizes: string, ancho: number,
- *   alto: number, alt: string, posicion?: string } }} props  id: el del h1 (lo nombra la sección con
- *   aria-labelledby); imagen.posicion: el punto de interés de la foto como object-position ("50% 80%"; sin él, centrada)
+ * @param {{ id: string, titulo: string, bajada?: string | null, imagen: { src: string, srcSet: string, sizes: string,
+ *   ancho: number, alto: number, alt: string, posicion?: string } }} props  id: el del h1 (lo nombra la sección con
+ *   aria-labelledby); bajada: el texto debajo del h1 (opcional); imagen.posicion: el punto de interés de la foto como
+ *   object-position ("50% 80%"; sin él, centrada)
  */
-export default function HeroPagina({ id, titulo, imagen }) {
+export default function HeroPagina({ id, titulo, bajada = null, imagen }) {
   return (
     <section aria-labelledby={id} className="relative">
       <div className="relative min-h-[20rem] overflow-hidden lg:min-h-[30rem]">
@@ -59,11 +76,12 @@ export default function HeroPagina({ id, titulo, imagen }) {
           aria-hidden="true"
           className="absolute inset-0 bg-[linear-gradient(to_bottom,rgb(14_16_13/0.75),rgb(14_16_13/0)_109.92%)] forced-color-adjust-none"
         />
-        <div className="relative mx-auto max-w-tablero px-6 pt-32 pb-16 md:px-10 md:pt-40 lg:px-20 lg:pt-52">
-          <div className="mx-auto lg:max-w-[52.5rem]">
+        <div className={bajada ? TEXTO_CON_BAJADA : TEXTO}>
+          <div className={bajada ? CAJA_CON_BAJADA : CAJA}>
             <h1 id={id} className={`${TITULO_HERO_PAGINA} whitespace-pre-line`}>
               {titulo}
             </h1>
+            {bajada ? <p className={BAJADA_HERO_PAGINA}>{bajada}</p> : null}
           </div>
         </div>
       </div>

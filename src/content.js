@@ -86,6 +86,10 @@ import heroContacto960 from './assets/hero-contacto-960.webp'
 import heroContacto1440 from './assets/hero-contacto-1440.webp'
 import heroContacto1920 from './assets/hero-contacto-1920.webp'
 import heroContacto2880 from './assets/hero-contacto-2880.webp'
+import heroDivulgacion960 from './assets/hero-divulgacion-960.webp'
+import heroDivulgacion1440 from './assets/hero-divulgacion-1440.webp'
+import heroDivulgacion1920 from './assets/hero-divulgacion-1920.webp'
+import heroDivulgacion2880 from './assets/hero-divulgacion-2880.webp'
 
 // srcSet de las fotos del carrusel, con versión de 700 y de 1400 px.
 const doble = (chica, grande) => `${chica} 700w, ${grande} 1400w`
@@ -486,6 +490,162 @@ export const visitas = {
         icono: 'neurodivergencia',
         titulo: 'Neurodivergencia',
         texto: 'Mochilas con elementos intuitivos y sábados distendidos, disponibles de forma permanente.',
+      },
+    ],
+  },
+}
+
+// La foto de los cuatro bloques de Divulgación: la que les puso la diseñadora en el tablero, la paleontóloga con la
+// cuadrícula de hilos (area-ciencia-570 de la landing, del V04 "Acordeon - Ciencia", 920x633). Va en 600x420 (10:7) con
+// object-cover (BloqueTextoFoto.jsx); con 570 px no llega ni a los 600 de la caja (se estira un 5 %) ni a los 1200 de
+// una pantalla de densidad 2: pedir el original o fotos propias de cada bloque (pregunta 14 al museo).
+// RELLENO DEL TABLERO: la misma foto en los cuatro bloques (y en la tarjeta 1 de las noticias del tablero), de la banda
+// Ciencia de la landing; la destraba la pregunta 14 de tools/salida/e6-divulgacion/prep/preguntas-museo.md (fotos del
+// laboratorio, del campo y de los investigadores). sizes: el de "Museo accesible" (la mitad del contenido desde lg).
+const fotoDeBloque = {
+  src: areaCiencia570,
+  srcSet: `${areaCiencia570} 570w`,
+  sizes: '(min-width: 90rem) 600px, (min-width: 64rem) calc((100vw - 15rem) / 2), calc(100vw - 3rem)',
+  ancho: 570,
+  alto: 567,
+  alt: 'Paleontóloga registrando un hallazgo en el campo con una cuadrícula de hilos sobre el fósil',
+}
+
+// El párrafo del laboratorio (de la nota de contenido del tablero, Figma 2857:5751), con las erratas evidentes
+// corregidas ("manipulado" -> "manipulando", "si" -> "su" y el punto final que le faltaba). El final, "…y estudios para
+// cosas", queda como está: está sin terminar y no se completa (DV1).
+// RELLENO DEL TABLERO: borrador de la nota; lo destraba la pregunta 8 (preguntas-museo.md: el museo cierra la frase o
+// aprueba la versión que le propusimos). En el tablero va también, copiado, en "Investigaciones recientes" (pregunta 10).
+const parrafoDelLaboratorio =
+  'El MuPa cuenta con un laboratorio de preparación y estudio de fósiles observable desde el espacio de exhibición. ' +
+  'Los visitantes podrán ver en tiempo real a científicos de la UNSJ manipulando fósiles para su correcta conservación ' +
+  'y estudios para cosas.'
+
+// RELLENO DEL TABLERO: la nota gris de "Visitas escolares" de Educación (Figma 2846:1561), copiada en Infraestructura y
+// en el Laboratorio; no está en la nota de Divulgación. La destraban las preguntas 7 y 9 (preguntas-museo.md).
+const notaDeEducacion = 'Contactanos para coordinar fecha, horario y requerimientos esenciales.'
+
+// Divulgación (src/paginas/Divulgacion.jsx): la página del tablero "Web" (Figma 2857:5439; decisiones DV1 a DV10 del
+// desarrollador, 06/11/2026). Va COMPLETA, como el tablero (DV1): el hero, "Últimas noticias", los cuatro bloques de
+// texto y foto y "NEWSLETTER" con sus tres tarjetas, con los textos y las fotos del tablero aunque varios sean relleno
+// (copiado de Educación) o borrador. Es una excepción a D13 y al plan 6.1 SOLO para esta página, hasta que el museo
+// mande lo suyo (DV10: cada texto o foto de relleno o en borrador lleva al lado un comentario que empieza con
+// "RELLENO DEL TABLERO:", con de dónde viene y qué pregunta de tools/salida/e6-divulgacion/prep/preguntas-museo.md lo
+// destraba; antes del corte del dominio, se reemplaza o se saca). Lo que es de la nota de contenido de la página
+// (Figma 2857:5751) es texto del museo: el título y la bajada, "Últimas noticias", los títulos de los bloques, los
+// rótulos de Investigaciones y Contenido multimedial, las cuatro actividades del laboratorio, el texto de Contenido
+// multimedial y el del newsletter. Las erratas evidentes, corregidas: la bajada empezaba con un espacio, el h2 decía
+// "Ultimas Noticias" (la nota: "Últimas noticias"), "Laboratorio Abierto MuPA" ("MuPa") y las del párrafo del
+// laboratorio (más arriba). La bajada del carrusel, "Ver todas las novedades" y "leer más" son los de la Home
+// (home.novedades). Ningún control sin destino (DV9): "Coordinar visita" lleva a Contacto (enlace.pagina; si esa página
+// no existiera, iría como texto) y las actividades del laboratorio y los "enlaces" de las tarjetas van como texto.
+export const divulgacion = {
+  // La foto (DV6): la del tablero (de campo, 1000x993, la misma de Circuitos) no alcanza para el hero y no está en la
+  // Selección; va el restaurador entre los huesos (Mosaico - IMG_7822, la foto 1 del mosaico de Obra de la landing, ya
+  // publicada en mupa.ar), 3:1 con las filas del 20 al 70 % (tools/convertir-fotos.mjs). posicion: el ojo del
+  // restaurador (al 79 % del ancho y el 44 % del alto del recorte); con '50% 42%' queda a la derecha del primer renglón
+  // del h1 (con '79%', a 1024 quedaba debajo de la «y»). El alt es el de la landing (a validar con el museo, preguntas 14
+  // y 38: el original de la foto del tablero y el permiso de la persona).
+  hero: {
+    titulo: 'Investigación y\ndivulgación científica', // "\n": el corte del tablero, como en la Home
+    bajada: 'Del MuPa y la Universidad Nacional de San Juan',
+    imagen: fotoDeHero(
+      [heroDivulgacion960, heroDivulgacion1440, heroDivulgacion1920, heroDivulgacion2880],
+      '50% 42%',
+      'Persona del equipo de restauración trabajando con un pincel entre los huesos de un esqueleto',
+    ),
+  },
+  // "Últimas noticias" (DV2): las mismas 6 últimas novedades publicadas de la Home (server/paginas.js,
+  // cargarDivulgacion). La pregunta 6 (preguntas-museo.md): ¿todas, o solo las de ciencia?
+  noticias: { titulo: 'Últimas noticias' },
+  // Los cuatro bloques de texto y foto (BloqueTextoFoto.jsx), en el orden del tablero.
+  bloques: [
+    {
+      id: 'divulgacion-infraestructura',
+      rotulo: 'Divulgación científica', // del tablero (no está en la nota); las mayúsculas, por CSS
+      titulo: 'Infraestructura científica', // de la nota
+      // RELLENO DEL TABLERO: el cuerpo entero (el párrafo, la nota gris, la lista y "Coordinar visita") es una copia
+      // palabra por palabra de "Visitas escolares" de Educación (Figma 2846:1561); lo destraba la pregunta 7
+      // (preguntas-museo.md: el texto de "Infraestructura científica").
+      parrafos: [
+        {
+          texto:
+            'Traé a tu escuela al MuPa y viajá con tus estudiantes al Triásico. Nuestros guías especializados adaptan ' +
+            'el recorrido al nivel de cada grupo, inicial, primaria, secundaria y nivel superior.',
+        },
+        { texto: notaDeEducacion, secundario: true },
+      ],
+      lista: ['Nivel inicial', 'Primaria', 'Secundaria', 'Nivel superior'],
+      // A Contacto (DV9): en el tablero no tiene destino.
+      enlace: { texto: 'Coordinar visita', pagina: 'contacto' },
+      imagen: fotoDeBloque,
+    },
+    {
+      id: 'divulgacion-laboratorio',
+      rotulo: 'Divulgación científica', // del tablero (no está en la nota)
+      titulo: 'Laboratorio Abierto MuPa', // de la nota ("MuPA" en el tablero: errata)
+      parrafos: [{ texto: parrafoDelLaboratorio }, { texto: notaDeEducacion, secundario: true }],
+      // De la nota ("Botones"), sin destino en el archivo: van como texto, con la flecha (DV9), hasta que el museo diga
+      // adónde llevan (pregunta 9 de preguntas-museo.md). En el tablero el cuarto lleva otra flecha: un descuido.
+      acciones: [
+        'Preparación de fósiles',
+        'Documentación científica',
+        'Visitas guiadas al laboratorio',
+        'Redacción de papers científicos',
+      ],
+      imagen: fotoDeBloque,
+    },
+    {
+      id: 'divulgacion-investigaciones',
+      rotulo: 'Publicaciones científicas', // de la nota ("PUBLICACIONES CIENTÍFICAS"); las mayúsculas, por CSS
+      titulo: 'Investigaciones recientes\ndel equipo MuPa - UNSJ', // de la nota; "\n": el corte del tablero
+      // RELLENO DEL TABLERO: el párrafo es el del laboratorio, copiado (y en borrador); lo destraba la pregunta 10
+      // (preguntas-museo.md: ¿un texto o una lista de publicaciones?).
+      parrafos: [{ texto: parrafoDelLaboratorio }],
+      imagen: fotoDeBloque,
+    },
+    {
+      id: 'divulgacion-multimedial',
+      rotulo: 'Canal digital', // de la nota ("CANAL DIGITAL")
+      titulo: 'Contenido multimedial', // de la nota
+      // De la nota, pero anuncia entrevistas que no están: ni video, ni enlace (pregunta 11 de preguntas-museo.md: si
+      // existen y dónde). "\n": el corte del tablero; sin el espacio que tenía al final.
+      parrafos: [
+        { texto: 'Entrevistas con científicos:\nConocé quiénes son los científicos detrás del laboratorio triásico.' },
+      ],
+      imagen: fotoDeBloque,
+    },
+  ],
+  // "NEWSLETTER" (Figma 2857:5575): el h2 sin rótulo, la bajada en gris y tres tarjetas de recursos con el ícono en
+  // naranja. El newsletter no tiene campo ni botón en el tablero y no se inventa ninguno (DV9): el sitio no tiene listas
+  // de correo y la suscripción está fuera del alcance (pregunta 13 de preguntas-museo.md: si el museo usa un servicio,
+  // alcanza con un enlace). "Entérate" va como en la nota y el tablero, de tú (el sitio usa el vos: a confirmar con el
+  // museo).
+  newsletter: {
+    titulo: 'NEWSLETTER',
+    bajada:
+      'Entérate de las últimas noticias, descubrimientos, actividades del museo directamente en tu casilla de correo.',
+    // RELLENO DEL TABLERO: las tres tarjetas son las de "Recursos educativos" de Educación (Figma 2846:1561), copiadas;
+    // no están en la nota de Divulgación. Sus "enlaces" no tienen destino: van como texto (DV9). Las destraban las
+    // preguntas 13 (el newsletter) y 28 (los recursos educativos) de preguntas-museo.md.
+    tarjetas: [
+      {
+        icono: 'descarga',
+        titulo: 'Guías didácticas',
+        texto: 'Material educativo descargable para docentes: nivel inicial, primaria, secundaria y universidad.',
+        accion: 'Ver guías',
+      },
+      {
+        icono: 'video',
+        titulo: 'Videos educativos',
+        texto: 'Contenido audiovisual sobre paleontología y geología del Triásico: conferencias y documentales.',
+        accion: 'Ver videos',
+      },
+      {
+        icono: 'enlace',
+        titulo: 'Biblioteca digital',
+        texto: 'Acceso a publicaciones científicas del MuPa: artículos, libros y tesis.',
+        accion: 'Explorar',
       },
     ],
   },

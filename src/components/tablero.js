@@ -2,8 +2,8 @@
 // escritorio, a 1440): las comparten el header, el pie, la Home nueva y las páginas que vayan tomando el diseño (desde
 // el 03/11/2026, Visitas; desde el 04/11/2026, Exposiciones, Novedades y las fichas de una muestra y de una novedad, y
 // desde el 05/11/2026 Contacto y la 404, que el tablero no dibuja y toman su lenguaje: decisiones R1 a R7 del
-// desarrollador, más abajo). Desde entonces ninguna página usa las de estilos.js (las usan solo componentes que quedaron
-// sin uso: se decide al cierre, D1).
+// desarrollador, más abajo; desde el 06/11/2026, Divulgación: DV1 a DV10). Desde entonces ninguna página usa las de
+// estilos.js (las usan solo componentes que quedaron sin uso: se decide al cierre, D1).
 // Medidas del tablero a 1440, con los tokens de src/index.css (max-w-tablero, ink #010101, paper #eae2df, blanco, muted
 // #88858e, naranja #eb622d): contenido de 1280 con 80 de margen, 80 de aire arriba y abajo de cada sección, títulos
 // Google Sans Flex Thin 64/79,5, párrafos Regular 18/30 (no hay Light 300 ni espaciado entre letras en el tablero),
@@ -84,13 +84,35 @@ export const TITULO_HERO =
  */
 
 /**
- * El h1 del hero de una página interna (HeroPagina.jsx: Visitas, Exposiciones, Novedades y Contacto; las que vengan,
- * del tablero): TITULO_HERO con los tamaños de las internas (ver arriba) y con guiones donde el navegador sabe partir.
+ * El h1 del hero de una página interna (HeroPagina.jsx: Visitas, Divulgación, Exposiciones, Novedades y Contacto; las
+ * que vengan, del tablero): TITULO_HERO con los tamaños de las internas (ver arriba) y con guiones donde el navegador
+ * sabe partir.
+ * Los guiones, con al menos 5 letras a cada lado ([hyphenate-limit-chars:auto_5_5], desde Divulgación, 06/11/2026,
+ * DV4): un navegador con el diccionario de castellano (Firefox y Safari lo traen; Chrome lo baja aparte) parte con guion
+ * la palabra que no entra en el renglón aunque entre entera en el siguiente, y en los anchos donde «Investigación y
+ * divulgación científica» va en tres renglones (de 1024 a 1030 px, y debajo de lg) salía «divulgación cien- / tífica».
+ * Con 5 y 5, «científica» no tiene dónde partirse y «divulgación» (que siempre empieza renglón y entra entera desde
+ * ~270 px) tampoco se parte; las palabras que de verdad no entran se siguen partiendo («Exposi-ciones»,
+ * «Paleon-tológicos»: A11Y-01 del rediseño). Lo soportan Chrome desde la 109 y Firefox desde la 137; Safari no (corta
+ * con sus reglas). TITULO_SIN_FOTO (el título de una ficha, que carga el museo) no lo lleva.
  */
 export const TITULO_HERO_PAGINA =
   'font-hero text-[1.875rem] leading-[1.125] font-[weight:755] [font-stretch:130%] min-[32rem]:text-[3rem] ' +
-  'md:text-[4rem] text-center text-paper text-wrap hyphens-auto wrap-break-word ' +
+  'md:text-[4rem] text-center text-paper text-wrap hyphens-auto [hyphenate-limit-chars:auto_5_5] wrap-break-word ' +
   '[text-shadow:0_0_1rem_rgb(0_0_0/0.25),0_0_0.0625em_rgb(1_1_1/0.9),0_0_0.125em_rgb(1_1_1/0.7)]'
+
+/**
+ * La bajada debajo del h1 del hero de una página interna (HeroPagina.jsx, prop bajada: Divulgación, y después
+ * Circuitos; Figma 2857:5749, 06/11/2026): la de la Home (HeroHome.jsx, que la tiene escrita ahí y no cambia), Regular
+ * 32/56 crema y centrada desde lg (32/48 entre 32rem y lg, 20/30 debajo), con la sombra del tablero y el halo oscuro
+ * pegado a las letras de la Home (A11Y-01: tres sombras de 0,125, 0,25 y 0,5 em; el tablero tiene solo la de 16 px). A
+ * 16 del h1 (en la Home, a 32) y en una caja de 840 (la del h1, con bajada, mide 932). Circuitos la tiene en 32/40: se
+ * ajusta con esa página.
+ */
+export const BAJADA_HERO_PAGINA =
+  'mx-auto mt-4 max-w-none text-center text-[1.25rem] leading-normal font-normal text-paper ' +
+  '[text-shadow:0_0_1rem_rgb(0_0_0/0.25),0_0_0.125em_rgb(1_1_1/0.9),0_0_0.25em_rgb(1_1_1/0.8),0_0_0.5em_rgb(1_1_1/0.5)] ' +
+  'min-[32rem]:text-[2rem] lg:max-w-[52.5rem] lg:leading-[1.75]'
 
 /*
  * Los párrafos llevan text-wrap: pretty (text-pretty): el navegador evita que el último renglón quede con una sola
@@ -135,8 +157,9 @@ export const BOTON_NARANJA =
   'focus-visible:outline-blanco'
 
 /*
- * Las tarjetas con ícono (Visitas: Dirección, Horarios y Contacto, y los cuatro recursos de "Museo accesible"; en el
- * tablero también los recursos de Educación y Divulgación). El tablero les pone el fondo de la página (#010101): no se
+ * Las tarjetas con ícono (Visitas: Dirección, Horarios y Contacto, y los cuatro recursos de "Museo accesible"; desde el
+ * 06/11/2026 las tres de "NEWSLETTER" de Divulgación, con el ícono en naranja; en el tablero también los recursos de
+ * Educación). El tablero les pone el fondo de la página (#010101): no se
  * ven como caja, solo queda su padding (40, y 32 en las de accesibilidad), que corre el texto respecto del título. Lo
  * de adentro: el ícono en su cuadrado, el rótulo (ROTULO_TARJETA) y el texto en gris.
  */

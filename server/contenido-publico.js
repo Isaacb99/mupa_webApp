@@ -1,7 +1,8 @@
 // Lo que el sitio público lee de los contenidos (E4.2 a E4.4 y el sitemap de E4.6; plan 3.2, 6.1 y 6.3): las muestras,
 // las salas y las novedades PUBLICADAS, con sus portadas y galerías. Lo usan las páginas (server/paginas.js, por la
 // tabla de server/rutas-publicas.js) y el sitemap (server/ssr.js). Desde la Home del tablero "Web" (02/11/2026),
-// también la Home: las últimas novedades para su carrusel (ultimasNovedades), con un tope más corto.
+// también la Home, y desde el 06/11/2026 Divulgación: las últimas novedades para su carrusel (ultimasNovedades), con un
+// tope más corto.
 //
 // Reglas:
 // - Solo lo publicado (estado = 'publicado'): un borrador no existe para el sitio (su dirección da 404).
@@ -28,13 +29,15 @@ export const TOPE_CONTENIDO_MS = 4_000
 /** Las noticias de cada página de /novedades (plan 6.1). */
 export const NOVEDADES_POR_PAGINA = 12
 /**
- * Las novedades del carrusel de la Home (tablero "Web" de la diseñadora, 02/11/2026): su contador dice "1/6", así que
- * van las 6 últimas publicadas.
+ * Las novedades del carrusel de la Home (tablero "Web" de la diseñadora, 02/11/2026) y de "Últimas noticias" de
+ * Divulgación (06/11/2026, las mismas: DV2): su contador dice "1/6", así que van las 6 últimas publicadas. El nombre
+ * dice "la Home" y se queda así: lo importan las pruebas.
  */
 export const NOVEDADES_EN_LA_HOME = 6
 /**
- * Cuánto espera la Home a sus novedades: lo mismo que espera al museo (TOPE_MUSEO_MS de server/museo.js). Las dos
- * lecturas van a la vez, así una base colgada no demora la Home más que antes; pasado el tope, sale sin el carrusel.
+ * Cuánto esperan la Home y Divulgación a sus novedades: lo mismo que espera al museo (TOPE_MUSEO_MS de server/museo.js).
+ * Las dos lecturas van a la vez, así una base colgada no demora la página más que antes; pasado el tope, sale sin el
+ * carrusel.
  */
 export const TOPE_HOME_MS = 2_000
 /** Cuántos textos validados se recuerdan (por su md5). */
@@ -286,11 +289,12 @@ export function crearLectorPublico(sequelize, { tope = TOPE_CONTENIDO_MS } = {})
     },
 
     /**
-     * Las últimas novedades publicadas para el carrusel de la Home (tablero "Web", 02/11/2026): noticias y actividades
+     * Las últimas novedades publicadas para el carrusel de la Home (tablero "Web", 02/11/2026) y el de Divulgación
+     * (06/11/2026): noticias y actividades
      * juntas, de la más nueva a la más vieja por la fecha de publicación (la que da el panel al publicar), sin las
      * actividades ya realizadas (como en /novedades: lo realizado tiene su página pero no se lista, plan 6.1). Solo lo
      * que dibuja la tarjeta: título, dirección, resumen y portada. Espera TOPE_HOME_MS (o `tope`): pasado, tira
-     * BASE_NO_DISPONIBLE y la Home sale sin el carrusel (server/paginas.js, cargarHome).
+     * BASE_NO_DISPONIBLE y la página sale sin el carrusel (server/paginas.js, cargarHome y cargarDivulgacion).
      * @param {{ ahora: Date, cantidad?: number, tope?: number }} opciones
      */
     async ultimasNovedades({ ahora, cantidad = NOVEDADES_EN_LA_HOME, tope: ms = TOPE_HOME_MS }) {

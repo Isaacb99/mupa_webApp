@@ -172,11 +172,11 @@ export function rutasDeContenido(tipo) {
   const evento = (accion) => `${def.singular}_${accion}`
   const idDelLog = `${def.singular}_id`
   // Las páginas del sitio que cambian con un contenido publicado (IndexNow): la suya y el listado; una sala no tiene
-  // página propia (es una sección de /exposiciones). Una novedad cambia además la Home, que muestra las últimas
-  // (tablero "Web" de la diseñadora, 02/11/2026: server/paginas.js, cargarHome).
+  // página propia (es una sección de /exposiciones). Una novedad cambia además la Home y Divulgación, que muestran las
+  // últimas (tablero "Web" de la diseñadora, 02/11/2026 y 06/11/2026: server/paginas.js, cargarHome y cargarDivulgacion).
   const paginasDelSitio = (slug) => {
     if (tipo === 'salas') return ['/exposiciones']
-    if (tipo === 'novedades') return [urlPublica(tipo, slug), '/novedades', '/']
+    if (tipo === 'novedades') return [urlPublica(tipo, slug), '/novedades', '/', '/divulgacion']
     return [urlPublica(tipo, slug), '/exposiciones']
   }
 

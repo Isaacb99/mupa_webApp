@@ -111,6 +111,14 @@ const JOBS = [
   ['Header - IMG_1526 v2.jpg',    'hero-contacto-1920',         1920,  640, 0, 1, 0.2714, 0.65],
   ['Header - IMG_1526 v2.jpg',    'hero-contacto-1440',         1440,  480, 0, 1, 0.2714, 0.65],
   ['Header - IMG_1526 v2.jpg',    'hero-contacto-960',           960,  320, 0, 1, 0.2714, 0.65],
+  // Divulgación (tablero 2857:5440: su foto, de campo, mide 1000 px, no está en la Selección y es la misma de Circuitos;
+  // decisión DV6 del desarrollador, 06/11/2026): el restaurador entre los huesos (la foto 1 del mosaico de Obra de la
+  // landing, que master no usa), 3:1 a todo el ancho, filas del 20 al 70 %: el h1 sobre los huesos fuera de foco y la
+  // mano, y la cara a la derecha del primer renglón.
+  ['Mosaico - IMG_7822.jpg',      'hero-divulgacion-2880',      2880,  960, 0, 1, 0.20, 0.70],
+  ['Mosaico - IMG_7822.jpg',      'hero-divulgacion-1920',      1920,  640, 0, 1, 0.20, 0.70],
+  ['Mosaico - IMG_7822.jpg',      'hero-divulgacion-1440',      1440,  480, 0, 1, 0.20, 0.70],
+  ['Mosaico - IMG_7822.jpg',      'hero-divulgacion-960',        960,  320, 0, 1, 0.20, 0.70],
 ];
 (async () => {
   let total = 0;

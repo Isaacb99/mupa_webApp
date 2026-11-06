@@ -8,7 +8,8 @@
 // (server/contenido-publico.js); museo(): la lectura del museo de ese pedido, { museo, alDia } (server/museo.js);
 // contacto: el formulario de contacto (server/contacto.js), para saber si se dibuja.
 // Devuelve los datos, null (404 real) o redirigir(destino) (301). Si la base falla, la consulta tira
-// BASE_NO_DISPONIBLE y la página sale con la 503 simple (server/ssr.js).
+// BASE_NO_DISPONIBLE y la página sale con la 503 simple (server/ssr.js), salvo la Home y Divulgación, que salen sin el
+// carrusel de novedades (ultimasNovedadesPara).
 //
 // Reglas del plan 6.1: un borrador da 404 (el lector no lo ve); lo finalizado o realizado da 200 en su página pero no
 // se lista; una sección sin contenido no se dibuja (las listas vacías y los textos null los saltea cada página).
@@ -57,13 +58,14 @@ const salaDe = (sala) => (sala ? { nombre: sala.nombre, url: urlPublica('salas',
 // --- La Home (tablero "Web" de la diseñadora, 02/11/2026) ---
 
 /**
- * /: las últimas novedades publicadas para el carrusel (server/contenido-publico.js, ultimasNovedades: 6, sin las
- * actividades realizadas), como tarjetas { titulo, url, resumen, portada }. Lo demás de la Home está en src/content.js
- * y el museo (la compra externa, para "Tickets") va aparte en el estado.
- * La Home sale siempre (plan 6.3): si la base falla o no contesta en TOPE_HOME_MS, sin novedades, y la sección no se
- * dibuja; nunca la 503. Cualquier otra falla al leerlas, igual (queda en el log).
+ * Las últimas novedades publicadas para un carrusel (server/contenido-publico.js, ultimasNovedades: 6, sin las
+ * actividades realizadas), como tarjetas { titulo, url, resumen, portada }: lo que leen la Home y Divulgación.
+ * Si la base falla o no contesta en TOPE_HOME_MS, o cualquier otra falla al leerlas, devuelve { novedades: [] } y lo
+ * anota en el log con `evento` (home_sin_novedades, divulgacion_sin_novedades): la página sale igual, sin el carrusel,
+ * y nunca la 503.
+ * @param {string} evento el evento del log
  */
-export async function cargarHome({ ahora, lector }) {
+async function ultimasNovedadesPara(evento, { ahora, lector }) {
   try {
     const novedades = await lector.ultimasNovedades({ ahora })
     return {
@@ -76,11 +78,29 @@ export async function cargarHome({ ahora, lector }) {
     }
   } catch (err) {
     // Con el mensaje de la causa: hay fallas de la base sin código ("timeout expired" con la base muda).
-    if (err?.code === 'BASE_NO_DISPONIBLE') log('aviso', 'home_sin_novedades', { mensaje: err.mensajeCausa, codigo: err.causa })
-    else log('error', 'home_sin_novedades', err)
+    if (err?.code === 'BASE_NO_DISPONIBLE') log('aviso', evento, { mensaje: err.mensajeCausa, codigo: err.causa })
+    else log('error', evento, err)
     return { novedades: [] }
   }
 }
+
+/**
+ * /: las últimas novedades publicadas para el carrusel (ultimasNovedadesPara). Lo demás de la Home está en
+ * src/content.js y el museo (la compra externa, para "Tickets") va aparte en el estado.
+ * La Home sale siempre (plan 6.3): si la base falla o no contesta en TOPE_HOME_MS, sin novedades, y la sección no se
+ * dibuja; nunca la 503. Cualquier otra falla al leerlas, igual (queda en el log: home_sin_novedades).
+ */
+export const cargarHome = (ctx) => ultimasNovedadesPara('home_sin_novedades', ctx)
+
+// --- Divulgación (tablero "Web" de la diseñadora, 06/11/2026; decisiones DV1 a DV10) ---
+
+/**
+ * /divulgacion: las mismas últimas novedades que la Home, para "Últimas noticias" (DV2). Lo demás de la página está en
+ * src/content.js (divulgacion) y no lee el museo (la compra, para "Tickets", va en el estado común). Como la Home, sale
+ * siempre: si la base falla o no contesta en TOPE_HOME_MS, sin novedades (la sección no se dibuja) y con
+ * divulgacion_sin_novedades en el log; nunca la 503 (DV3).
+ */
+export const cargarDivulgacion = (ctx) => ultimasNovedadesPara('divulgacion_sin_novedades', ctx)
 
 /**
  * /exposiciones: las muestras actuales, próximas y permanentes publicadas (como tarjetas: { titulo, url, resumen,

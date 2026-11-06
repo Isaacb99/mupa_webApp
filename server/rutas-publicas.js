@@ -7,6 +7,7 @@
 // (server/ssr.js). Desde E4.5, /contacto (su POST, el formulario, va aparte: server/contacto.js, montado en server/app.js).
 import {
   cargarContacto,
+  cargarDivulgacion,
   cargarExposiciones,
   cargarHome,
   cargarMuestra,
@@ -22,6 +23,9 @@ export const RUTAS = [
   { patron: '/exposiciones', pagina: 'exposiciones', cargar: cargarExposiciones },
   { patron: '/exposiciones/:slug', pagina: 'muestra', cargar: cargarMuestra },
   { patron: '/visitas', pagina: 'visitas', cargar: cargarVisitas },
+  // Divulgación (tablero "Web", 06/11/2026, DV1 a DV10): como la Home, lee las últimas novedades para "Últimas
+  // noticias" y, si la base falla, sale sin ellas (nunca la 503: cargarDivulgacion). Sus textos están en src/content.js.
+  { patron: '/divulgacion', pagina: 'divulgacion', cargar: cargarDivulgacion },
   { patron: '/novedades', pagina: 'novedades', cargar: cargarNovedades },
   { patron: '/novedades/:slug', pagina: 'novedad', cargar: cargarNovedad },
   { patron: '/contacto', pagina: 'contacto', cargar: cargarContacto },

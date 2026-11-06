@@ -231,6 +231,13 @@ const FIJAS = {
     descripcion:
       'Cómo llegar, horarios, contacto y recursos de accesibilidad para visitar el Museo Paleontológico de San Juan.',
   },
+  // Divulgación (tablero "Web", 06/11/2026, DV7): la frase de la nota de contenido de la página, con "MuPa" escrito
+  // entero (a validar con el museo, pregunta 38).
+  divulgacion: {
+    titulo: 'Divulgación',
+    descripcion:
+      'Investigación y divulgación científica del Museo Paleontológico de San Juan y la Universidad Nacional de San Juan.',
+  },
   novedades: {
     titulo: 'Novedades',
     descripcion: 'Noticias y próximas actividades del Museo Paleontológico de San Juan.',
@@ -356,7 +363,8 @@ export function robotsTxt(urlPublica) {
 
 /**
  * Las entradas del sitemap (plan 6.5): las páginas fijas (la Home con la fecha del build o, si es más nueva, la de la
- * última novedad publicada: desde el tablero "Web" de la diseñadora, 02/11/2026, la Home muestra las últimas novedades;
+ * última novedad publicada: desde el tablero "Web" de la diseñadora, 02/11/2026, la Home muestra las últimas novedades,
+ * y desde el 06/11/2026 Divulgación también, con la misma fecha;
  * Exposiciones y Novedades con la última modificación de lo que publican; las demás sin fecha) y las muestras y
  * novedades publicadas (también las finalizadas o realizadas), con lastmod = updated_at (el día, en San Juan). Nunca
  * /administracion.
@@ -377,6 +385,8 @@ export function entradasDelSitemap({ urlPublica, fijas, contenidos, fechaHome })
   }
   const fechaDeFija = {
     '/': ultima(['novedades'], [fechaHome]),
+    // Divulgación (06/11/2026, DV7) muestra, como la Home, las últimas novedades y textos fijos que cambian con el build.
+    '/divulgacion': ultima(['novedades'], [fechaHome]),
     '/exposiciones': ultima(['muestras', 'salas']),
     '/novedades': ultima(['novedades']),
   }

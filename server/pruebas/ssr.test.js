@@ -35,6 +35,11 @@
 // - Contacto y la 404 con el lenguaje del tablero (05/11/2026, R1 y R2): /contacto con un museo falso, con la foto del
 //   hero precargada con prioridad en el <head>, los datos y el mapa; el vacío, solo el hero; sin el museo de ahora, la
 //   503 simple. La 404 sigue sin foto (el <head> arranca con el título).
+// - Divulgación del tablero "Web" (06/11/2026, DV1 a DV10): con base, las mismas 6 últimas novedades que la Home, su
+//   <head> (título, canonical, la descripción y el JSON-LD), el sitemap con la fecha de la Home e IndexNow con
+//   /divulgacion; sin base, con 0, 1 y 6 novedades de un lector falso, con la base caída (200, nunca la 503), colgada (a
+//   los TOPE_HOME_MS, divulgacion_sin_novedades con TOPE) o con "timeout expired" (el aviso con su mensaje), la foto del
+//   hero primera en el <head> y /divulgacion/algo, 404.
 import assert from 'node:assert/strict'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -465,6 +470,12 @@ describe('las páginas internas con base', { skip: base.motivo ?? false }, () =>
     }
     assert.ok(r.texto.includes('href="/novedades"'))
     assert.equal(cuantas(r.texto, '<h1'), 1)
+    // Divulgación (DV2): las mismas 6, en el mismo orden, sin borradores ni actividades realizadas.
+    const d = await s.pedir('GET', '/divulgacion')
+    assert.equal(d.status, 200)
+    assert.deepEqual(estadoDe(d.texto).datos, datos)
+    assert.match(d.texto, /<section aria-labelledby="novedades-titulo"/)
+    for (const fuera of [creadas.novedadBorrador, creadas.realizada]) assert.ok(!d.texto.includes(urlPublica('novedades', fuera.slug)), fuera.titulo)
     // Una publicada sin portada (el panel no deja publicar sin ella; acá se la quita a mano): su tarjeta va sin foto.
     const sinFoto = creadas.noticias[12]
     await sql('UPDATE novedades SET portada_id = NULL WHERE id = :id', { id: sinFoto.id })
@@ -545,6 +556,7 @@ describe('las páginas internas con base', { skip: base.motivo ?? false }, () =>
     for (const [ruta, titulo] of [
       ['/exposiciones', 'Exposiciones · MuPa'],
       ['/visitas', 'Visitas · MuPa'],
+      ['/divulgacion', 'Divulgación · MuPa'],
       ['/novedades', 'Novedades · MuPa'],
     ]) {
       const fija = await s.pedir('GET', ruta)
@@ -552,7 +564,13 @@ describe('las páginas internas con base', { skip: base.motivo ?? false }, () =>
       assert.ok(meta(fija.texto, 'description'), ruta)
       assert.equal(meta(fija.texto, 'og:image'), 'https://mupa.ar/og.jpg', ruta)
       assert.deepEqual(jsonLd(fija.texto)[0]['@graph'].map((x) => x['@type']), ['Museum'], ruta)
+      assert.ok(fija.texto.includes(`<link rel="canonical" href="https://mupa.ar${ruta}" />`), ruta)
     }
+    // La descripción de Divulgación: la frase de la nota de contenido (DV7, a validar con el museo).
+    assert.equal(
+      meta((await s.pedir('GET', '/divulgacion')).texto, 'description'),
+      'Investigación y divulgación científica del Museo Paleontológico de San Juan y la Universidad Nacional de San Juan.',
+    )
     // La Home sigue con WebSite + Museum, ahora con los datos cargados.
     const home = await s.pedir('GET', '/')
     const [ldHome] = jsonLd(home.texto)
@@ -643,7 +661,11 @@ describe('las páginas internas con base', { skip: base.motivo ?? false }, () =>
     assert.equal(r.status, 200)
     assert.match(r.h['content-type'], /application\/xml/)
     const locs = [...r.texto.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1])
-    for (const fija of ['/', '/exposiciones', '/visitas', '/novedades', '/contacto']) assert.ok(locs.includes(`https://mupa.ar${fija}`), fija)
+    for (const fija of ['/', '/exposiciones', '/visitas', '/divulgacion', '/novedades', '/contacto']) assert.ok(locs.includes(`https://mupa.ar${fija}`), fija)
+    // Divulgación, con la misma fecha que la Home (DV7: muestra las mismas últimas novedades).
+    const fechaDe = (loc) => new RegExp(`<loc>${loc.replaceAll('.', '\\.')}</loc>\\s*<lastmod>([^<]+)</lastmod>`).exec(r.texto)?.[1]
+    assert.ok(fechaDe('https://mupa.ar/divulgacion'))
+    assert.equal(fechaDe('https://mupa.ar/divulgacion'), fechaDe('https://mupa.ar/'))
     for (const c of [creadas.actual, creadas.finalizada, creadas.permanente, creadas.proxima]) {
       assert.ok(locs.includes(`https://mupa.ar${urlPublica('muestras', c.slug)}`), c.titulo)
     }
@@ -754,15 +776,18 @@ describe('IndexNow (E4.6): avisa lo publicado, nunca un borrador, sin pedidos de
         host: 'mupa.ar',
         key: CLAVE,
         keyLocation: `https://mupa.ar/${CLAVE}.txt`,
-        urlList: [`https://mupa.ar/novedades/${alta.slug}`, 'https://mupa.ar/novedades', 'https://mupa.ar/'],
+        urlList: [`https://mupa.ar/novedades/${alta.slug}`, 'https://mupa.ar/novedades', 'https://mupa.ar/', 'https://mupa.ar/divulgacion'],
       })
-      // Cambiar algo publicado, despublicar: un aviso cada uno, también con la Home. Publicar otra vez lo ya publicado: nada.
+      // Cambiar algo publicado, despublicar: un aviso cada uno, también con la Home y Divulgación (que muestran las
+      // últimas novedades: DV7). Publicar otra vez lo ya publicado: nada.
       assert.equal((await api('PUT', `/novedades/${alta.id}`, { ...cuerpo, slug: alta.slug, resumen: 'Otro' })).status, 200)
       assert.equal((await api('POST', `/novedades/${alta.id}/despublicar`)).status, 200)
       assert.equal((await api('POST', `/novedades/${alta.id}/despublicar`)).status, 200)
       await espera()
       assert.equal(pedidos.length, 3)
-      for (const p of pedidos) assert.ok(p.cuerpo.urlList.includes('https://mupa.ar/'), JSON.stringify(p.cuerpo.urlList))
+      for (const p of pedidos) {
+        for (const url of ['https://mupa.ar/', 'https://mupa.ar/divulgacion']) assert.ok(p.cuerpo.urlList.includes(url), JSON.stringify(p.cuerpo.urlList))
+      }
       // Una sala: /exposiciones.
       const sala = (await api('POST', '/salas', { nombre: 'Sala avisada' })).json.data
       await api('PUT', `/salas/${sala.id}`, { nombre: 'Sala avisada', slug: null, resumen: 'R', descripcion: null, portadaId: portada.id })
@@ -845,6 +870,14 @@ describe('sin base', () => {
       assert.equal(estado.anio, Number(estado.hoy.slice(0, 4)))
       assert.ok([hoyEnSanJuan(new Date(Date.now() - 60_000)), hoyEnSanJuan()].includes(estado.hoy))
       assert.ok(home.texto.includes(`>© ${estado.anio} MUPA - Museo Paleontológico de San Juan</p>`))
+      // Divulgación, como la Home (DV2 y DV3): 200 sin "Últimas noticias", con todo lo demás; nunca la 503.
+      const divulgacion = await pedir(puerto, 'GET', '/divulgacion')
+      assert.equal(divulgacion.status, 200)
+      assert.equal(estadoDe(divulgacion.texto).pagina, 'divulgacion')
+      assert.deepEqual(estadoDe(divulgacion.texto).datos, { novedades: [] })
+      assert.equal(cuantas(divulgacion.texto, 'novedades-titulo'), 0)
+      assert.equal(cuantas(divulgacion.texto, '<h1'), 1)
+      assert.match(divulgacion.texto, /aria-labelledby="divulgacion-newsletter"/)
       for (const ruta of ['/exposiciones', '/exposiciones/una', '/visitas', '/novedades', '/novedades/una', '/contacto']) {
         const r = await pedir(puerto, 'GET', ruta)
         assert.equal(r.status, 503, ruta)
@@ -922,6 +955,55 @@ describe('sin base', () => {
     }
   })
 
+  test('Divulgación con 0, 1 y 6 novedades (un lector falso): "Últimas noticias" solo con novedades, las de la Home, en su orden', async () => {
+    const config = leerConfig({ NODE_ENV: 'production', URL_PUBLICA: 'https://mupa.ar/', DATABASE_URL: 'postgres://nadie:nada@127.0.0.1:1/no_existe' })
+    const foto = (n) => ({ clave: String(n).repeat(16), ancho: 1600, alto: 1067, variantes: [480, 960, 1600], alt: `Portada ${n}`, decorativa: false })
+    let publicadas = []
+    const pedidos = []
+    const lector = {
+      ...LECTOR_VACIO,
+      async ultimasNovedades(opciones) {
+        pedidos.push(opciones)
+        return publicadas
+      },
+    }
+    const ssr = crearSsr({ config, obtener, museoPublico: async () => MUSEO_VACIO, lector })
+    const app = crearApp({ config, ssr, estaticos: () => {} })
+    const servidor = app.listen(0, '127.0.0.1')
+    await new Promise((r) => servidor.once('listening', r))
+    const puerto = servidor.address().port
+    try {
+      // Ninguna: sin la sección, con el hero, los bloques y el newsletter.
+      let r = await pedir(puerto, 'GET', '/divulgacion')
+      assert.equal(r.status, 200)
+      assert.deepEqual(estadoDe(r.texto).datos, { novedades: [] })
+      assert.equal(cuantas(r.texto, 'novedades-titulo'), 0)
+      assert.equal(pedidos.length, 1)
+      assert.ok(pedidos[0].ahora instanceof Date)
+      // Una: la sección con su tarjeta, sin las flechas ni el contador; la forma de los datos es la de la Home.
+      publicadas = [{ titulo: 'Una sola', slug: 'una-sola', resumen: 'Su resumen', portada: foto(1) }]
+      r = await pedir(puerto, 'GET', '/divulgacion')
+      const esperada = [{ titulo: 'Una sola', url: '/novedades/una-sola', resumen: 'Su resumen', portada: foto(1) }]
+      assert.deepEqual(estadoDe(r.texto).datos.novedades, esperada)
+      assert.deepEqual(estadoDe((await pedir(puerto, 'GET', '/')).texto).datos.novedades, esperada)
+      assert.match(r.texto, /<section aria-labelledby="novedades-titulo"/)
+      assert.ok(r.texto.includes('>Últimas noticias</h2>'))
+      const seccion = r.texto.slice(r.texto.indexOf('<section aria-labelledby="novedades-titulo"'))
+      assert.equal(cuantas(seccion.slice(0, seccion.indexOf('</section>')), '<button'), 0)
+      // Seis, en el orden del lector, con el contador.
+      publicadas = [1, 2, 3, 4, 5, 6].map((n) => ({ titulo: `Novedad ${n}`, slug: `novedad-${n}`, resumen: `Resumen ${n}`, portada: foto(n) }))
+      r = await pedir(puerto, 'GET', '/divulgacion')
+      assert.deepEqual(estadoDe(r.texto).datos.novedades.map((n) => n.url), [1, 2, 3, 4, 5, 6].map((n) => `/novedades/novedad-${n}`))
+      assert.equal(r.texto.split('<article').length - 1, 6)
+      assert.match(r.texto, /<p aria-hidden="true" class="[^"]*">1<!-- -->\/<!-- -->6<\/p>/)
+      assert.equal(cuantas(r.texto, '<h1'), 1)
+      // Lo que no existe debajo de /divulgacion, 404.
+      assert.equal((await pedir(puerto, 'GET', '/divulgacion/algo')).status, 404)
+    } finally {
+      await new Promise((r) => servidor.close(r))
+    }
+  })
+
   test('la Home con la base colgada (no contesta): 200 a los ~2 s (TOPE_HOME_MS), sin novedades; nunca la 503', async () => {
     // La dirección de la base no se usa (el lector y el museo son los de la prueba): producción la exige.
     const config = leerConfig({ NODE_ENV: 'production', URL_PUBLICA: 'https://mupa.ar/', DATABASE_URL: 'postgres://nadie:nada@127.0.0.1:1/no_existe' })
@@ -950,6 +1032,15 @@ describe('sin base', () => {
       assert.deepEqual(estadoDe(r.texto).datos, { novedades: [] })
       assert.equal(cuantas(r.texto, 'novedades-titulo'), 0)
       assert.ok(logs.some((l) => /"evento":"home_sin_novedades"/.test(l) && /"codigo":"TOPE"/.test(l)), logs.join('\n'))
+      // Divulgación, igual (DV2): 200 a los ~TOPE_HOME_MS, sin "Últimas noticias", con su propio evento en el log.
+      const desdeD = performance.now()
+      const d = await pedir(puerto, 'GET', '/divulgacion')
+      const msD = performance.now() - desdeD
+      assert.equal(d.status, 200)
+      assert.ok(msD >= TOPE_HOME_MS - 50 && msD < TOPE_HOME_MS + 1500, `${Math.round(msD)} ms`)
+      assert.deepEqual(estadoDe(d.texto).datos, { novedades: [] })
+      assert.equal(cuantas(d.texto, 'novedades-titulo'), 0)
+      assert.ok(logs.some((l) => /"evento":"divulgacion_sin_novedades"/.test(l) && /"codigo":"TOPE"/.test(l)), logs.join('\n'))
     } finally {
       console.log = original
       await new Promise((r) => servidor.close(r))
@@ -977,6 +1068,16 @@ describe('sin base', () => {
       assert.equal(linea.nivel, 'aviso')
       assert.equal(linea.mensaje, 'timeout expired')
       assert.equal(linea.codigo, undefined)
+      // Divulgación, igual: 200 sin novedades y su aviso con el mensaje, sin código.
+      logs.length = 0
+      const d = await pedir(puerto, 'GET', '/divulgacion')
+      assert.equal(d.status, 200)
+      assert.deepEqual(estadoDe(d.texto).datos, { novedades: [] })
+      const lineaD = logs.map((l) => JSON.parse(l)).find((l) => l.evento === 'divulgacion_sin_novedades')
+      assert.ok(lineaD, logs.join('\n'))
+      assert.equal(lineaD.nivel, 'aviso')
+      assert.equal(lineaD.mensaje, 'timeout expired')
+      assert.equal(lineaD.codigo, undefined)
       // Las páginas internas con la misma falla: la 503 simple, y el aviso también con el mensaje.
       logs.length = 0
       assert.equal((await pedir(puerto, 'GET', '/novedades')).status, 503)
@@ -1112,25 +1213,31 @@ describe('sin base', () => {
 
   test('sitemap: la Home lleva la fecha más nueva entre el build y la última novedad publicada (COD-03/PAN-04)', () => {
     const urlPublica = 'https://mupa.ar/'
-    const fijas = ['/', '/exposiciones', '/novedades', '/visitas']
+    const fijas = ['/', '/exposiciones', '/visitas', '/divulgacion', '/novedades']
     const lastmod = (contenidos, fechaHome) =>
       Object.fromEntries(entradasDelSitemap({ urlPublica, fijas, contenidos, fechaHome }).map((e) => [e.loc, e.lastmod]))
+    // Divulgación muestra las mismas últimas novedades que la Home y textos fijos (DV7): en todos los casos, la misma
+    // fecha que la Home.
+    const comoLaHome = (fechas) => {
+      assert.equal(fechas['https://mupa.ar/divulgacion'], fechas['https://mupa.ar/'])
+      return fechas
+    }
     const build = new Date('2026-10-30T15:00:00Z')
     // Sin novedades: la del build.
-    assert.equal(lastmod([], build)['https://mupa.ar/'], '2026-10-30')
+    assert.equal(comoLaHome(lastmod([], build))['https://mupa.ar/'], '2026-10-30')
     // Una novedad cambiada después del build: la suya (el día en San Juan: 02:30 UTC del 3 es el 2 allá).
     const novedad = { tipo: 'novedades', slug: 'una', actualizadoEn: new Date('2026-11-03T02:30:00Z') }
     const muestra = { tipo: 'muestras', slug: 'otra', actualizadoEn: new Date('2026-11-05T15:00:00Z') }
-    const conNovedad = lastmod([novedad, muestra], build)
+    const conNovedad = comoLaHome(lastmod([novedad, muestra], build))
     assert.equal(conNovedad['https://mupa.ar/'], '2026-11-02')
     assert.equal(conNovedad['https://mupa.ar/novedades'], '2026-11-02')
     // Una muestra no cambia la Home (la Home no muestra muestras).
     assert.equal(conNovedad['https://mupa.ar/exposiciones'], '2026-11-05')
     // Un build más nuevo que la novedad: la del build.
-    assert.equal(lastmod([novedad], new Date('2026-11-10T15:00:00Z'))['https://mupa.ar/'], '2026-11-10')
+    assert.equal(comoLaHome(lastmod([novedad], new Date('2026-11-10T15:00:00Z')))['https://mupa.ar/'], '2026-11-10')
     // Sin fecha del build válida y sin novedades: sin lastmod.
-    assert.equal(lastmod([], new Date('x'))['https://mupa.ar/'], undefined)
-    assert.equal(lastmod([novedad], undefined)['https://mupa.ar/'], '2026-11-02')
+    assert.equal(comoLaHome(lastmod([], new Date('x')))['https://mupa.ar/'], undefined)
+    assert.equal(comoLaHome(lastmod([novedad], undefined))['https://mupa.ar/'], '2026-11-02')
   })
 
   test('separarPrecargasConPrioridad: aparta las precargas de imagen con fetchPriority="high" del principio de lo dibujado', () => {
@@ -1156,7 +1263,10 @@ describe('sin base', () => {
       '    <script type="module" crossorigin src="/assets/index-a.js"></script>\n' +
       '    <link rel="stylesheet" crossorigin href="/assets/index-b.css">\n  </head>' +
       '<body><div id="root"><!--app--></div><!--estado--></body></html>\n'
-    const precargas = { visitas: ['/assets/Visitas-c.js', '/assets/HeroPagina-d.js'] }
+    const precargas = {
+      visitas: ['/assets/Visitas-c.js', '/assets/HeroPagina-d.js'],
+      divulgacion: ['/assets/Divulgacion-e.js', '/assets/HeroPagina-d.js'],
+    }
     const conVite = async () => ({ partes: partir(plantilla), render: entrada.render, precargas })
     const museoPublico = Object.assign(async () => MUSEO_MAXIMO, { conEstado: async () => ({ museo: MUSEO_MAXIMO, alDia: true }) })
     const ssr = crearSsr({ config, obtener: conVite, museoPublico, lector: LECTOR_VACIO })
@@ -1186,6 +1296,18 @@ describe('sin base', () => {
       assert.equal(cuantas(raiz, 'fetchPriority="high"'), 1, 'solo el <img> del hero')
       assert.match(raiz, /^<div id="root"><link rel="preload" as="image" href="[^"]*isotipo-unsj[^"]*"\/><header/)
       assert.equal(cuantas(raiz, '<h1'), 1)
+      // Divulgación (06/11/2026), igual: la foto de su hero, la única con prioridad, primera en el <head>; las fotos de
+      // los bloques, lazy y sin precargar.
+      const d = await pedir(servidor.address().port, 'GET', '/divulgacion')
+      assert.equal(d.status, 200)
+      const headD = d.texto.slice(0, d.texto.indexOf('</head>'))
+      const fotoD = d.texto.match(/<link rel="preload" as="image"[^>]*fetchPriority="high"[^>]*>/gi) ?? []
+      assert.equal(fotoD.length, 1, fotoD.join('\n'))
+      assert.match(fotoD[0], /hero-divulgacion-/)
+      assert.ok(headD.indexOf(fotoD[0]) > 0 && headD.indexOf(fotoD[0]) < headD.indexOf('<title>'))
+      assert.ok(headD.indexOf('rel="stylesheet"') < headD.indexOf('/assets/Divulgacion-e.js'))
+      assert.equal((d.texto.match(/<img [^>]*area-ciencia[^>]*loading="lazy"/g) ?? []).length, 4, 'las cuatro fotos de los bloques, lazy')
+      assert.ok(!/<link rel="preload" as="image"[^>]*area-ciencia/.test(d.texto))
       // Sin la foto con prioridad (la 404), el <head> arranca como siempre, con el título.
       const no = await pedir(servidor.address().port, 'GET', '/no-existe')
       assert.equal(no.status, 404)

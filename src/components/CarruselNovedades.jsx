@@ -6,8 +6,10 @@ import { FlechaDerecha, FlechaDiagonal, FlechaIzquierda } from './Iconos.jsx'
 import { CONTENEDOR_TABLERO, ENLACE_FLECHA, TITULO_SECCION } from './tablero.js'
 
 // El carrusel de Novedades de la Home (tablero "Web" de la diseñadora, Figma 2627:1775, 02/11/2026; decisión D12 del
-// desarrollador). La página Divulgación del tablero tiene el mismo ("Ultimas Noticias"): este componente sirve para
-// las dos (los textos llegan por props). Medidas a 1440:
+// desarrollador). Lo usan la Home y, desde el 06/11/2026, Divulgación ("Últimas noticias", Figma 2859:5766: las mismas
+// medidas; DV2), con las mismas novedades y el mismo id de la sección (los textos llegan por props). «Novedades» de la
+// Home del tablero cambió después del 02/11 (arranca a 120, tarjetas de 462, la fila hasta el borde de la página) y ya
+// no es igual a este componente; «Últimas noticias» de Divulgación sí: es la pregunta 6 a la diseñadora. Medidas a 1440:
 // - La sección: 48 arriba y 40 abajo. Arriba, el h2 (Thin 64) y la bajada (Regular 16,5/27, crema) en una columna de
 //   540, y a la derecha "Ver todas las novedades" con la flecha en diagonal, alineado abajo con la bajada.
 // - 24 más abajo, las tarjetas de 485 con 48 entre sí, en una fila que se corta en el borde del contenido (1360): se ven
