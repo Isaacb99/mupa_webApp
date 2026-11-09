@@ -41,7 +41,7 @@
     }
     anterior = esperadas;
   }
-  if (document.documentElement.scrollWidth > innerWidth) res.fallas.push('scroll horizontal en la página');
+  if (document.documentElement.scrollWidth > document.documentElement.clientWidth) res.fallas.push('scroll horizontal en la página');
   res.ok = res.fallas.length === 0;
   return res;
 })()

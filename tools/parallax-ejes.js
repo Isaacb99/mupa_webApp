@@ -24,7 +24,7 @@
   const recorrido = bloque.offsetHeight - fijo.offsetHeight - cola;
   const ancho = marco.clientWidth;
   const lg = innerWidth >= 1024;
-  const res = { ancho: innerWidth, marco: ancho, recorrido, cola, ejes: fotos.length, overflowX: document.documentElement.scrollWidth > innerWidth, pasos: [], fallas: [] };
+  const res = { ancho: innerWidth, marco: ancho, recorrido, cola, ejes: fotos.length, overflowX: document.documentElement.scrollWidth > document.documentElement.clientWidth, pasos: [], fallas: [] };
   const visible = (n) => getComputedStyle(n).visibility === 'visible' && getComputedStyle(n).opacity === '1';
   const todos = [...fotos, ...textos];
   // [progreso, eje esperado, enganchado]; después del 1, la cola: sigue enganchado con el último eje hasta 1 + cola.

@@ -4,7 +4,11 @@
   // que salieron hayan subido hasta pasar el borde de arriba de la pantalla (y queden con visibility hidden: sin puntero
   // ni lector), sin fundidos, y las demás en su lugar; que cada cambio anime solo las fotos que cambian, que el bloque
   // quede enganchado arriba mientras dura el efecto y que la caja entre entera en la pantalla.
-  // Uso: node tools/measure.mjs 1440 900 "$(cat tools/collage-check.js)" [--url ...]   (debe dar ok: true)
+  // Con --reduce (o en una pantalla baja: la variante apilado de index.css) el collage va apilado, quieto y sin efecto:
+  // la receta lo reconoce (el bloque fijo no es sticky) y comprueba eso, las cinco fotos a la vista en su lugar, sin
+  // data-fuera ni animaciones aunque se recorra el bloque, y la caja en su ancho (el 69,86 % desde lg: 1006x628 a 1440).
+  // Hasta el cierre de E6.3 esperaba el efecto también ahí y daba ok: false (VCOD-02 de la verificación, 09/11/2026).
+  // Uso: node tools/measure.mjs 1440 900 "$(cat tools/collage-check.js)" [--url ...] [--reduce]   (debe dar ok: true)
   const raf = () => new Promise((r) => requestAnimationFrame(r));
   // El motor no anima hasta el primer gesto (rueda, tecla, toque): un wheel sintético lo habilita.
   window.dispatchEvent(new WheelEvent('wheel', { deltaY: 0 }));
@@ -21,8 +25,45 @@
   const cajaRect = caja.getBoundingClientRect();
   const res = {
     ancho: innerWidth, alto: innerHeight, recorrido, cola, fotos: n, caja: [Math.round(cajaRect.width), Math.round(cajaRect.height)],
-    overflowX: document.documentElement.scrollWidth > innerWidth, pasos: [], fallas: [],
+    overflowX: document.documentElement.scrollWidth > document.documentElement.clientWidth, pasos: [], fallas: [],
   };
+  // Apilado: el bloque fijo pasa a static (apilado:static en Collage.jsx) y no hay efecto.
+  if (getComputedStyle(fijo).position !== 'sticky') {
+    res.modo = 'apilado';
+    if (n < 2) res.fallas.push(`hay ${n} fotos`);
+    if (cola !== 0) res.fallas.push(`la cola mide ${cola} px (apilado no lleva cola)`);
+    // El ancho de la caja: el 69,86 % de su contenedor desde lg, el contenedor menos 5rem desde md y todo el ancho debajo.
+    const contenedor = caja.parentElement.getBoundingClientRect().width;
+    const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
+    const esperado = innerWidth >= 1024 ? contenedor * 0.6986 : innerWidth >= 768 ? contenedor - 5 * rem : contenedor;
+    if (Math.abs(cajaRect.width - esperado) > 1.5) res.fallas.push(`la caja mide ${cajaRect.width.toFixed(1)} px de ancho (esperado ${esperado.toFixed(1)})`);
+    if (Math.abs(cajaRect.height - (cajaRect.width * 628) / 1006) > 1.5) res.fallas.push(`la caja no está en 1006:628 (${cajaRect.width.toFixed(1)}x${cajaRect.height.toFixed(1)})`);
+    // Se recorre el bloque de punta a punta: nada se mueve ni se anima, las cinco quedan a la vista dentro de la caja.
+    const top = bloque.getBoundingClientRect().top + scrollY;
+    for (const p of [-0.5, 0, 0.25, 0.5, 0.75, 1, 1.5, 0.25]) {
+      scrollTo({ top: Math.max(0, Math.round(top - innerHeight / 2 + p * bloque.offsetHeight)), behavior: 'instant' });
+      await raf(); await raf(); await raf();
+      const c = caja.getBoundingClientRect();
+      const estado = fotos.map((f, i) => {
+        const cs = getComputedStyle(f);
+        const r = f.getBoundingClientRect();
+        const fallas = [];
+        if (f.dataset.fuera) fallas.push('data-fuera');
+        if (f.getAnimations().length) fallas.push('animada');
+        if (cs.visibility !== 'visible') fallas.push(`visibility ${cs.visibility}`);
+        if (cs.opacity !== '1') fallas.push(`opacidad ${cs.opacity}`);
+        if (cs.translate !== 'none' && cs.translate !== '0px 0px' && cs.translate !== '0px') fallas.push(`corrida ${cs.translate}`);
+        if (r.left < c.left - 1 || r.right > c.right + 1 || r.top < c.top - 1 || r.bottom > c.bottom + 1) fallas.push('fuera de la caja');
+        return fallas.length ? `foto ${i}: ${fallas.join(', ')}` : null;
+      }).filter(Boolean);
+      res.pasos.push(`${p} -> ${estado.length ? estado.join('; ') : 'las cinco quietas en la caja'}`);
+      for (const e of estado) res.fallas.push(`p=${p}: ${e}`);
+    }
+    if (res.overflowX) res.fallas.push('scroll horizontal en la página');
+    res.ok = res.fallas.length === 0;
+    return res;
+  }
+  res.modo = 'efecto';
   if (cajaRect.height > innerHeight) res.fallas.push(`la caja (${Math.round(cajaRect.height)} px) no entra en la pantalla`);
   if (cola < innerHeight * 0.25) res.fallas.push(`la cola mide ${cola} px (esperaba al menos el 25 % de la pantalla)`);
   // [progreso, fotos fuera esperadas, enganchado]. Los umbrales del motor están a 1/8, 3/8, 5/8 y 7/8 (con histéresis).

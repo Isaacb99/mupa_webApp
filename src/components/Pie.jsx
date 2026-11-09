@@ -9,12 +9,17 @@ import { marcaActual, seccionesDelSitio } from './navegacion.js'
 //   costados (contenido de 1280 a 1440, como las secciones). El año lo pone el servidor en el estado (estado.anio, la
 //   fecha de San Juan): nunca se calcula en el navegador (la hidratación compararía dos años distintos el 31/12).
 // - Debajo, una fila discreta que el tablero no tiene (desvío a confirmar con la diseñadora): la navegación "Secciones
-//   del sitio (pie de página)" con todas las páginas que existen (navegacion.js: hoy Visitas, Exposiciones, Novedades y
-//   Contacto; las nuevas se suman solas) y las redes que cargó el museo (estado.museo.redes; si no hay, nada), en Roboto
-//   Mono 14 gris. Andan sin JavaScript y antes de que cargue, cuando el botón "Menú" del celular todavía no abre nada
+//   del sitio (pie de página)" con todas las páginas que existen (navegacion.js: desde el 06/11/2026 las ocho, las cinco
+//   del menú más Exposiciones, Novedades y Contacto; una nueva se suma sola) y las redes que cargó el museo
+//   (estado.museo.redes; si no hay, nada), en Roboto Mono 14 gris. Desde lg van en una fila si entran (desde ~1240 px
+//   con tres redes); si no, las redes pasan enteras al renglón de abajo, contra el borde derecho (lg:flex-wrap y
+//   lg:ml-auto: hasta el cierre de E6.3 las dos listas se achicaban a la vez, iban en dos renglones cada una y las redes
+//   terminaban antes del borde, BDIS-01 del barrido de diseño, 09/11/2026). Andan sin JavaScript y antes de que cargue, cuando el botón "Menú" del celular todavía no abre nada
 //   (A11Y-03 de la verificación de E4). Sin dirección, horario, teléfono ni correo: los muestran Visitas y Contacto.
 // - La línea de privacidad (content.js), solo cuando el museo mande el texto.
 // - La marca va sin alt (alt=""): repite el nombre que dice el © de al lado. Los logos sí lo llevan (son información).
+//   Las tres, lazy y con prioridad baja (la convención del sitio: en una página corta asoman en el primer pantallazo,
+//   y sin fetchPriority Chrome les subía la prioridad; BCOD-02 del barrido de código del cierre).
 // Es el único <footer> de la página: lo busca la analítica (ver_pie, en la Home). Sin fondo propio: va sobre el del
 // sitio. En la rama landing lo buscaba también el acordeón de Áreas en el iPhone (deslizarAparicion.js, que le ponía
 // el fondo mientras bajaba) y su alto era el final de la página del acordeón; master ya no los usa.
@@ -53,6 +58,8 @@ export default function Pie({ museo, ruta = null, anio = null }) {
               width={120}
               height={40}
               loading="lazy"
+              decoding="async"
+              fetchPriority="low"
               data-logo-blanco=""
               className="block h-10 w-30"
             />
@@ -69,6 +76,8 @@ export default function Pie({ museo, ruta = null, anio = null }) {
                     width={ancho}
                     height={alto}
                     loading="lazy"
+                    decoding="async"
+                    fetchPriority="low"
                     data-logo-blanco=""
                     className="h-[2.625rem] w-auto"
                   />
@@ -79,7 +88,7 @@ export default function Pie({ museo, ruta = null, anio = null }) {
         </div>
 
         {secciones.length > 0 || redes.length > 0 ? (
-          <div className="mt-8 flex flex-col gap-x-12 gap-y-2 lg:flex-row lg:items-start lg:justify-between">
+          <div className="mt-8 flex flex-col gap-x-12 gap-y-2 lg:flex-row lg:flex-wrap lg:items-start lg:justify-between">
             {secciones.length > 0 ? (
               <nav aria-label={pie.secciones} className="min-w-0">
                 <ul className="flex flex-wrap gap-x-6">
@@ -98,7 +107,7 @@ export default function Pie({ museo, ruta = null, anio = null }) {
             ) : null}
 
             {redes.length > 0 ? (
-              <ul aria-label={pie.redes} className="flex min-w-0 flex-wrap gap-x-6">
+              <ul aria-label={pie.redes} className="flex min-w-0 flex-wrap gap-x-6 lg:ml-auto">
                 {redes.map((r, i) => (
                   <li key={i}>
                     <a href={r.url} className={ENLACE}>

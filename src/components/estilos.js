@@ -4,7 +4,7 @@
 // novedad y sus componentes (Seccion, Tarjeta, Ficha, Foto, GaleriaFotos y Paginacion) usan las clases del tablero
 // (tablero.js), como Visitas desde el 03/11/2026; y desde el 05/11/2026 también Contacto (DatosDeContacto y
 // FormularioContacto) y la 404. Ninguna página usa ya las de acá: solo BotonCompra.jsx (BOTON), que quedó sin uso con la
-// Visitas del tablero. Se decide al cierre si se borran (D1); mientras tanto Tailwind las sigue leyendo y sus clases
+// Visitas del tablero. Quedan sin borrar (C1 del desarrollador, 09/11/2026): Tailwind las sigue leyendo y sus clases
 // siguen en el CSS.
 // Eran las clases que compartían las páginas internas (Exposiciones, una muestra, Novedades, una novedad y Contacto)
 // y sus componentes, con el lenguaje de la landing (la Home hasta el 02/11/2026: src/index.css y las Decisiones de

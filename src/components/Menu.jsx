@@ -3,8 +3,8 @@ import { marcaActual, seccionesDelMenu } from './navegacion.js'
 import { BOTON_NARANJA } from './tablero.js'
 
 // El menú del sitio en pantallas anchas (plan 6.7; el del tablero "Web" de la diseñadora, Figma, 02/11/2026): El Museo,
-// Visitas, Divulgación, Educación y Circuitos, en ese orden, cada una solo si su página existe (navegacion.js: hoy solo
-// Visitas; las demás aparecen solas cuando se construya su página), y el botón naranja de entradas si la compra externa
+// Visitas, Divulgación, Educación y Circuitos, en ese orden, cada una solo si su página existe (navegacion.js: desde el
+// 06/11/2026 existen las cinco), y el botón naranja de entradas si la compra externa
 // está activa (estado.museo.compra), con el texto fijo de content.js ("Tickets"). Sin el selector de idioma del tablero
 // (fuera del alcance).
 // - Roboto Mono Regular 16/28,8 en blanco, 24 px entre ítems; el botón, Roboto Mono 14/28 sobre el naranja (texto

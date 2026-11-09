@@ -45,8 +45,9 @@
 //   scroll de ese cuadro pasa de UMBRAL. Tiene que dar cierresCompensados y 0 tirones (la limpieza del 27/10/2026, a
 //   412x780 y a 390x664 con --sin-anclaje: 1 y 2). Junto con --tarde no sirve: la corrección atrasada llega dentro del
 //   mismo cuadro largo; --tarde se usa solo.
-// Con una URL local (127.0.0.1 o localhost), Chrome no resuelve ningún otro nombre: nada sale de esta máquina (ni
-// Google ni UserWay).
+// Con una URL local (127.0.0.1, localhost o [::1]), Chrome no resuelve ningún otro nombre: nada sale de esta máquina
+// (ni Google, ni UserWay, ni el mapa). [::1] va excluida como ::1, sin corchetes, como en measure.mjs y vitals.mjs
+// (hasta el cierre de E6.3, VIS-TOOL-01, con [::1] salía todo).
 import { spawn } from 'node:child_process'
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -78,7 +79,7 @@ const sinAnclaje = bandera('--sin-anclaje') || comoSafari
 const cpu = Number(opt('--cpu', 1))
 const cuadroLento = Number(opt('--cuadro-lento', 0))
 const pisada = bandera('--pisada')
-const local = ['127.0.0.1', 'localhost'].includes(new URL(url).hostname)
+const local = ['127.0.0.1', 'localhost', '[::1]'].includes(new URL(url).hostname)
 
 const sleep = (t) => new Promise((r) => setTimeout(r, t))
 // Puerto 0: Chrome elige uno libre y lo anota en DevToolsActivePort, dentro de su perfil (un puerto al azar podía
@@ -89,7 +90,7 @@ const chrome = spawn(
   [
     '--headless=new',
     '--enable-automation',
-    ...(local ? ['--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1, EXCLUDE localhost'] : []),
+    ...(local ? ['--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1, EXCLUDE ::1, EXCLUDE localhost'] : []),
     '--disable-gpu',
     '--hide-scrollbars',
     '--remote-debugging-port=0',

@@ -15,7 +15,7 @@
 //   TEXTOS_EN_MEMORIA), así una página no vuelve a pagarlo mientras no cambie.
 // - Si la base falla o no contesta en TOPE_CONTENIDO_MS, la consulta tira un error con code 'BASE_NO_DISPONIBLE' y la
 //   página responde la 503 simple (server/ssr.js). Sin base (sin DATABASE_URL en desarrollo, o con SIN_BASE para
-//   probar el pie en local) no hay contenidos: LECTOR_VACIO da listas vacías y ninguna ficha (404).
+//   probar el sitio en local) no hay contenidos: LECTOR_VACIO da listas vacías y ninguna ficha (404).
 // Las fechas salen como vienen ("AAAA-MM-DD" las de las muestras, instantes las de las novedades); los textos para
 // mostrar los arma server/paginas.js.
 import { QueryTypes } from 'sequelize'

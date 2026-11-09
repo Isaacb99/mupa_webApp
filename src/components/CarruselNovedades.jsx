@@ -93,7 +93,7 @@ function TarjetaNovedad({ titulo, url, resumen, portada, leerMas }) {
         </a>
       </h3>
       {resumen ? (
-        <p className="order-3 mt-2 max-w-[86.4%] text-[1.03125rem] leading-[1.6875rem] font-normal text-paper wrap-break-word">
+        <p className="order-3 mt-2 max-w-[86.4%] text-[1.03125rem] leading-[1.6875rem] font-normal text-paper wrap-break-word text-pretty">
           {resumen}
         </p>
       ) : null}

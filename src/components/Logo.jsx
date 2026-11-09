@@ -12,9 +12,17 @@ import { site, ui } from '../content.js'
 //   ocupa lugar (-mr-px), como la línea del Figma: así los isotipos quedan en 232 y 296 a 1440.
 // - Debajo de sm (640 px) no hay diseño (decisión D2): el bloque se achica a 197 px (marca de 96x32, isotipos de 32 y 12
 //   entre piezas) para que entre con el botón "Menú" desde 320 px sin desbordar; desde sm, las medidas del tablero.
+//   Como todo va en rem, con la letra del navegador agrandada no entraba: a 390 px con la letra en 24, "Menú" quedaba
+//   encima de los isotipos (CIR-02 de la verificación de Circuitos, 06/11/2026). Debajo de 19,5rem (312 px con la
+//   letra normal, 390 con 20 y 468 con 24) no van la línea ni los isotipos (OCULTO_SI_NO_ENTRA): siguen en el pie.
 // - Las piezas son SVG blancos: data-logo-blanco, para que index.css las invierta con colores forzados en un tema claro
 //   (A11Y-04), salvo sobreFoto (el header sobre la foto de un hero, como en la Home): ahí lo de atrás no pasa a blanco
 //   (los colores forzados no tocan la foto) y negro sobre la foto quedaba de 3 a 3,7:1 (A11Y-08).
+
+// El ancho desde el que la marca, la línea, los isotipos y el botón "Menú" entran juntos: medido con la letra en 16,
+// 20 y 24, se encimaban hasta 19,2rem (306, 384 y 460 px); 19,5rem deja unos 5 px de margen.
+const OCULTO_SI_NO_ENTRA = 'max-[19.5rem]:hidden'
+
 /**
  * @param {{ className?: string, sobreFoto?: boolean }} props
  */
@@ -29,8 +37,8 @@ export default function Logo({ className = '', sobreFoto = false }) {
       >
         <img src={logo.marca} alt={logo.alt} width={120} height={40} {...blanco} className="block h-8 w-24 sm:h-10 sm:w-30" />
       </a>
-      <span aria-hidden="true" className="-mr-px h-8 shrink-0 border-l border-blanco sm:h-[2.5625rem]" />
-      <ul aria-label={ui.instituciones} className="flex shrink-0 items-center gap-3 sm:gap-6">
+      <span aria-hidden="true" className={`-mr-px h-8 shrink-0 border-l border-blanco sm:h-[2.5625rem] ${OCULTO_SI_NO_ENTRA}`} />
+      <ul aria-label={ui.instituciones} className={`flex shrink-0 items-center gap-3 sm:gap-6 ${OCULTO_SI_NO_ENTRA}`}>
         {logo.isotipos.map((isotipo) => (
           <li key={isotipo.nombre}>
             <img

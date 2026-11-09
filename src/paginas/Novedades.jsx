@@ -1,6 +1,6 @@
 import HeroPagina from '../components/HeroPagina.jsx'
 import Paginacion from '../components/Paginacion.jsx'
-import { SeccionDeTarjetas } from '../components/Seccion.jsx'
+import SeccionDeTarjetas from '../components/SeccionDeTarjetas.jsx'
 import { CONTENEDOR_TABLERO } from '../components/tablero.js'
 import { paginas } from '../content.js'
 

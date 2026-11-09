@@ -34,6 +34,7 @@ export default function GaleriaHome({ pegadaAlHero = false }) {
           width={408}
           height={462}
           loading="lazy"
+          fetchPriority="low"
           className={`absolute ${pegadaAlHero ? 'top-0' : 'top-[-5.4375rem]'} left-[-14.1875rem] w-[25.5rem] max-w-none`}
         />
         <img
@@ -42,6 +43,7 @@ export default function GaleriaHome({ pegadaAlHero = false }) {
           width={408}
           height={462}
           loading="lazy"
+          fetchPriority="low"
           className="absolute top-[42.8125rem] right-[-15.25rem] w-[25.5rem] max-w-none rotate-180"
         />
       </div>

@@ -205,8 +205,8 @@ const esHora = (v) => typeof v === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(
  * el aviso general, las tarifas y su nota, la nota de horarios, la nota de cada día ni el texto del botón de compra:
  * no salen (COD-01 y PAN-01 de la verificación de Visitas: un precio viejo o un aviso sin "Mostrar hasta" seguían
  * publicados en el código de cada página, sin que el museo pudiera verlos ni sacarlos). Siguen en la base y en
- * leerMuseo, como Aviso.jsx, BotonCompra.jsx, ListaTarifas.jsx y TablaHorarios.jsx, que los dibujaban: se decide al
- * cierre (D1) si se borran. Si una página vuelve a mostrar alguno, se suma acá. Ninguno de los tres textos con formato
+ * leerMuseo, como Aviso.jsx, BotonCompra.jsx, ListaTarifas.jsx y TablaHorarios.jsx, que los dibujaban: quedan sin
+ * usar, sin borrar (C1, 09/11/2026). Si una página vuelve a mostrar alguno, se suma acá. Ninguno de los tres textos con formato
  * va acá: "Accesibilidad" va solo en los datos de /visitas (cargarVisitas, server/paginas.js; COD-04 de E3), y "Cómo
  * llegar" y las normas no salen en ninguna página (V1). Hasta la lista blanca, museoComun copiaba el museo y les
  * borraba esos tres (TEXTOS_DEL_MUSEO, que se fue con ella: VR1-02 de la re-verificación de Visitas, 04/11/2026).

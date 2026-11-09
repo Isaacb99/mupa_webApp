@@ -3,9 +3,9 @@ import { BAJADA_HERO_PAGINA, BAJADA_HERO_PAGINA_JUSTA, TITULO_HERO_PAGINA } from
 // El hero de las páginas internas del tablero "Web" de la diseñadora (Figma: el de Visitas, nodo 2846:998, 03/11/2026;
 // decisión V7 del desarrollador). Lo usan Visitas y, desde el 06/11/2026, Divulgación (con bajada), Educación (sin
 // bajada), Circuitos (con la bajada en dos renglones) y El Museo (sin bajada), que en el tablero tienen el mismo (cada
-// una con su foto y su título). Desde el 04/11/2026
-// (decisión R1) también Exposiciones, Novedades y Contacto, que el tablero no dibuja, con fotos nuestras de la
-// selección (content.js, fotoDeHero; las fichas y la 404 van sin hero: tablero.js, TITULO_SIN_FOTO). Medidas a 1440:
+// una con su foto y su título), y, desde el 04/11/2026 (decisión R1), Exposiciones, Novedades y Contacto, que el
+// tablero no dibuja, con fotos nuestras de la selección (content.js, fotoDeHero; las fichas y la 404 van sin hero:
+// tablero.js, TITULO_SIN_FOTO). Medidas a 1440:
 // - 480 de alto, sin esquinas redondeadas, con la foto a sangre: cubre el hero (object-cover; cada página da su foto ya
 //   recortada con el encuadre del tablero, en src/content.js, y su punto de interés, imagen.posicion: ver más abajo,
 //   "más allá de 1440"). Encima, el degradé del tablero: #0e100d al 75 % arriba que llega a 0 a los 527,5 px, el
@@ -57,11 +57,10 @@ const CAJA_CON_BAJADA = 'mx-auto lg:max-w-[58.25rem]'
 
 /**
  * @param {{ id: string, titulo: string, bajada?: string | null, bajadaJusta?: boolean, imagen: { src: string, srcSet: string,
- *   sizes: string, ancho: number, alto: number, alt: string, posicion?: string } }} props  id: el del h1 (lo nombra la
- *   sección con
- *   aria-labelledby); bajada: el texto debajo del h1 (opcional); bajadaJusta: la bajada con el interlineado de 1,25 desde
- *   lg (Circuitos, dos renglones; sin ella, 1,75: Divulgación); imagen.posicion: el punto de interés de la foto como
- *   object-position ("50% 80%"; sin él, centrada)
+ *   sizes: string, ancho: number, alto: number, alt: string, posicion?: string } }} props
+ *   id: el del h1 (lo nombra la sección con aria-labelledby); bajada: el texto debajo del h1 (opcional); bajadaJusta: la
+ *   bajada con el interlineado de 1,25 desde lg (Circuitos, dos renglones; sin ella, 1,75: Divulgación);
+ *   imagen.posicion: el punto de interés de la foto como object-position ("50% 80%"; sin él, centrada)
  */
 export default function HeroPagina({ id, titulo, bajada = null, bajadaJusta = false, imagen }) {
   return (

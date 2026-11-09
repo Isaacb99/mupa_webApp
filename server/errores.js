@@ -96,7 +96,11 @@ function traducir(err, deEntrada) {
   return null
 }
 
-/** Página simple para los 5xx (y las 503 de las páginas internas cuando la base falle, E4): sin JS ni CSS externo. */
+/**
+ * Página simple para los 5xx (y las 503 de las páginas internas cuando la base falle, E4): sin JS ni CSS externo. Lo
+ * que dice va en un <main> (sin él, axe marcaba landmark-one-main y region: BCOD-03 del cierre de E6.3, 09/11/2026) y
+ * lleva el theme-color del sitio (D6).
+ */
 export function paginaDeError(status) {
   return `<!doctype html>
 <html lang="es">
@@ -104,18 +108,22 @@ export function paginaDeError(status) {
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="robots" content="noindex, nofollow" />
+    <meta name="theme-color" content="#010101" />
     <title>MuPa - Museo Paleontológico de San Juan</title>
     <style>
-      body { margin: 0; min-height: 100svh; display: grid; place-content: center; gap: 0.75rem; padding: 1.5rem;
+      body { margin: 0; min-height: 100svh; display: grid; place-content: center; padding: 1.5rem;
              background: #010101; color: #eae2df; font: 1rem/1.5 system-ui, sans-serif; text-align: center; }
+      main { display: grid; gap: 0.75rem; }
       h1 { margin: 0; font-size: 1.5rem; font-weight: 600; }
       a { color: inherit; }
     </style>
   </head>
   <body>
-    <h1>Museo Paleontológico de San Juan</h1>
-    <p>${texto(status)}</p>
-    <p><a href="/">Volver al inicio</a></p>
+    <main>
+      <h1>Museo Paleontológico de San Juan</h1>
+      <p>${texto(status)}</p>
+      <p><a href="/">Volver al inicio</a></p>
+    </main>
   </body>
 </html>
 `

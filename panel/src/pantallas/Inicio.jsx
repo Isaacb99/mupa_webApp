@@ -1,13 +1,16 @@
 // Inicio (plan 5.2 y 8): avisos, "Para completar" y accesos directos, con lo que devuelve GET /administracion/api/estado
 // (server/api/estado.js: códigos, no textos; los textos y los enlaces están acá). Desde E3.1, el aviso de espacio: las
 // fotos van en la base y, desde el 80 % del espacio contratado (ESPACIO_BASE_MB), el Inicio lo dice, con lo que pasa si
-// se llena: Render suspende la base y se caen el sitio (salvo la Home) y el panel (docs/operacion.md 6), así que el
-// aviso de "llena" puede no llegar a verse y el del 80 % tiene que decirlo (E5-12 de la re-verificación de E5). Desde
-// E4.9, el aviso del correo (plan 8, punto 4: los mensajes del formulario que no salen por correo, desde cuándo y
-// cuántos, para los dos roles; el enlace a Mensajes, solo para un admin) y, en "Formulario de contacto", si está en el
-// sitio. Los que no salieron por algo que no es la casilla (la base tardó en dar el destino, se guardaron tarde: CON-08
-// de la verificación de E4) van en un aviso aparte, que no habla de la casilla. Desde la Visitas del tablero "Web" de la
-// diseñadora (03/11/2026; V2 del desarrollador) "Para completar" ya no pide las tarifas: el sitio no las muestra.
+// se llena: Render suspende la base y se caen el sitio (salvo la Home y Divulgación, sin sus novedades, y El Museo,
+// Educación y Circuitos, que no leen la base: el texto lo dice desde el cierre de E6.3, con «El&nbsp;Museo» de corrido
+// para que el nombre de la página no se parta en dos renglones, VPAN-01) y el panel (docs/operacion.md
+// 6), así que el aviso de "llena" puede no llegar a verse y el del 80 % tiene que decirlo (E5-12 de la re-verificación
+// de E5). Desde E4.9, el aviso del correo (plan 8, punto 4: los mensajes del formulario que no salen por correo, desde
+// cuándo y cuántos, para los dos roles; el enlace a Mensajes, solo para un admin) y, en "Formulario de contacto", si
+// está en el sitio. Los que no salieron por algo que no es la casilla (la base tardó en dar el destino, se guardaron
+// tarde: CON-08 de la verificación de E4) van en un aviso aparte, que no habla de la casilla. Desde la Visitas del
+// tablero "Web" de la diseñadora (03/11/2026; V2 del desarrollador) "Para completar" ya no pide las tarifas: el sitio no
+// las muestra.
 import { useEffect, useState } from 'react'
 import { Link, useLoaderData } from 'react-router'
 import { api } from '../api.js'
@@ -89,13 +92,15 @@ export default function Inicio() {
               ocupa.{' '}
               {lleno >= 100 ? (
                 <>
-                  En cualquier momento el sitio puede dejar de verse (salvo la página principal) y el panel, dejar de
-                  andar, hasta que se amplíe el espacio: avisale ya a quien mantiene el sitio.
+                  En cualquier momento casi todo el sitio puede dejar de verse (solo seguirían la página principal,
+                  El&nbsp;Museo, Divulgación, Educación y Circuitos, sin las novedades) y el panel, dejar de andar, hasta
+                  que se amplíe el espacio: avisale ya a quien mantiene el sitio.
                 </>
               ) : (
                 <>
-                  Si se llena, el sitio deja de verse (salvo la página principal) y el panel deja de andar hasta que
-                  se amplíe el espacio: avisale ya a quien mantiene el sitio.
+                  Si se llena, casi todo el sitio deja de verse (solo siguen la página principal, El&nbsp;Museo,
+                  Divulgación, Educación y Circuitos, sin las novedades) y el panel deja de andar hasta que se amplíe
+                  el espacio: avisale ya a quien mantiene el sitio.
                 </>
               )}
             </p>

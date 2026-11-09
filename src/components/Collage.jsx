@@ -190,6 +190,8 @@ export default function Collage({ fotos = [] }) {
                   sizes="(min-width: 1440px) 667px, (min-width: 1024px) 46vw, 66vw"
                   alt={foto.alt}
                   loading="lazy"
+                  decoding="async"
+                  fetchPriority="low"
                   className="h-full w-full object-cover"
                 />
               </div>

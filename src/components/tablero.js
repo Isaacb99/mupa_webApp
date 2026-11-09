@@ -2,8 +2,9 @@
 // escritorio, a 1440): las comparten el header, el pie, la Home nueva y las páginas que vayan tomando el diseño (desde
 // el 03/11/2026, Visitas; desde el 04/11/2026, Exposiciones, Novedades y las fichas de una muestra y de una novedad, y
 // desde el 05/11/2026 Contacto y la 404, que el tablero no dibuja y toman su lenguaje: decisiones R1 a R7 del
-// desarrollador, más abajo; desde el 06/11/2026, Divulgación: DV1 a DV10). Desde entonces ninguna página usa las de
-// estilos.js (las usan solo componentes que quedaron sin uso: se decide al cierre, D1).
+// desarrollador, más abajo; desde el 06/11/2026, Divulgación, DV1 a DV10, y El Museo, Educación y Circuitos, IN1 a
+// IN10). Desde entonces ninguna página usa las de estilos.js (las usan solo componentes que quedaron sin uso: quedan
+// así, sin borrar, C1 del 09/11/2026).
 // Medidas del tablero a 1440, con los tokens de src/index.css (max-w-tablero, ink #010101, paper #eae2df, blanco, muted
 // #88858e, naranja #eb622d): contenido de 1280 con 80 de margen, 80 de aire arriba y abajo de cada sección, títulos
 // Google Sans Flex Thin 64/79,5, párrafos Regular 18/30 (no hay Light 300 ni espaciado entre letras en el tablero),
@@ -134,8 +135,8 @@ export const PARRAFO_TABLERO = 'text-lg leading-[1.875rem] font-normal text-pape
 /** El párrafo secundario: el mismo, en gris. */
 export const PARRAFO_SECUNDARIO = 'text-lg leading-[1.875rem] font-normal text-muted wrap-break-word text-pretty'
 
-/** La bajada de una sección, debajo del h2: Regular 18/28 en gris. */
-export const BAJADA = 'text-lg leading-7 font-normal text-muted'
+/** La bajada de una sección, debajo del h2: Regular 18/28 en gris, con text-pretty como los párrafos. */
+export const BAJADA = 'text-lg leading-7 font-normal text-muted text-pretty'
 
 /**
  * El enlace con flecha ("Ver todas las novedades" con la flecha en diagonal, Iconos.jsx): Roboto Mono Regular
@@ -182,8 +183,12 @@ export const ICONO_TARJETA = 'flex size-12 shrink-0 items-center justify-center 
  */
 export const DATO_TARJETA = 'text-lg leading-7 font-normal text-muted wrap-anywhere'
 
-/** El texto de una tarjeta de recursos (los de "Museo accesible"): Regular 16/26 en gris. */
-export const TEXTO_TARJETA = 'text-base leading-[1.625rem] font-normal text-muted wrap-break-word'
+/**
+ * El texto de una tarjeta de recursos (los de "Museo accesible", las de SeccionRecursos.jsx, las partes de la cogestión
+ * de El Museo): Regular 16/26 en gris, con text-pretty como los párrafos (sin él, a 1024 y a 1440 quedaban palabras
+ * solas en el último renglón: DIS-01 y EDU-02 de las verificaciones de Divulgación y Educación, BDIS-03 del cierre).
+ */
+export const TEXTO_TARJETA = 'text-base leading-[1.625rem] font-normal text-muted wrap-break-word text-pretty'
 
 /**
  * Un dato que es un enlace (el teléfono con tel:, el correo con mailto:) en el texto de una tarjeta: el mismo texto,
@@ -209,6 +214,9 @@ export const ENLACE_DATO =
  *   sangría de siempre;
  * - los enlaces no están en el tablero: subrayados, como los demás enlaces dentro de un texto del sitio (desvío a
  *   confirmar con la diseñadora).
+ * Con colores forzados el navegador cambia el fondo de la viñeta (un ::before con bg-paper) por el de la página y
+ * desaparecía (EDU-01, CIR-01 y MUS-03 de las verificaciones de las internas, 06/11/2026): ahí va en CanvasText, el
+ * color del texto del sistema. La usan también las listas de BloqueTextoFoto.jsx y de El Museo.
  * Hasta la corrección del rediseño de las internas (EST-05 de su verificación, 05/11/2026) los subtítulos iban en
  * Medium 20/28 y los ítems en 18/30 con la viñeta del navegador.
  */
@@ -218,7 +226,8 @@ export const CLASES_TEXTO_TABLERO = {
     'font-titulo text-[1.75rem] leading-9 font-thin min-[32rem]:text-[2.5rem] min-[32rem]:leading-[3.25rem]',
   ul:
     '[&>li]:relative [&>li]:pl-[1.125rem] [&>li]:before:absolute [&>li]:before:top-[0.5625rem] [&>li]:before:left-0 ' +
-    '[&>li]:before:size-1.5 [&>li]:before:rounded-full [&>li]:before:bg-paper',
+    '[&>li]:before:size-1.5 [&>li]:before:rounded-full [&>li]:before:bg-paper ' +
+    'forced-colors:[&>li]:before:bg-[CanvasText]',
   ol: 'list-decimal pl-[1.25em] [&>li]:pl-[0.25em]',
   li: 'mt-3 text-base leading-6',
   a:
@@ -281,9 +290,11 @@ export const TITULO_TARJETA =
 export const ENLACE_TARJETA =
   'rounded-sm decoration-1 underline-offset-4 after:absolute after:inset-0 group-hover:underline ' +
   'focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-blanco'
-export const DETALLE_TARJETA = 'text-base leading-[1.625rem] font-normal text-muted'
+// La fecha o el período y el resumen, con text-pretty como los párrafos: sin él quedaban palabras solas en el último
+// renglón («semanas.», «2027»: BDIS-03 del barrido de diseño del cierre, 09/11/2026).
+export const DETALLE_TARJETA = 'text-base leading-[1.625rem] font-normal text-muted text-pretty'
 export const RESUMEN_TARJETA =
-  'max-w-[86.4%] text-[1.03125rem] leading-[1.6875rem] font-normal text-paper wrap-anywhere'
+  'max-w-[86.4%] text-[1.03125rem] leading-[1.6875rem] font-normal text-paper wrap-anywhere text-pretty'
 export const FOTO_TARJETA = 'aspect-[485/355] w-full rounded-xl object-cover'
 
 /**

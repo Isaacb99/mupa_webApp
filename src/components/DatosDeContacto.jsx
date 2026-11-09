@@ -10,6 +10,7 @@ import {
 import { FlechaDiagonal } from './Iconos.jsx'
 import { Correo, Redes, Telefono } from './IconosContacto.jsx'
 import { Brujula } from './IconosTarjetas.jsx'
+import TextoCorreo from './TextoCorreo.jsx'
 import {
   CONTENEDOR_TABLERO,
   DATO_TARJETA,
@@ -128,8 +129,8 @@ export default function DatosDeContacto({ datos: d }) {
             ) : null}
             {d.correo ? (
               <Dato Icono={Correo} titulo={t.correo} enlace>
-                <a href={`mailto:${d.correo}`} className={ENLACE_DATO}>
-                  {d.correo}
+                <a href={`mailto:${d.correo}`} aria-label={d.correo} className={ENLACE_DATO}>
+                  <TextoCorreo correo={d.correo} />
                 </a>
               </Dato>
             ) : null}

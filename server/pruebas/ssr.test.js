@@ -14,7 +14,8 @@
 // - El sitemap con las páginas fijas y lo publicado (también lo finalizado o realizado), sin borradores.
 // - Ninguna respuesta pública pone Set-Cookie aunque el pedido traiga la cookie de sesión (desde auth.test.js).
 // - Sin base (sin la base de prueba también corre): con la base caída la Home sale (200, con el año del © del pie en el
-//   estado, que pone el servidor) y las demás, la 503 simple; el cálculo de las precargas (modulepreload) a partir del
+//   estado, que pone el servidor), como Divulgación, El Museo, Educación y Circuitos, y las demás, la 503 simple (con
+//   su <main>: BCOD-03 del cierre de E6.3); el cálculo de las precargas (modulepreload) a partir del
 //   manifiesto; cada página de la tabla tiene su archivo.
 // - La Home del tablero "Web" (02/11/2026): con base, las 6 últimas novedades publicadas en orden (sin borradores ni
 //   actividades realizadas) y una sin portada sin foto; sin base, con 0, 1 y 6 novedades de un lector falso, y con la
@@ -376,7 +377,7 @@ describe('las páginas internas con base', { skip: base.motivo ?? false }, () =>
     assert.ok(app.includes('<span class="block">Avenida de prueba 1234</span><span class="block">5400 San Juan, San Juan</span>'))
     assert.ok(app.includes('<li>Martes a domingo: 9:00\u00a0a\u00a013:00</li><li>Lunes: cerrado</li>'))
     assert.match(app, /<a href="tel:\+542640000000" class="inline-flex min-h-11 /)
-    assert.match(app, /<a href="mailto:museo@example\.com" class="inline-flex min-h-11 /)
+    assert.match(app, /<a href="mailto:museo@example\.com" aria-label="museo@example\.com" class="inline-flex min-h-11 /)
     assert.match(app, /<a href="\/contacto" class="inline-flex min-h-11 /)
     assert.ok(app.includes('<p>Hay rampa en la entrada.</p>'))
     // Sin "Insertar mapa" cargado, sin el mapa.
@@ -885,7 +886,7 @@ describe('IndexNow (E4.6): avisa lo publicado, nunca un borrador, sin pedidos de
 })
 
 describe('sin base', () => {
-  test('con la base caída: la Home sale (200) y las demás rutas, la 503 simple; el sitemap, 503', async () => {
+  test('con la base caída: la Home, Divulgación, El Museo, Educación y Circuitos salen (200) y las demás rutas, la 503 simple; el sitemap, 503', async () => {
     const config = leerConfig({
       NODE_ENV: 'production',
       URL_PUBLICA: 'https://mupa.ar/',
@@ -950,6 +951,10 @@ describe('sin base', () => {
         assert.equal(r.h['retry-after'], '60', ruta)
         assert.doesNotMatch(r.texto, /<script/, ruta)
         assert.match(r.texto, /noindex/, ruta)
+        // Con su <main> (axe: landmark-one-main y region, BCOD-03 del cierre de E6.3) y el theme-color del sitio (D6).
+        assert.equal(cuantas(r.texto, '<main>'), 1, ruta)
+        assert.match(r.texto, /<main>\s*<h1>[^<]+<\/h1>\s*<p>[^<]+<\/p>\s*<p><a href="\/">[^<]+<\/a><\/p>\s*<\/main>/, ruta)
+        assert.match(r.texto, /<meta name="theme-color" content="#010101" \/>/, ruta)
         assert.equal(r.h['set-cookie'], undefined, ruta)
       }
       assert.equal((await pedir(puerto, 'GET', '/sitemap.xml')).status, 503)
@@ -1167,7 +1172,7 @@ describe('sin base', () => {
     await assert.rejects(cargarVisitas({ museo: museo({ museo: MUSEO_MAXIMO, alDia: false }) }), { code: 'BASE_NO_DISPONIBLE' })
   })
 
-  test('horarioDeLaSemana (sin uso desde la Visitas del tablero, se decide al cierre): "Hoy" con la fecha de San Juan', () => {
+  test('horarioDeLaSemana (sin uso desde la Visitas del tablero, sin borrar: C1): "Hoy" con la fecha de San Juan', () => {
     const filas = horarioDeLaSemana(MUSEO_MAXIMO.horarios, '2026-11-03')
     assert.equal(filas.length, 7)
     assert.deepEqual(filas[0], { dia: 'Lunes', hoy: false, horas: null, nota: null })
@@ -1385,8 +1390,8 @@ describe('sin base', () => {
       assert.match(fotoD[0], /hero-divulgacion-/)
       assert.ok(headD.indexOf(fotoD[0]) > 0 && headD.indexOf(fotoD[0]) < headD.indexOf('<title>'))
       assert.ok(headD.indexOf('rel="stylesheet"') < headD.indexOf('/assets/Divulgacion-e.js'))
-      assert.equal((d.texto.match(/<img [^>]*area-ciencia[^>]*loading="lazy"/g) ?? []).length, 4, 'las cuatro fotos de los bloques, lazy')
-      assert.ok(!/<link rel="preload" as="image"[^>]*area-ciencia/.test(d.texto))
+      assert.equal((d.texto.match(/<img [^>]*bloque-divulgacion[^>]*loading="lazy"/g) ?? []).length, 4, 'las cuatro fotos de los bloques, lazy')
+      assert.ok(!/<link rel="preload" as="image"[^>]*bloque-divulgacion/.test(d.texto))
       // Educación (06/11/2026), igual: la foto de su hero primero; la de "Visitas Escolares", lazy y sin precargar.
       const e = await pedir(servidor.address().port, 'GET', '/educacion')
       assert.equal(e.status, 200)

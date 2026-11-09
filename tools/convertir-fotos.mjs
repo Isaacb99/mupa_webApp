@@ -142,11 +142,13 @@ const JOBS = [
   // del 40 al 90 %: las chispas arriba y la máscara a la derecha del h1. Con el esqueleto de IMG_8110 (la primera
   // propuesta, filas del 6 al 56 %) la bajada quedaba sobre una pared blanca, con el 1,5-2 % del anillo de sus letras
   // bajo 3:1 de 1024 a 3440 (ninguna fila lo arreglaba: la pared baja hasta el pie de la foto); con esta, como mucho el
-  // 0,2 %. En WebP 75, como Novedades: con las chispas y los caños, en 80 la de 2880 pesaba 186 kB (en 75, 150).
-  ['Mosaico - IMG_1085.jpg',      'hero-circuitos-2880',        2880,  960, 0, 1, 0.40, 0.90, 75],
-  ['Mosaico - IMG_1085.jpg',      'hero-circuitos-1920',        1920,  640, 0, 1, 0.40, 0.90, 75],
-  ['Mosaico - IMG_1085.jpg',      'hero-circuitos-1440',        1440,  480, 0, 1, 0.40, 0.90, 75],
-  ['Mosaico - IMG_1085.jpg',      'hero-circuitos-960',          960,  320, 0, 1, 0.40, 0.90, 75],
+  // 0,2 %. En WebP 65: con las chispas y los caños, en 80 la de 2880 pesaba 186 kB y en 75, 150; desde el cierre de E6.3
+  // (INT-COD-03, 09/11/2026), en 65, 131 (la de 1440, de 58 a 51), con el mismo recorte: era el LCP más alto de las
+  // internas, y la diferencia no se ve ni en densidad 2 (PSNR contra el recorte sin pérdida de 36,7 a 36,1 dB).
+  ['Mosaico - IMG_1085.jpg',      'hero-circuitos-2880',        2880,  960, 0, 1, 0.40, 0.90, 65],
+  ['Mosaico - IMG_1085.jpg',      'hero-circuitos-1920',        1920,  640, 0, 1, 0.40, 0.90, 65],
+  ['Mosaico - IMG_1085.jpg',      'hero-circuitos-1440',        1440,  480, 0, 1, 0.40, 0.90, 65],
+  ['Mosaico - IMG_1085.jpg',      'hero-circuitos-960',          960,  320, 0, 1, 0.40, 0.90, 65],
   // Los dos circuitos de Circuitos (BloqueTextoFoto.jsx, 600x420 a 1440, 10:7; decisión R-C del orquestador): la
   // paleontóloga con la cuadrícula de hilos, la foto que el tablero les pone (relleno), desde su original (920x633) y no
   // desde area-ciencia-570: columnas del 2 al 97,6 % y filas del 1 al 98,3 % (880x616 del original, sin el marco del
@@ -154,6 +156,12 @@ const JOBS = [
   // de 880 sale sin agrandar ni achicar.
   ['Acordeon - Ciencia.jpg',      'bloque-ciencia-880',          880,  616, 0.02, 0.976, 0.01, 0.983],
   ['Acordeon - Ciencia.jpg',      'bloque-ciencia-600',          600,  420, 0.02, 0.976, 0.01, 0.983],
+  // Los cuatro bloques de Divulgación (BloqueTextoFoto.jsx, 600x420 a 1440; DV1): la misma foto con el encuadre del
+  // tablero, el que se veía en la caja con area-ciencia-570 (columnas del 15,4 al 84,6 %, las de area-ciencia-570, y la
+  // franja del medio en 10:7, filas del 14,8 al 85,2 %: 636x446 del original), pero sin pasar por los 570 de la landing:
+  // en 600 sale achicada (antes se estiraba un 5 %; cierre de E6.3, DIV-FOTO-01, 09/11/2026). Para la densidad 2 hace
+  // falta el original del museo.
+  ['Acordeon - Ciencia.jpg',      'bloque-divulgacion-600',      600,  420, 0.154, 0.846, 0.148, 0.852],
   // El Museo (tablero 2823:10228: su foto es la fachada con el cartel, Header - IMG_1526 v2, que ya es el hero de
   // Contacto; IN6 y R-E del orquestador, 06/11/2026): el mismo frente de cerca y contra el cielo (Id. Vision - IMG_1676,
   // 6000x4000, el eje Visión de la landing, que master no usaba), 3:1 de la franja x del 5 al 95 % y las filas del 0 al

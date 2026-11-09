@@ -3,13 +3,12 @@
 // La expresión puede ir como texto o como la ruta de un archivo .js (p. ej. tools/parallax-ejes.js): así anda igual desde
 // PowerShell, donde "$(cat archivo)" pierde los saltos de línea y las comillas internas.
 // Emula el viewport por CDP (sirve para <500px), espera fonts.ready, evalúa la expresión y opcionalmente captura página completa.
-// Con una URL local (127.0.0.1, localhost o [::1]) nada sale de esta máquina, como en vitals.mjs y apertura-perf.mjs:
+// Con una URL local (127.0.0.1, localhost o [::1]) nada sale de esta máquina, como en vitals.mjs, apertura-perf.mjs y acordeon-dedo.mjs:
 // Chrome no resuelve ningún otro nombre (--host-resolver-rules) y lo de afuera falla sin respuesta. Es el <iframe> del
 // mapa de Visitas y Contacto: con cualquier museo con "Insertar mapa", también SIN_BASE=maximo, cae dentro del margen de
 // la carga diferida y pedía www.google.com al cargar la página (VR1-01 de la re-verificación de Visitas, 04/11/2026);
 // también UserWay, con su ID. --con-externos lo deja salir. Contra mupa.ar o Render, sale todo. La regla se aplica
 // también a las direcciones IP: [::1] va excluida como ::1, sin corchetes (con ellos, o sin excluirla, no cargaba).
-// acordeon-dedo.mjs (rama landing) lo hace solo con 127.0.0.1 y localhost: con [::1], sale todo.
 import { spawn } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -36,6 +35,10 @@ ws.onmessage = e => { const m = JSON.parse(e.data); if (m.id && pend.has(m.id)) 
 const send = (method, params = {}) => new Promise(r => { const i = ++id; pend.set(i, r); ws.send(JSON.stringify({ id: i, method, params })); });
 const evalJs = async (expression) => { const r = await send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true }); if (r.result?.exceptionDetails) throw new Error(r.result.exceptionDetails.exception?.description || 'error en la expresión'); return r.result?.result?.value; };
 await send('Page.enable');
+// Por debajo de 768 px emula un celular (mobile: true). Ojo: así, si la página desborda a lo ancho, innerWidth crece hasta
+// el ancho del contenido (409 en vez de 320) y "scrollWidth > innerWidth" nunca da verdadero. El scroll horizontal se mide
+// contra document.documentElement.clientWidth, que sigue en el ancho emulado (VDIS-02 de la verificación del cierre de
+// E6.3, 09/11/2026; lo controla server/pruebas/herramientas.test.js).
 await send('Emulation.setDeviceMetricsOverride', { width: w, height: h, deviceScaleFactor: 1, mobile: w < 768 });
 // Por debajo de 768 px emula touch: así (hover: none) es verdadero, como en un celular (sin esto Chrome responde hover).
 if (w < 768) await send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });

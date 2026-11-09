@@ -9,14 +9,15 @@ import { seccionDe } from '../components/navegacion.js'
 // desarrollador: reemplaza a la landing en master, y la landing publicada sigue en la rama landing). Solo escritorio
 // (D2): fiel a 1440, fluida entre lg y 1440 y centrada más allá; debajo de lg, en una columna y sin pulir.
 // Va dentro de Layout (src/Raiz.jsx: el header, el <main id="main">, el pie y Lenis); acá, sus secciones:
-// - HeroHome: la foto, el h1 (el único de la página), la bajada y la franja de accesos (Visitas, la compra externa).
+// - HeroHome: la foto, el h1 (el único de la página), la bajada y la franja de accesos (Visitas, la compra externa y
+//   Educación).
 // - CarruselNovedades: las últimas novedades publicadas (estado.datos.novedades, server/paginas.js: cargarHome). Sin
 //   novedades, o si la base no respondió, la sección no se dibuja (la Home sale igual: nunca la 503).
 // - GaleriaHome: "El MuPa en imágenes" (el carrusel de fotos de siempre, Collage.jsx, con el título y las piedritas;
 //   sin Novedades va pegada al hero y la piedrita de arriba no sube por encima de su sección).
 // - MapaMuseo: el plano.
 // Las secciones de la landing (Intro, Identidad, ObraHistorica, Areas y sus hooks) quedan en src/components sin
-// importarse: se decide al cierre si se borran.
+// importarse y sin borrar (C1 del desarrollador, 09/11/2026).
 
 /** @param {{ estado: { museo?: { compra?: object | null } | null, datos?: { novedades?: object[] } } }} props */
 export default function Home({ estado }) {

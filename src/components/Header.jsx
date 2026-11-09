@@ -8,8 +8,8 @@ import MenuMovil from './MenuMovil.jsx'
 // (Menu.jsx desde xl; debajo, el botón "Menú" con su <dialog>: MenuMovil.jsx).
 // - Transparente y absolute arriba en TODAS las páginas (decisión D8): sube con la página, nada fijo ni sticky que tape
 //   o corra los enganches de la Home. Las páginas con una foto arriba (la Home, los hero del tablero) la ponen debajo de
-//   él; las que todavía no tienen el diseño nuevo dejan arriba el lugar que mide (CONTENEDOR de estilos.js: 92 px en el
-//   celular, 108 desde md y 128 desde lg).
+//   él; las que no llevan foto arriba (las fichas de una muestra y de una novedad, y la 404) dejan arriba el lugar que
+//   mide (CONTENEDOR_SIN_FOTO de tablero.js: 92 px en el celular, 108 desde md y 128 desde lg, más el aire del tablero).
 // - Medidas del tablero a 1440: 128 de alto, 64 a los costados (max-w-tablero con px-16: más allá de 1440 queda
 //   centrado con el contenido) y el logo y el menú centrados en el alto. Debajo de lg no hay diseño (D2): los márgenes
 //   del sitio (24 y 40).

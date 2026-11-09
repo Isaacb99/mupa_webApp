@@ -26,6 +26,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { after, before, beforeEach, describe, test } from 'node:test'
+import { deflateSync, gzipSync } from 'node:zlib'
 import express from 'express'
 import { CONTACTO, contarEnlaces, sinInvisibles, unaLinea } from '../../compartido/contacto.js'
 import { acomodarMensaje, erroresDeContacto, esquemaContacto } from '../../compartido/esquemas/contacto.js'
@@ -763,12 +764,41 @@ describe('el formulario de contacto con base', { skip: base.motivo ?? false }, (
     assert.equal(s.correo.enviados.length, 0)
   })
 
-  test('Content-Type que no es un formulario: 415; un cuerpo enorme: 413; nada guardado', async () => {
+  test('Content-Type que no es un formulario o un cuerpo comprimido: 415; un cuerpo enorme: 413; nada guardado', async () => {
     for (const tipo of ['application/json', 'text/plain', 'multipart/form-data; boundary=x', null]) {
       const r = await s.pedir('POST', '/contacto', { cuerpo: tipo === 'application/json' ? JSON.stringify(BIEN) : formulario(BIEN), tipo, ip: otraIp() })
       assert.equal(r.status, 415, String(tipo))
       assert.equal(r.h['cache-control'], 'no-store')
     }
+    // Comprimido (BCOD-01 del cierre de E6.3): un navegador nunca lo manda así, y no se descomprime nada (el aviso de
+    // body-parser es un gzip con bytes sueltos atrás). La página simple con el texto del 400, sin guardar ni mandar.
+    const gzip = gzipSync(formulario(unico()))
+    const comprimidos = [
+      ['gzip', Buffer.concat([gzip, Buffer.from('bytes sueltos')])],
+      ['GZIP', gzip],
+      ['deflate', deflateSync(formulario(unico()))],
+      ['br', Buffer.from('no es brotli')],
+    ]
+    for (const [codificacion, cuerpo] of comprimidos) {
+      const r = await s.pedir('POST', '/contacto', {
+        cuerpo,
+        tipo: 'application/x-www-form-urlencoded',
+        cabeceras: { 'content-encoding': codificacion },
+        ip: otraIp(),
+      })
+      assert.equal(r.status, 415, codificacion)
+      assert.equal(r.h['cache-control'], 'no-store')
+      assert.match(r.texto, /<main>/)
+      assert.match(r.texto, /El pedido no es válido\./)
+    }
+    // Sin comprimir (o "identity") sigue llegando: el servidor no quedó trabado.
+    const identidad = await s.pedir('POST', '/contacto', {
+      cuerpo: formulario({ ...BIEN, nombre: '' }),
+      tipo: 'application/x-www-form-urlencoded',
+      cabeceras: { 'content-encoding': 'identity' },
+      ip: otraIp(),
+    })
+    assert.equal(identidad.status, 400, identidad.texto.slice(0, 200))
     const grande = await enviar({ ...BIEN, mensaje: 'x'.repeat(70_000) }, { ip: otraIp() })
     assert.equal(grande.status, 413)
     assert.equal((await filas()).length, 0)

@@ -1,7 +1,7 @@
 // Lo de la autenticación y la API del panel que se prueba sin base (corre siempre, también sin DATABASE_URL_TEST):
 // contraseñas y temporales (server/auth/claves.js), reglas de las contraseñas y esquemas (compartido/esquemas/), ids,
 // traducción de errores (server/errores.js), avisos de la configuración y, con la app sin base, el orden CSRF ->
-// Content-Type -> 503.
+// Content-Type -> 503 y, desde el cierre de E6.3 (BCOD-01), que un cuerpo comprimido da 415 sin descomprimirse.
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
@@ -10,6 +10,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { after, before, describe, mock, test } from 'node:test'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { gzipSync } from 'node:zlib'
 import argon2 from 'argon2'
 import express from 'express'
 import { esquemaCambioClave, problemaDeClave } from '../../compartido/esquemas/cuenta.js'
@@ -216,6 +217,32 @@ describe('la API sin base', () => {
     assert.match(sinBase.json.error, /sin base/)
     assert.equal((await pedir('POST', '/administracion/api/sesion', { ...json, origin: 'https://mupa.ar' }, '{}')).status, 503)
     assert.equal((await pedir('GET', '/administracion/api/usuarios')).status, 503)
+  })
+
+  test('un cuerpo comprimido (Content-Encoding) da 415 sin descomprimirse, también con el tope propio de una ruta, y el servidor sigue (BCOD-01)', async () => {
+    // inflate: false en los express.json de server/api/indice.js: body-parser contesta 415 antes de armar el
+    // descompresor (GHSA-27r3-jxmh-p828: un gzip con bytes sueltos atrás podía tirar el proceso) y antes de la base.
+    const cabeceras = { 'content-type': 'application/json', 'sec-fetch-site': 'same-origin' }
+    const gzip = gzipSync('{"email":"ana@example.com","clave":"una frase larga de prueba"}')
+    const cuerpos = [
+      ['gzip', Buffer.concat([gzip, Buffer.from('bytes sueltos')])],
+      ['gzip', gzip.subarray(0, 12)],
+      ['GZIP', gzip],
+      ['deflate', Buffer.from('no es deflate')],
+      ['br', Buffer.from('no es brotli')],
+    ]
+    // POST /sesion pasa por el express.json común (100 kB); PUT /museo, por el de su ruta (300 kB, limiteJson).
+    for (const [metodo, ruta] of [['POST', '/administracion/api/sesion'], ['PUT', '/administracion/api/museo']]) {
+      for (const [codificacion, cuerpo] of cuerpos) {
+        const r = await pedir(metodo, ruta, { ...cabeceras, 'content-encoding': codificacion }, cuerpo)
+        assert.equal(r.status, 415, `${metodo} ${ruta} con ${codificacion}`)
+        assert.equal(typeof r.json?.error, 'string')
+      }
+    }
+    // Sin comprimir (o "identity") sigue llegando hasta la base: el servidor no se cayó.
+    const sigue = await pedir('POST', '/administracion/api/sesion', { ...cabeceras, 'content-encoding': 'identity' }, '{}')
+    assert.equal(sigue.status, 503)
+    assert.match(sigue.json.error, /sin base/)
   })
 })
 

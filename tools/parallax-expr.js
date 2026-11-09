@@ -22,7 +22,7 @@
     await raf(); await raf();
     return { viajes, esperaMs: Math.round(performance.now() - t0) };
   };
-  const res = { ancho: innerWidth, overflow: document.documentElement.scrollWidth > innerWidth, font: getComputedStyle(h1).fontSize, h1Top: Math.round(h1Top), inicio: Math.round(inicio), fin: Math.round(fin),
+  const res = { ancho: innerWidth, overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth, font: getComputedStyle(h1).fontSize, h1Top: Math.round(h1Top), inicio: Math.round(inicio), fin: Math.round(fin),
     fijas: fijas.map(s => s.textContent + ' ' + JSON.stringify(rect(s))), palabra: palabra.textContent + ' ' + JSON.stringify(rect(palabra)), h1Derecha: Math.round(h1.getBoundingClientRect().right), parrafoIzq: Math.round(document.querySelector('p').getBoundingClientRect().left), pasos: [] };
   for (const p of [0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875, 1, 1.3]) {
     const T = inicio - p * (inicio - fin); scrollTo({ top: Math.max(0, h1Top - T), behavior: 'instant' });

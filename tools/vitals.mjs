@@ -21,7 +21,6 @@
 // lo transferido. --con-externos lo deja salir (para medir en local el costo real del mapa, con una dirección de
 // verdad). Contra mupa.ar o Render, todo sale siempre. La regla se aplica también a las direcciones IP: [::1] va
 // excluida como ::1, sin corchetes (sin excluirla, una URL [::1] no cargaba: 04/11/2026, corrección 2 de Visitas).
-// acordeon-dedo.mjs (rama landing) lo hace solo con 127.0.0.1 y localhost: con [::1], sale todo.
 import { spawn } from 'node:child_process'
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'

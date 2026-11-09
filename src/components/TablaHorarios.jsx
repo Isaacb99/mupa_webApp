@@ -1,7 +1,7 @@
 import { paginas } from '../content.js'
 
 // Sin uso desde la Visitas del tablero "Web" de la diseñadora (03/11/2026, decisión V3: la tarjeta Horarios muestra
-// solo el resumen): queda hasta que se decida al cierre (D1).
+// solo el resumen): queda sin borrar (C1 del desarrollador, 09/11/2026).
 //
 // El horario de la semana en Visitas: un renglón por día (de lunes a domingo), con el de hoy marcado ("Hoy (jueves)",
 // aria-current="date") y "Cerrado" en los días que no abre. Los textos llegan hechos del servidor (server/paginas.js,

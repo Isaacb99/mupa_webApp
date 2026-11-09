@@ -30,6 +30,19 @@ export function enlaceTelefono(telefono) {
 export const correoPublico = (email) => (typeof email === 'string' && esEnlacePermitido(`mailto:${email}`) ? email : null)
 
 /**
+ * El correo partido después de la arroba, para que el texto del enlace se corte ahí (un <wbr> entre las dos partes) y
+ * no a mitad del dominio: en la tarjeta Contacto de Visitas, de 213 a 320 px de texto entre 1024 y 1440, salía
+ * «contacto@mupa.example.» / «com» (BDIS-02 del barrido de diseño del cierre, 09/11/2026). Lo que igual no entra se
+ * sigue partiendo donde llega (wrap-anywhere). Sin arroba, todo en la primera parte.
+ * @param {string} correo
+ * @returns {[string, string]}
+ */
+export function partesDelCorreo(correo) {
+  const i = correo.lastIndexOf('@')
+  return i < 0 ? [correo, ''] : [correo.slice(0, i + 1), correo.slice(i + 1)]
+}
+
+/**
  * Las redes que el sitio sabe nombrar, con una dirección https, como { red, url, nombre } (server/museo.js ya las
  * filtra al leerlas de la base; se vuelven a mirar acá, como TextoRico.jsx con los enlaces). La dirección, con el mismo
  * tope que el panel (esDireccionDelMuseo: hasta URL_MAX, no el de los enlaces de un texto; PAN-02).

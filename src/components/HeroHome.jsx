@@ -28,9 +28,19 @@ import { TITULO_HERO } from './tablero.js'
 //   del tablero (FILL), y "Tickets" (bordó) mide 200 (FIXED). Texto Regular 32/56 blanco centrado (3:1 o más sobre los
 //   tres fondos: texto grande); el verde de "Tienda virtual" no va (fuera del alcance, y 2:1). "Tickets" es la compra
 //   externa del panel (sin la compra activa no se dibuja; data-entradas: la mide la analítica con origen "home") y
-//   "Recursos educativos" aparece sola cuando exista la página de Educación (navegacion.js). Si no queda ninguna, no hay
-//   franja. Foco, paso del puntero: no están en el tablero; contorno blanco por dentro (las cajas van pegadas) y
+//   "Recursos educativos" va porque existe la página de Educación (desde el 06/11/2026; si no existiera no iría:
+//   navegacion.js). Si no queda ninguna, no hay franja. Foco, paso del puntero: no están en el tablero; contorno blanco por dentro (las cajas van pegadas) y
 //   subrayado. El padding va en em de la letra de la franja (1em y 0,375em) y "Tickets" mide 12,5rem (200).
+// - La franja nunca mide menos de lo que sube (lg:min-h-20, 5rem): con el espaciado de texto de WCAG 1.4.12
+//   (interlineado de 1,5) las cajas medían 72 y quedaban 8 px de foto debajo (A11Y-02 de la verificación de la Home).
+// - Con las tres cajas (la compra activa), de 1024 a 1081 px "Recursos educativos" va en dos renglones con Google
+//   Sans Flex; el respaldo, más angosto, entraba en uno desde 1062, y en la primera visita la franja crecía 56 px al
+//   llegar la fuente (CLS de 0,008 a 0,0095: COD-01 de la verificación de las internas). En ese tramo el corte va en
+//   el texto: un salto de línea después de la primera palabra, que respeta solo de lg a 67,625rem (1082 px, donde la
+//   fuente pasa a un renglón: CORTE, whitespace-pre-line), así los dos van en dos renglones; fuera de ese tramo el salto
+//   es un espacio. Sin un <span> ni un <br>: el enlace es flex, y un elemento adentro sería un ítem aparte (y Chrome
+//   contaba como corrimiento el del <span> centrado, de menos de 4 px, cuando llegaba la fuente). Debajo de lg, y con
+//   dos cajas, no hace falta: no lo lleva.
 // - Contraste de la bajada (A11Y-01): sobre la pared clara de la derecha de la foto, «Argentina» quedaba con un tercio
 //   de sus letras por debajo de 3:1. El degradé es el del tablero (D6, no se toca): la bajada lleva, además de la
 //   sombra del tablero, un halo oscuro pegado a las letras (tres sombras de 0,125, 0,25 y 0,5em, del 90 al 50 %), que
@@ -59,7 +69,10 @@ const ACCESO =
   'flex min-h-16 w-full items-center justify-center px-6 py-3 text-center font-display text-2xl leading-normal ' +
   'font-normal text-blanco wrap-break-word decoration-1 underline-offset-[0.2em] hover:underline ' +
   'focus-visible:outline-2 focus-visible:-outline-offset-4 focus-visible:outline-blanco ' +
-  'min-[32rem]:text-[2rem] lg:px-[1em] lg:py-[0.375em] lg:leading-[1.75]'
+  'min-[32rem]:text-[2rem] lg:min-h-20 lg:px-[1em] lg:py-[0.375em] lg:leading-[1.75]'
+// El corte de "Recursos educativos" con las tres cajas (ver arriba): el salto de línea del texto vale solo de lg a
+// 1081 px.
+const CORTE = 'lg:whitespace-pre-line min-[67.625rem]:whitespace-normal'
 
 /**
  * @param {{ compra: { url: string } | null }} props  compra: estado.museo.compra (solo viene si
@@ -82,7 +95,17 @@ export default function HeroHome({ compra }) {
           extra: { 'data-entradas': '' },
         }
       : null,
-    recursos ? { clave: 'recursos', href: recursos.ruta, texto: home.accesos.recursos, caja: CAJA, fondo: 'bg-naranja' } : null,
+    recursos
+      ? {
+          clave: 'recursos',
+          href: recursos.ruta,
+          // Con la compra (tres cajas), el salto después de la primera palabra (CORTE).
+          texto: compra ? home.accesos.recursos.replace(' ', '\n') : home.accesos.recursos,
+          caja: CAJA,
+          fondo: 'bg-naranja',
+          corte: Boolean(compra),
+        }
+      : null,
   ].filter(Boolean)
   const conFranja = accesos.length > 0
 
@@ -124,7 +147,7 @@ export default function HeroHome({ compra }) {
           <ul className="mx-auto flex max-w-tablero flex-col lg:flex-row lg:px-20">
             {accesos.map((a) => (
               <li key={a.clave} className={a.caja}>
-                <a href={a.href} {...a.extra} className={`${ACCESO} ${a.fondo}`}>
+                <a href={a.href} {...a.extra} className={[ACCESO, a.fondo, a.corte ? CORTE : ''].filter(Boolean).join(' ')}>
                   {a.texto}
                 </a>
               </li>

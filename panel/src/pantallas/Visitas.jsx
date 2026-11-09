@@ -15,7 +15,7 @@
 // Accesibilidad.").
 // Lo que el sitio dejó de mostrar ya no se pide acá: las tarifas y su nota, el aviso general, la nota general de los
 // horarios y la de cada día, "Cómo llegar", las normas y el texto del botón de compra. La API, las columnas y los
-// componentes (visitas/Tarifas.jsx) siguen (se decide al cierre, como D1) y lo que el museo cargó no se pierde: PUT
+// componentes (visitas/Tarifas.jsx) siguen, sin borrar (C1, 09/11/2026), y lo que el museo cargó no se pierde: PUT
 // /museo es parcial y cada parte manda solo lo suyo, y el horario manda la nota de cada día como vino
 // (visitas/cuerpoHorario.js).
 import { useCallback, useState } from 'react'

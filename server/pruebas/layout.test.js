@@ -8,7 +8,7 @@
 // año del © desde el estado, las redes en el pie y nada más del museo (ni dirección, ni horario, ni teléfono, ni correo).
 // Los componentes son JSX: se cargan con el Vite del proyecto (ssrLoadModule, como textoRico.test.js), sin build.
 // Desde la Home del tablero "Web" (02/11/2026, etapa 3): el h1 nuevo y la foto del hero con prioridad, la franja de
-// accesos (Visitas, "Tickets" solo con la compra, "Recursos educativos" solo cuando exista Educación, nunca "Tienda
+// accesos (Visitas, "Tickets" solo con la compra, "Recursos educativos" con la página de Educación, nunca "Tienda
 // virtual"), el carrusel de Novedades con 0, 1 y 6 tarjetas (el orden, sin portada sin foto, los botones y el contador
 // listos para hidratar), "El MuPa en imágenes" con sus piedritas decorativas, el plano con los nombres como texto y el
 // origen de clic_entradas (D14). Ronda 1 de su corrección: el hero con alto mínimo y la franja en el flujo (A11Y-02),
@@ -27,7 +27,7 @@
 // tarjeta (Dirección, Horarios, Contacto) solo con sus datos y la sección sin ninguna ni mapa sin dibujar, el mapa solo
 // el de Google, "Museo accesible" con el texto del panel o los párrafos del tablero, y lo que la página dejó de mostrar
 // (el aviso, la compra, las tarifas, las notas, cómo llegar y las normas) que no sale aunque esté cargado. Aviso,
-// ListaTarifas y TablaHorarios quedan sin usar (se decide al cierre) y se prueban solos.
+// ListaTarifas y TablaHorarios quedan sin usar, sin borrar (C1, 09/11/2026), y se prueban solos.
 // Desde el rediseño de Exposiciones, Novedades y sus fichas con el lenguaje del tablero (04/11/2026, decisiones R1 a
 // R7): las listas con el hero de las páginas internas (la foto con prioridad, sus cuatro anchos y su punto de interés)
 // y sobreFoto; cada sección con su rótulo y su h2; las tarjetas con la etiqueta, la fecha y el resumen, todas las fotos
@@ -58,6 +58,7 @@ import { REDES as REDES_DEL_ESQUEMA } from '../../compartido/esquemas/museo.js'
 import { REDES } from '../../compartido/redes.js'
 import { origenDeEntradas, pieVisto } from '../../src/analitica.js'
 import { ESPERA_MS, crearAvisador } from '../../src/components/avisoCarrusel.js'
+import { SALAS_DEL_PLANO } from '../../src/components/mapaSalas.js'
 import { MUSEO_MAXIMO, MUSEO_VACIO, museoComun } from '../museo.js'
 import { RUTAS } from '../rutas-publicas.js'
 
@@ -282,7 +283,7 @@ describe('Layout, header, menú y pie (sin base)', () => {
   test('la Home con el museo vacío: header absolute, menú con las secciones que existen, pie sin redes ni compra', () => {
     const html = pagina({ pagina: 'home', museo: MUSEO_VACIO })
     assert.equal(cuantas(html, '<footer'), 1)
-    assert.equal(cuantas(html, '<main id="main" tabindex="-1">'), 1)
+    assert.equal(cuantas(html, '<main id="main" tabindex="-1" class="grow">'), 1)
     assert.equal(cuantas(html, '<h1'), 1)
     assert.equal(cuantas(html, 'href="./"'), 0)
     assert.equal(cuantas(html, 'Contenido pendiente'), 0)
@@ -362,7 +363,7 @@ describe('Layout, header, menú y pie (sin base)', () => {
     assert.equal(cuantas(visitasConCompra, 'Entradas online'), 0)
     assert.equal(cuantas(visitasConCompra, contenido.navegacion.comprar), 0)
     assert.equal(cuantas(pagina({ pagina: 'home', museo: { ...MUSEO_VACIO, compra: null } }), 'data-entradas'), 0)
-    // BotonCompra.jsx queda sin usar (se decide al cierre, D1) y sigue dibujando el texto que cargó el museo o el suyo.
+    // BotonCompra.jsx queda sin usar, sin borrar (C1), y sigue dibujando el texto que cargó el museo o el suyo.
     const BotonCompra = (await vite.ssrLoadModule('/src/components/BotonCompra.jsx')).default
     const boton = (c) => renderToStaticMarkup(createElement(BotonCompra, { compra: c }))
     assert.ok(boton(compra).includes('>Entradas online</a>'))
@@ -532,16 +533,16 @@ describe('Layout, header, menú y pie (sin base)', () => {
     for (const ruta of SECCIONES_FUTURAS) assert.equal(cuantas(main, `href="${ruta}"`), 0, ruta)
     assert.equal(cuantas(html, '<footer'), 1)
     // El contenido deja el lugar del header (absolute): el mismo padding que las páginas internas.
-    assert.match(main, /<main id="main" tabindex="-1"><div class="[^"]*pt-32 [^"]*md:pt-40 [^"]*lg:pt-52/)
+    assert.match(main, /<main id="main" tabindex="-1" class="grow"><div class="[^"]*pt-32 [^"]*md:pt-40 [^"]*lg:pt-52/)
     // Desde el rediseño con el lenguaje del tablero (05/11/2026, R2): como las fichas, el título sin foto (el ancho del
     // contenido del tablero y el h1 de los hero, a la izquierda y sin sombra), el texto como bajada, "Volver al inicio"
     // con la flecha hacia atrás y las secciones como enlaces con flecha, debajo del rótulo; ninguna imagen ni sobreFoto.
-    assert.match(main, /<main id="main" tabindex="-1"><div class="mx-auto w-full max-w-tablero [^"]*lg:px-20 [^"]*">/)
+    assert.match(main, /<main id="main" tabindex="-1" class="grow"><div class="mx-auto w-full max-w-tablero [^"]*lg:px-20 [^"]*">/)
     const h1 = /<h1 class="([^"]*)">([^<]*)<\/h1>/.exec(main)
     assert.equal(h1[2], contenido.noEncontrada.titulo)
     assert.match(h1[1], /font-hero .*font-\[weight:755\] \[font-stretch:130%\] text-paper/)
     assert.doesNotMatch(h1[1], /text-center|text-shadow/)
-    assert.ok(main.includes(`<p class="text-lg leading-7 font-normal text-muted mt-6">${contenido.noEncontrada.texto}</p>`))
+    assert.ok(main.includes(`<p class="text-lg leading-7 font-normal text-muted text-pretty mt-6">${contenido.noEncontrada.texto}</p>`))
     assert.match(main, new RegExp(`<a href="/" class="inline-flex min-h-11 [^"]*font-mono[^"]*"><svg [^>]*aria-hidden="true"[^>]*><path d="M15\\.83 10H4\\.17[^"]*"></path></svg>${contenido.noEncontrada.volver}</a>`))
     const nav = parte(main, '<nav aria-labelledby="secciones-404"', '</nav>')
     assert.match(nav, new RegExp(`<h2 id="secciones-404" class="font-mono text-sm [^"]*uppercase">${contenido.noEncontrada.secciones}</h2>`))
@@ -654,7 +655,7 @@ describe('Layout, header, menú y pie (sin base)', () => {
   })
 
   test('las tarjetas (tablero, R4): todas las fotos lazy y con prioridad baja (la del LCP es la del hero, R1); lo largo se parte (PAG-01)', async () => {
-    const { SeccionDeTarjetas } = await vite.ssrLoadModule('/src/components/Seccion.jsx')
+    const { default: SeccionDeTarjetas } = await vite.ssrLoadModule('/src/components/SeccionDeTarjetas.jsx')
     const foto = (n) => ({ clave: `${n}`.repeat(16), ancho: 1600, alto: 1067, variantes: [480, 960, 1600], alt: `Foto ${n}`, decorativa: false })
     const tarjetas = [1, 2, 3].map((n) => ({ titulo: `Título ${n}`, url: `/novedades/t${n}`, portada: foto(n), resumen: 'Un resumen.' }))
     const html = renderToStaticMarkup(createElement(SeccionDeTarjetas, { id: 'x', rotulo: 'Novedades', titulo: 'X', tarjetas }))
@@ -754,7 +755,9 @@ describe('Layout, header, menú y pie (sin base)', () => {
     }
     // Contacto: el teléfono con tel:, el correo con mailto: y "Ir a Contacto".
     assert.match(practica, /<a href="tel:\+542640000000" class="inline-flex min-h-11 [^"]*">\+54 264 000-0000<\/a>/)
-    assert.match(practica, /<a href="mailto:museo@example\.com" class="inline-flex min-h-11 [^"]*">museo@example\.com<\/a>/)
+    // El correo con el corte después de la arroba (<wbr>, en un <span>: el enlace es inline-flex; BDIS-02 del cierre) y
+    // el nombre del enlace en aria-label (Chrome cuenta el <wbr> como un espacio).
+    assert.match(practica, /<a href="mailto:museo@example\.com" aria-label="museo@example\.com" class="inline-flex min-h-11 [^"]*"><span>museo@<wbr\/>example\.com<\/span><\/a>/)
     assert.match(practica, new RegExp(`<a href="/contacto" class="inline-flex min-h-11 [^"]*">${v.practica.irAContacto}<svg `))
     // El mapa de "Insertar mapa" (V5), con su title y lazy, y "Abrir en Google Maps".
     assert.ok(
@@ -904,7 +907,7 @@ describe('Layout, header, menú y pie (sin base)', () => {
     assert.ok(accesible.includes('<p>Hay rampa en la entrada.</p>'))
     // La lista y el subtítulo, los de una columna de texto del tablero (EST-05 de la verificación del rediseño de las
     // internas): cada ítem 16/24, la viñeta un círculo crema de 6 px a 12 del texto, 12 entre ítems; el subtítulo Thin.
-    assert.match(accesible, /<ul class="\[&amp;&gt;li\]:relative \[&amp;&gt;li\]:pl-\[1\.125rem\] [^"]*\[&amp;&gt;li\]:before:size-1\.5 \[&amp;&gt;li\]:before:rounded-full \[&amp;&gt;li\]:before:bg-paper"><li class="mt-3 text-base leading-6">Sillas de ruedas<\/li><\/ul>/)
+    assert.match(accesible, /<ul class="\[&amp;&gt;li\]:relative \[&amp;&gt;li\]:pl-\[1\.125rem\] [^"]*\[&amp;&gt;li\]:before:size-1\.5 \[&amp;&gt;li\]:before:rounded-full \[&amp;&gt;li\]:before:bg-paper forced-colors:\[&amp;&gt;li\]:before:bg-\[CanvasText\]"><li class="mt-3 text-base leading-6">Sillas de ruedas<\/li><\/ul>/)
     assert.match(accesible, /<h3 class="font-titulo [^"]*font-thin[^"]*">Rampas y ascensor<\/h3>/)
     assert.match(accesible, /<a href="mailto:museo@example\.com" class="[^"]*underline[^"]*">Escribinos<\/a>/)
     for (const p of v.accesible.parrafos) assert.equal(cuantas(accesible, p.texto), 0)
@@ -1049,10 +1052,11 @@ describe('Layout, header, menú y pie (sin base)', () => {
     assert.equal(cuantas(html, 'novedades-titulo'), 0)
   })
 
-  test('la franja de accesos: "Planificá tu visita"; "Tickets" solo con la compra; "Recursos educativos" cuando exista Educación; nunca "Tienda virtual"', () => {
+  test('la franja de accesos: "Planificá tu visita"; "Tickets" solo con la compra; "Recursos educativos" con la página de Educación; nunca "Tienda virtual"', () => {
     const { accesos } = contenido.home
     const franja = (html) => parte(html, `<nav aria-label="${accesos.etiqueta}"`, '</nav>')
-    const enlaces = (html) => [...franja(html).matchAll(/<a href="([^"]*)"([^>]*)>([^<]*)<\/a>/g)].map((m) => [m[1], m[3]])
+    // El texto de cada enlace, con los espacios juntos (con la compra, "Recursos educativos" lleva un salto de línea).
+    const enlaces = (html) => [...franja(html).matchAll(/<a href="([^"]*)"([^>]*)>([^<]*)<\/a>/g)].map((m) => [m[1], m[3].replace(/\s+/g, ' ')])
     // Sin compra: Visitas, en celeste, y "Recursos educativos" (desde el 06/11/2026, la página de Educación existe), en
     // naranja, con la dirección del menú (D11).
     let html = home()
@@ -1068,8 +1072,17 @@ describe('Layout, header, menú y pie (sin base)', () => {
       ['/educacion', accesos.recursos],
     ])
     assert.match(franja(html), /<a href="https:\/\/example.com\/entradas" data-entradas="" class="[^"]*bg-bordo/)
-    // "Recursos educativos" no se mide (no lleva data-entradas).
-    assert.match(franja(html), /<a href="\/educacion" class="[^"]*bg-naranja[^"]*">Recursos educativos<\/a>/)
+    // "Recursos educativos" no se mide (no lleva data-entradas). Con las tres cajas lleva el corte después de la primera
+    // palabra (un salto de línea en el texto, que vale solo de lg a 1081 px: ahí va en dos renglones con la fuente y con
+    // el respaldo, COD-01 de la verificación de las internas); con dos cajas (sin la compra, arriba) no lo lleva.
+    assert.match(
+      franja(html),
+      /<a href="\/educacion" class="[^"]*bg-naranja lg:whitespace-pre-line min-\[67\.625rem\]:whitespace-normal">Recursos\neducativos<\/a>/,
+    )
+    assert.equal(cuantas(franja(home()), 'whitespace-pre-line'), 0)
+    // Las cajas nunca miden menos de lo que sube la franja (80 desde lg): con el espaciado de WCAG 1.4.12 quedaba foto
+    // debajo (A11Y-02 de la verificación de la Home).
+    for (const m of franja(html).matchAll(/<a href="[^"]*"[^>]*class="([^"]*)"/g)) assert.ok(m[1].split(' ').includes('lg:min-h-20'), m[1])
     // Sin la página de Educación, no va (como antes del 06/11/2026).
     const educacion = tabla.PAGINAS.educacion
     try {
@@ -1204,11 +1217,54 @@ describe('Layout, header, menú y pie (sin base)', () => {
     // El plano: su alt y, para el lector, los catorce espacios como texto, en orden.
     const plano = seccion(html, 'mapa-titulo')
     assert.match(plano, new RegExp(`<h2 id="mapa-titulo" class="[^"]*text-center">${mapa.titulo}</h2>`))
-    assert.match(plano, new RegExp(`<img src="${mapa.imagen.src}" alt="${mapa.imagen.alt}" width="883" height="812" loading="lazy"`))
+    assert.match(
+      plano,
+      new RegExp(`<img src="${mapa.imagen.src}" alt="${mapa.imagen.alt}" width="883" height="812" loading="lazy" decoding="async" fetchPriority="low"`),
+    )
     const lista = parte(plano, `<ul aria-label="${mapa.etiqueta}" class="sr-only">`, '</ul>')
     assert.deepEqual([...lista.matchAll(/<li>([^<]*)<\/li>/g)].map((m) => m[1]), mapa.espacios)
     assert.equal(mapa.espacios.length, 14)
     assert.ok(mapa.espacios.includes('Jardín Triásico'))
+    // El hover (D15): el plano en reposo primero y encima una capa por sala con la versión bordó, recortada a su sala
+    // (un clipPath por sala en un svg decorativo), transparente hasta el hover, con el fundido y sin él con
+    // reduced-motion; todas lazy, decorativas y sin nada que sea un control.
+    assert.notEqual(mapa.imagen.hover, mapa.imagen.src)
+    const capas = plano.match(/<img [^>]*>/g)
+    assert.equal(capas.length, 15)
+    assert.ok(capas[0].startsWith(`<img src="${mapa.imagen.src}"`), capas[0])
+    const ids = ['confiteria', 'sala-inmersiva', 'tienda', 'sala-8', 'microcine', 'sala-1', 'sala-educativa', 'sala-2', 'sala-3', 'sala-4', 'sala-5', 'jardin-triasico', 'sala-6', 'sala-7']
+    assert.equal(ids.length, mapa.espacios.length)
+    assert.deepEqual(SALAS_DEL_PLANO.map((s) => s.id), ids)
+    assert.deepEqual([...plano.matchAll(/data-sala="([^"]*)"/g)].map((m) => m[1]), ids)
+    capas.slice(1).forEach((img, i) => {
+      for (const atributo of [`src="${mapa.imagen.hover}"`, 'alt=""', 'loading="lazy"', 'decoding="async"', 'fetchPriority="low"', 'draggable="false"', `data-sala="${ids[i]}"`, `style="clip-path:url(#mapa-${ids[i]})"`]) {
+        assert.ok(img.includes(atributo), `${ids[i]}: ${atributo}`)
+      }
+      const clases = clasesDe(img, /class="([^"]*)"/)
+      for (const clase of ['absolute', 'inset-0', 'size-full', 'opacity-0', 'hover:opacity-100', 'transition-opacity', 'duration-200', 'motion-reduce:transition-none', 'print:hidden']) {
+        assert.ok(clases.includes(clase), `${ids[i]}: ${clase}`)
+      }
+    })
+    const recortes = parte(plano, '<svg aria-hidden="true"', '</svg>')
+    assert.match(recortes, /focusable="false"/)
+    assert.deepEqual([...recortes.matchAll(/<clipPath id="mapa-([^"]*)" clipPathUnits="objectBoundingBox" transform="scale\(\.0011328 \.0012318\)"><path d="M[^"]+"><\/path><\/clipPath>/g)].map((m) => m[1]), ids)
+    for (const control of ['<a ', '<button', 'tabindex', 'tabIndex', 'role=', 'cursor-pointer', 'onClick']) {
+      assert.equal(cuantas(plano, control), 0, control)
+    }
+    // Ninguna se precarga (React precarga las imágenes que no son lazy).
+    assert.equal(cuantas(html, `<link rel="preload" as="image" href="${mapa.imagen.src}"`), 0)
+    assert.equal(cuantas(html, `<link rel="preload" as="image" href="${mapa.imagen.hover}"`), 0)
+  })
+
+  test('mapaSalas.js: las 14 salas del plano con su trazado, sin crecer sin que se note', () => {
+    assert.equal(SALAS_DEL_PLANO.length, 14)
+    assert.equal(new Set(SALAS_DEL_PLANO.map((s) => s.id)).size, 14)
+    for (const { id, d } of SALAS_DEL_PLANO) {
+      assert.match(id, /^[a-z0-9]+(-[a-z0-9]+)*$/, id)
+      assert.match(d, /^M[\d\s.,MLHVCSQTAZmlhvcsqtaz-]+$/, id)
+    }
+    // Los trazados viajan en el JS de la Home (hoy 3.699 B).
+    assert.ok(SALAS_DEL_PLANO.reduce((total, s) => total + s.d.length, 0) < 4500)
   })
 
   // Exposiciones, Novedades y las fichas de una muestra y de una novedad con el lenguaje del tablero "Web" (04/11/2026,
@@ -1320,9 +1376,9 @@ describe('Layout, header, menú y pie (sin base)', () => {
     // verificación del rediseño: en un título de varios renglones, al final del texto); 7,6 arriba y abajo.
     assert.match(triasico, new RegExp(`<h4 class="font-mono text-xs [^"]*mt-10">${e.enLaSala}</h4>`))
     assert.match(triasico, /<a href="\/exposiciones\/muestra-actual" class="inline-flex min-h-11 [^"]*max-w-full py-\[0\.475rem\]"><span class="min-w-0 wrap-anywhere">Muestra actual con un título largo para ver cómo se <span class="whitespace-nowrap">parte<svg [^>]*class="shrink-0 ml-2 inline-block size-5 align-\[-0\.25em\]"/)
-    // De una última palabra de más de 24 caracteres, solo las últimas 10 letras van pegadas a la flecha (el resto se
+    // De una última palabra de más de 8 caracteres, solo las últimas 4 letras van pegadas a la flecha (el resto se
     // parte si no entra); el texto del enlace es el título.
-    assert.match(triasico, /<a href="\/exposiciones\/palabra-larga" [^>]*><span class="min-w-0 wrap-anywhere">Muestra Paleontológicamente-Ischigualastoe<span class="whitespace-nowrap">nsemuestra<svg /)
+    assert.match(triasico, /<a href="\/exposiciones\/palabra-larga" [^>]*><span class="min-w-0 wrap-anywhere">Muestra Paleontológicamente-Ischigualastoensemue<span class="whitespace-nowrap">stra<svg /)
     // La portada entera (sin recorte), con esquinas de 16, lazy, con su epígrafe y su crédito, y con el tope de alto de la
     // de una ficha (75 % de la pantalla: el ancho sale de su proporción) y su sizes (EST-02 de la verificación).
     assert.match(triasico, /<figure><img src="\/fotos\/2{16}\/960\.webp"[^>]*loading="lazy"[^>]*class="h-auto rounded-2xl" style="width:min\(100%, calc\(75svh \* 1\.4995[0-9]*\)\)"\/><figcaption class="mt-3 text-sm leading-\[1\.375rem\] text-muted wrap-anywhere">Un epígrafe Foto: Archivo MuPa<\/figcaption><\/figure>/)
@@ -1617,7 +1673,7 @@ describe('Layout, header, menú y pie (sin base)', () => {
     // El teléfono, el correo y las redes son enlaces de 44 px: su dato sube 8 px (-mt-2); la dirección, no.
     assert.deepEqual(tarjetas.map((m) => m[5].endsWith(' -mt-2')), [false, true, true, true])
     assert.match(dl, /<a href="tel:\+542640000000" class="inline-flex min-h-11 [^"]*underline[^"]*">\+54 264 000-0000<\/a>/)
-    assert.match(dl, /<a href="mailto:museo@example\.com" class="inline-flex min-h-11 [^"]*">museo@example\.com<\/a>/)
+    assert.match(dl, /<a href="mailto:museo@example\.com" aria-label="museo@example\.com" class="inline-flex min-h-11 [^"]*"><span>museo@<wbr\/>example\.com<\/span><\/a>/)
     const redes = [...dl.matchAll(/<li class="min-w-0"><a href="([^"]*)" class="inline-flex min-h-11 [^"]*">([^<]*)<\/a><\/li>/g)]
     assert.deepEqual(redes.map((m) => [m[1], m[2]]), MUSEO_MAXIMO.redes.map((r) => [r.url, REDES[r.red]]))
     // El mapa como en Visitas: 1280x400 con esquinas de 16, title y lazy; 16 abajo "Abrir en Google Maps" con la flecha.
@@ -1635,7 +1691,7 @@ describe('Layout, header, menú y pie (sin base)', () => {
     assert.ok(form.includes(`>${f.titulo}</h2>`))
     assert.equal(avisoDe(form), null)
     assert.match(form, /<form class="mt-12 grid gap-x-10 gap-y-8 lg:grid-cols-2" action="\/contacto#formulario" method="post">/)
-    assert.ok(form.includes(`<p class="text-lg leading-7 font-normal text-muted lg:col-span-2">${f.obligatorios}</p>`))
+    assert.ok(form.includes(`<p class="text-lg leading-7 font-normal text-muted text-pretty lg:col-span-2">${f.obligatorios}</p>`))
     for (const [campo, columnas] of [['nombre', 'min-w-0'], ['email', 'min-w-0'], ['mensaje', 'min-w-0 lg:col-span-2']]) {
       assert.match(form, new RegExp(`<div class="${columnas}"><label for="contacto-${campo}" class="block font-mono text-sm leading-5 font-medium text-paper">`), campo)
       const control = new RegExp(`<(?:input|textarea)[^>]*id="contacto-${campo}"[^>]*>`).exec(form)[0]
@@ -1830,7 +1886,7 @@ describe('Layout, header, menú y pie (sin base)', () => {
     // El newsletter: el h2 sin rótulo, la bajada en gris a 16, tres tarjetas con el ícono en naranja en su cuadrado, el
     // rótulo en un h3, el texto en gris y el "enlace" como texto (DV9); sin campo, botón ni formulario.
     const news = seccion(main, 'divulgacion-newsletter')
-    assert.match(news, new RegExp(`<h2 id="divulgacion-newsletter" class="[^"]*font-thin[^"]*">${newsletter.titulo}</h2><p class="text-lg leading-7 font-normal text-muted mt-4 max-w-none">${newsletter.bajada}</p>`))
+    assert.match(news, new RegExp(`<h2 id="divulgacion-newsletter" class="[^"]*font-thin[^"]*">${newsletter.titulo}</h2><p class="text-lg leading-7 font-normal text-muted text-pretty mt-4 max-w-none">${newsletter.bajada}</p>`))
     assert.equal(cuantas(news, 'font-mono text-sm leading-5 font-medium text-paper uppercase'), 0)
     const tarjetas = [...news.matchAll(/<li class="([^"]*)"><span class="flex size-12 [^"]*bg-caja[^"]*"><svg [^>]*class="shrink-0 size-6 text-naranja"[\s\S]*?<\/svg><\/span><div class="flex flex-col gap-2"><h3 class="font-mono text-xs [^"]*">([^<]*)<\/h3><p class="text-base [^"]*text-muted[^"]*">([^<]*)<\/p><\/div><p class="flex items-center gap-2 font-mono text-sm leading-5 font-normal text-paper">([^<]*)<svg [^>]*aria-hidden="true"/g)]
     assert.deepEqual(tarjetas.map((m) => [m[2], m[3], m[4]]), newsletter.tarjetas.map((t) => [t.titulo, t.texto, t.accion]))
@@ -1980,7 +2036,7 @@ describe('Layout, header, menú y pie (sin base)', () => {
     assert.match(html, /<p class="font-mono text-sm leading-5 font-medium text-paper uppercase">Recursos<\/p><h2 id="educacion-recursos" class="([^"]*)">Recursos educativos<\/h2>/)
     const h2 = clasesDe(html, /<h2 id="educacion-recursos" class="([^"]*)"/)
     assert.ok(h2.includes('mt-4') && !h2.includes('mt-6') && h2.includes('font-thin'), h2.join(' '))
-    assert.ok(html.includes(`<p class="text-lg leading-7 font-normal text-muted mt-4 max-w-none">${recursos.bajada}</p>`))
+    assert.ok(html.includes(`<p class="text-lg leading-7 font-normal text-muted text-pretty mt-4 max-w-none">${recursos.bajada}</p>`))
     // Las tarjetas: el ícono en crema (sin text-naranja), el h3, el texto en gris y la acción como texto con la flecha.
     const tarjetas = [...html.matchAll(/<li class="([^"]*)"><span class="flex size-12 [^"]*bg-caja[^"]*text-paper"><svg [^>]*class="shrink-0 size-6"[\s\S]*?<\/svg><\/span><div class="flex flex-col gap-2"><h3 class="font-mono text-xs [^"]*">([^<]*)<\/h3><p class="text-base [^"]*text-muted[^"]*">([^<]*)<\/p><\/div><p class="flex items-center gap-2 font-mono text-sm leading-5 font-normal text-paper">([^<]*)<svg [^>]*aria-hidden="true"/g)]
     assert.deepEqual(tarjetas.map((m) => [m[2], m[3], m[4]]), [
@@ -2242,7 +2298,8 @@ describe('Layout, header, menú y pie (sin base)', () => {
     // blanco del pie, con data-logo-blanco y su nombre de alt), la introducción en gris y su lista.
     const c = seccion(main, 'el-museo-cogestion')
     assert.deepEqual(clasesDe(main, /<section aria-labelledby="el-museo-cogestion" class="([^"]*)"/), ['relative', 'overflow-x-clip', 'py-16', 'lg:py-30'])
-    assert.ok(c.includes('<ul class="mt-12 grid gap-10 lg:grid-cols-[502fr_738fr]">'))
+    // La lista de las partes va posicionada: una piedra que la cruce pasa por detrás de las letras (MUS-01).
+    assert.ok(c.includes('<ul class="relative mt-12 grid gap-10 lg:grid-cols-[502fr_738fr]">'))
     assert.deepEqual([...c.matchAll(/<h3 class="([^"]*)">([^<]*)<\/h3>/g)].map((x) => x[2]), ['Co-gestión académica', 'Gestión provincial'])
     assert.match(c, /<h3 class="font-mono text-xs leading-4 font-medium text-paper uppercase">Co-gestión académica<\/h3>/)
     const logos = c.match(/<img [^>]*data-logo-blanco[^>]*>/g)
@@ -2250,7 +2307,7 @@ describe('Layout, header, menú y pie (sin base)', () => {
     assert.match(logos[0], /logo-unsj[^"]*" alt="Universidad Nacional de San Juan" width="205" height="94.4" loading="lazy"/)
     assert.match(logos[1], /logo-gobierno-san-juan[^"]*" alt="Gobierno de San Juan" width="253.5" height="73.06" loading="lazy"/)
     for (const parte of cogestion.partes) {
-      assert.ok(c.includes(`<p class="text-base leading-[1.625rem] font-normal text-muted wrap-break-word">${parte.intro}</p>`), parte.intro)
+      assert.ok(c.includes(`<p class="text-base leading-[1.625rem] font-normal text-muted wrap-break-word text-pretty">${parte.intro}</p>`), parte.intro)
       for (const item of parte.items) assert.ok(c.includes(`<li>${item}</li>`), item)
     }
     assert.deepEqual(cogestion.partes.map((x) => x.items.length), [5, 4])
@@ -2279,7 +2336,7 @@ describe('Layout, header, menú y pie (sin base)', () => {
     assert.equal(cuantas(mv, '<a'), 0)
     // Haciendo el MuPa: la bajada (de la nota), tres tarjetas en una fila desde lg, sin flechas ni "1/3" (IN2).
     const d = seccion(main, 'el-museo-documentales')
-    assert.ok(d.includes(`<p class="text-lg leading-7 font-normal text-muted mt-4">${documentales.bajada}</p>`))
+    assert.ok(d.includes(`<p class="text-lg leading-7 font-normal text-muted text-pretty mt-4">${documentales.bajada}</p>`))
     assert.ok(d.includes('<ul class="mt-12 grid gap-8 lg:grid-cols-3">'))
     assert.deepEqual([...d.matchAll(/<h3 class="[^"]*">([^<]*)<\/h3>/g)].map((x) => x[1]), documentales.lista.map((x) => x.titulo))
     for (const n of [1, 2, 3]) assert.ok(d.includes(`<p class="font-mono text-xs leading-4 font-medium text-paper uppercase">Documental · ${n}</p>`), n)
@@ -2304,7 +2361,10 @@ describe('Layout, header, menú y pie (sin base)', () => {
     const cifras = [...n.matchAll(/<dd class="([^"]*)">([^<]*)<\/dd>/g)]
     assert.deepEqual(cifras.map((x) => x[2]), ['[—]', '[—]', '[—]', '[—]'])
     for (const [, clases] of cifras) for (const cl of ['order-first', 'font-hero', 'font-[weight:755]', 'min-[32rem]:text-[4rem]']) assert.ok(clases.split(' ').includes(cl), cl)
-    assert.ok(n.includes('<dl class="mt-16 grid grid-cols-2 lg:grid-cols-4">'))
+    // Debajo de lg, dos columnas y una debajo de 20rem: con la letra agrandada los rótulos no entraban (VDIS-01); la
+    // palabra que igual no entre se parte.
+    assert.ok(n.includes('<dl class="mt-16 grid grid-cols-2 max-[20rem]:grid-cols-1 lg:grid-cols-4">'))
+    for (const [, clases] of n.matchAll(/<dt class="([^"]*)">/g)) assert.ok(clases.split(' ').includes('wrap-break-word'))
     assert.equal(cuantas(n, 'lg:not-last:border-r'), 4)
     for (const c of numeros.cifras) assert.deepEqual(Object.keys(c), ['cifra', 'rotulo'])
   })
@@ -2326,7 +2386,8 @@ describe('Layout, header, menú y pie (sin base)', () => {
     // Nuestro equipo: el párrafo en gris (en su caja de 700) y cuatro integrantes de relleno, sin foto.
     const e = seccion(main, 'el-museo-equipo')
     assert.ok(e.includes(`<p class="text-lg leading-[1.875rem] font-normal text-muted wrap-break-word text-pretty mt-4 max-w-[43.75rem]">${equipo.parrafo}</p>`))
-    assert.ok(e.includes('<ul class="mt-12 grid grid-cols-2 gap-6 lg:grid-cols-4">'))
+    // Una columna debajo de 20rem: con la letra agrandada los recuadros se pisaban (encontrado al corregir VDIS-01).
+    assert.ok(e.includes('<ul class="mt-12 grid grid-cols-2 max-[20rem]:grid-cols-1 gap-6 lg:grid-cols-4">'))
     assert.equal(cuantas(e, '<img'), 0)
     assert.equal(cuantas(e, RECUADRO_EL_MUSEO), 4)
     assert.equal(cuantas(e, '>[Nombre del integrante]</p>'), 4)
@@ -2391,6 +2452,75 @@ describe('Layout, header, menú y pie (sin base)', () => {
     // Sin rótulo, el h2 sin mt-4 (el newsletter de Divulgación) y ningún <p> antes del h2.
     assert.match(naranja, /<div class="[^"]*"><h2 id="p" class="[^"]*font-thin[^"]*">T<\/h2>/)
     assert.ok(!clasesDe(naranja, /<h2 id="p" class="([^"]*)"/).includes('mt-4'))
+  })
+
+  test('toda imagen lazy del sitio lleva fetchPriority="low" (la convención del 05/11/2026; BCOD-02 del cierre)', () => {
+    // Las páginas con datos (y la Home también sin novedades, con el Collage y las piedritas más arriba): una imagen que no
+    // es del primer pantallazo va lazy y con prioridad baja; sin fetchPriority, Chrome le sube la prioridad a una lazy
+    // que asoma (en una página corta, o en la Home sin novedades a 1920x1080) y compite con la foto del LCP.
+    const muestras = [{ titulo: 'Una muestra', url: '/exposiciones/una', resumen: 'R', portada: fotoN(1), etiqueta: 'Actual', detalle: 'Hasta el 30 de noviembre de 2026' }]
+    const salas = [{ nombre: 'Sala', ancla: 'sala-sala', resumen: 'R', descripcion: null, portada: fotoN(2), muestras: [{ titulo: 'Una muestra', url: '/exposiciones/una' }] }]
+    const noticias = [{ titulo: 'Noticia', url: '/novedades/noticia', resumen: 'R', portada: fotoN(3), detalle: '3 de noviembre de 2026', fechaIso: '2026-11-03' }]
+    const ficha = { titulo: 'Muestra', slug: 'muestra', resumen: null, situacion: 'Actual', fechas: null, sala: null, portada: fotoN(4), descripcion: null, galeria: [fotoN(5), fotoN(6)] }
+    const paginas = {
+      'home sin novedades': pagina({ pagina: 'home', museo: MUSEO_MAXIMO, datos: { novedades: [] } }),
+      'home con seis': pagina({ pagina: 'home', museo: MUSEO_MAXIMO, datos: { novedades: [1, 2, 3, 4, 5, 6].map((n) => novedad(n)) } }),
+      'el-museo': pagina({ pagina: 'el-museo', ruta: '/el-museo', museo: MUSEO_MAXIMO, datos: {} }),
+      visitas: pagina({ pagina: 'visitas', ruta: '/visitas', museo: MUSEO_MAXIMO, datos: { accesibilidad: null } }),
+      divulgacion: pagina({ pagina: 'divulgacion', ruta: '/divulgacion', museo: MUSEO_MAXIMO, datos: { novedades: [1, 2].map((n) => novedad(n)) } }),
+      educacion: pagina({ pagina: 'educacion', ruta: '/educacion', museo: MUSEO_MAXIMO, datos: {} }),
+      circuitos: pagina({ pagina: 'circuitos', ruta: '/circuitos', museo: MUSEO_MAXIMO, datos: {} }),
+      exposiciones: pagina({ pagina: 'exposiciones', ruta: '/exposiciones', museo: MUSEO_MAXIMO, datos: { muestras, salas } }),
+      novedades: pagina({ pagina: 'novedades', ruta: '/novedades', museo: MUSEO_MAXIMO, datos: { proximas: [], noticias, pagina: 1, paginas: 1 } }),
+      muestra: pagina({ pagina: 'muestra', ruta: '/exposiciones/muestra', museo: MUSEO_MAXIMO, datos: ficha }),
+      contacto: pagina({ pagina: 'contacto', ruta: '/contacto', museo: MUSEO_MAXIMO, datos: SIN_AVISOS }),
+      'no-encontrada': pagina({ pagina: 'no-encontrada', ruta: '/no-existe', museo: MUSEO_MAXIMO }),
+    }
+    for (const [nombre, html] of Object.entries(paginas)) {
+      const lazy = (html.match(/<img [^>]*>/g) ?? []).filter((img) => img.includes('loading="lazy"'))
+      assert.ok(lazy.length > 0, nombre)
+      for (const img of lazy) assert.ok(img.includes('fetchPriority="low"'), `${nombre}: ${img.slice(0, 160)}`)
+    }
+  })
+
+  test('el pie: las secciones y las redes en una fila si entran; si no, las redes enteras al renglón de abajo, a la derecha (BDIS-01)', () => {
+    const html = delPie(pagina({ pagina: 'home', museo: MUSEO_MAXIMO, datos: { novedades: [] } }))
+    assert.match(html, /<div class="mt-8 flex flex-col gap-x-12 gap-y-2 lg:flex-row lg:flex-wrap lg:items-start lg:justify-between">/)
+    assert.match(html, /<ul aria-label="[^"]*" class="flex min-w-0 flex-wrap gap-x-6 lg:ml-auto">/)
+  })
+
+  test('el header: con la letra agrandada (menos de 19,5rem de ancho) no van la línea ni los isotipos (CIR-02); siguen en el pie', () => {
+    const html = sinDialogo(delHeader(pagina({ pagina: 'home', museo: MUSEO_VACIO, datos: { novedades: [] } })))
+    assert.match(html, /<span aria-hidden="true" class="-mr-px h-8 shrink-0 border-l border-blanco sm:h-\[2\.5625rem\] max-\[19\.5rem\]:hidden"><\/span>/)
+    assert.match(html, /<ul aria-label="[^"]*" class="flex shrink-0 items-center gap-3 sm:gap-6 max-\[19\.5rem\]:hidden">/)
+  })
+
+  test('las viñetas de las listas del tablero se ven con colores forzados (EDU-01, CIR-01 y MUS-03)', () => {
+    for (const html of [pagina({ pagina: 'educacion', ruta: '/educacion', museo: MUSEO_VACIO, datos: {} }), pagina({ pagina: 'el-museo', ruta: '/el-museo', museo: MUSEO_VACIO, datos: {} })]) {
+      // En el HTML la clase va escapada (&amp;&gt;).
+      const listas = [...delMain(html).matchAll(/<ul class="([^"]*\[&amp;&gt;li\]:before:bg-paper[^"]*)"/g)].map((m) => m[1].split(' '))
+      assert.ok(listas.length > 0)
+      for (const clases of listas) assert.ok(clases.includes('forced-colors:[&amp;&gt;li]:before:bg-[CanvasText]'), clases.join(' '))
+    }
+  })
+
+  test('"En esta sala": de una última palabra de más de 8 letras, solo las 4 últimas van pegadas a la flecha (VR1-01)', () => {
+    const salas = [
+      {
+        nombre: 'Sala',
+        ancla: 'sala-sala',
+        resumen: null,
+        descripcion: null,
+        portada: null,
+        muestras: [
+          { titulo: 'Ciencia interdisciplinariamente', url: '/exposiciones/a' },
+          { titulo: 'Huellas del Triásico', url: '/exposiciones/b' },
+        ],
+      },
+    ]
+    const main = delMain(pagina({ pagina: 'exposiciones', ruta: '/exposiciones', museo: MUSEO_VACIO, datos: { muestras: [], salas } }))
+    assert.match(main, /<span class="min-w-0 wrap-anywhere">Ciencia interdisciplinariam<span class="whitespace-nowrap">ente<svg /)
+    assert.match(main, /<span class="min-w-0 wrap-anywhere">Huellas del <span class="whitespace-nowrap">Triásico<svg /)
   })
 })
 

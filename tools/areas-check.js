@@ -63,7 +63,7 @@
   await ir(0.2);
   const banda = getComputedStyle(document.querySelector('#areas h3[data-cabecera]')).backgroundColor;
   if (fondo(etiquetas[0]) !== banda) res.fallas.push(`la etiqueta encendida tiene fondo ${fondo(etiquetas[0])} y la banda ${banda}`);
-  if (document.documentElement.scrollWidth > innerWidth) res.fallas.push('scroll horizontal en la página');
+  if (document.documentElement.scrollWidth > document.documentElement.clientWidth) res.fallas.push('scroll horizontal en la página');
   res.ok = res.fallas.length === 0;
   return res;
 })()

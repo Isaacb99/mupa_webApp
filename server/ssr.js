@@ -14,9 +14,10 @@
 //   a la vez (cargar() recibe la lectura del museo, que esperan solo Visitas y Contacto). El estado común lleva solo
 //   lo del museo que usa el sitio (museoComun, server/museo.js, una lista blanca: ninguno de los tres textos con
 //   formato —"Accesibilidad" va solo en los datos de /visitas, y "Cómo llegar" y las normas no salen en ninguna
-//   página— ni lo que el sitio dejó de mostrar con la Visitas del tablero). Si la base falla, la Home sale como
-//   siempre (con el último museo bueno) y las demás rutas, con la 503 simple (paginaDeError, sin el bundle); un
-//   cargar() que devuelve redirigir() responde un 301.
+//   página— ni lo que el sitio dejó de mostrar con la Visitas del tablero). Si la base falla, salen igual (con el
+//   último museo bueno) la Home y Divulgación, sin sus novedades, y El Museo, Educación y Circuitos, que no leen la
+//   base (cargarFija, server/paginas.js); Visitas y Contacto, si el museo no es el de ahora, y las demás rutas, con la
+//   503 simple (paginaDeError, sin el bundle). Un cargar() que devuelve redirigir() responde un 301.
 // - Cada página va en su archivo JS (src/Raiz.jsx, plan 6.2): render() es async (espera la página) y el <head> pide de
 //   antemano el archivo de la página y lo que comparte con otras (<link rel="modulepreload">, con el manifiesto del
 //   build: precargasDePaginas), así el navegador lo baja junto con el principal y no después.

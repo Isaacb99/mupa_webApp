@@ -2,7 +2,7 @@
 // - TEXTOS: los textos que muestra la pantalla, con su campo de la API, su nombre y su ayuda. Hasta el 03/11/2026 eran
 //   tres: Cómo llegar (comoLlegar), Normas del museo (normas) y Accesibilidad del edificio (accesibilidad). Desde la
 //   Visitas del tablero "Web" de la diseñadora el sitio muestra solo el de accesibilidad, en "Museo accesible" (V1, V2 y
-//   V4 del desarrollador): los otros dos siguen en la API y en la base (se decide al cierre, como D1) y lo que el museo
+//   V4 del desarrollador): los otros dos siguen en la API y en la base (sin borrar: C1, 09/11/2026) y lo que el museo
 //   cargó no se pierde, porque Textos.jsx manda solo los textos de esta lista (PUT /museo es parcial).
 // - canonico(valor): la forma canónica de un texto (compartido/esquemas/textoRico.js), con los enlaces completados; la
 //   que se guarda y la que se compara para saber si hay cambios sin guardar.

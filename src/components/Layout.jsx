@@ -8,11 +8,12 @@ import Pie from './Pie.jsx'
 // - La única instancia de Lenis (useScrollSuave): scroll suave en todas las páginas, con mantenerEnPantalla y
 //   scrollSuaveEnCurso para el acordeón de Áreas de la landing.
 // - El header va absolute arriba en todas las páginas (decisión D8): la página pone debajo su foto (sobreFoto, lo
-//   declara la página) o deja el lugar que mide el header (CONTENEDOR de estilos.js).
-// - <main id="main" tabIndex={-1}>: el destino de "Ir al contenido" (y lo que mantienen las recetas de la Home). Sin
-//   clases: cada página pone las suyas adentro.
-// - Header, main y footer van sueltos en #root, como en la landing: un envoltorio (por ejemplo flex, para empujar el
-//   pie al final de una página corta) cambiaría cómo se juntan los márgenes de la Home.
+//   declara la página) o deja el lugar que mide el header (las que no tienen foto, CONTENEDOR_SIN_FOTO de tablero.js).
+// - <main id="main" tabIndex={-1}>: el destino de "Ir al contenido" (y lo que mantienen las recetas de la Home). Solo
+//   lleva grow: cada página pone sus clases adentro.
+// - Header, main y footer van sueltos en #root, sin envoltorio. Desde el cierre de E6.3 (BDIS-04, 09/11/2026) #root va
+//   en columna y de al menos el alto de la ventana (src/index.css) y el main se estira (grow): en una página más baja
+//   que la ventana (la 404) el pie queda abajo. Con las más altas no cambia nada (medido en todas las rutas).
 // - El año del © del pie llega del servidor en el estado (estado.anio): igual en el servidor y en el navegador.
 
 /**
@@ -28,7 +29,7 @@ export default function Layout({ estado, sobreFoto = false, children }) {
   return (
     <>
       <Header ruta={ruta} compra={museo?.compra ?? null} sobreFoto={sobreFoto} />
-      <main id="main" tabIndex={-1}>
+      <main id="main" tabIndex={-1} className="grow">
         {children}
       </main>
       <Pie museo={museo} ruta={ruta} anio={estado.anio ?? null} />

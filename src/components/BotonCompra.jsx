@@ -2,7 +2,7 @@ import { BOTON } from './estilos.js'
 import { textoCompra } from './navegacion.js'
 
 // Sin uso desde la Visitas del tablero "Web" de la diseñadora (03/11/2026, decisiones V1 y V9: la compra queda en
-// "Tickets" del header y de la franja de la Home): queda hasta que se decida al cierre (D1).
+// "Tickets" del header y de la franja de la Home): queda sin borrar (C1 del desarrollador, 09/11/2026).
 //
 // "Comprar entradas" en Visitas: la compra externa, si está activa (estado.museo.compra), con el texto que cargó el
 // museo o el de content.js (el menú y la franja de la Home dicen siempre "Tickets": navegacion.entradas, D4).

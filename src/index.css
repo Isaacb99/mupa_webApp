@@ -209,6 +209,13 @@
   Los de los h2 Thin (TITULO_SECCION, --font-titulo), igual: sin Novedades, "El MuPa en imagenes", centrado, entra en la
   primera pantalla y se corria 12 px (Google Sans Flex 100 a 64 px: 582,16 + 458,66 con "Mapa del Museo"; Segoe UI
   Light 572,06 + 449,38; Roboto Light 604,53 + 465,66; Arial 626,13 + 473,16).
+  Desde el cierre de E6.3 (09/11/2026, COD-01 de la verificacion de Divulgacion) los del h1 de Segoe UI y de Roboto van
+  un poco mas angostos (x0,9971) y mas anchos (x1,004): con los de antes, "divulgacion cientifica" (870,73 px en Google
+  Sans Flex) media 872,86 en Segoe UI y 866,94 en Roboto, y entre 1027 y 1032 px de ancho el h1 de Divulgacion iba en
+  tres renglones con un respaldo y en dos con la fuente (en la primera visita la pagina se corria: CLS 0,037). Ahora
+  mide 870,36 y 870,41: de 870 a 870,73 px, el tramo en que ningun ancho entero de la ventana cae entre los dos. En la
+  Home cambia menos de 2 px por renglon (Segoe UI 774,09 + 351,01, Roboto 776,09 + 356,7). El de Arial (Mac) no: mide
+  860,2 y para llegar habria que agrandarlo un 1,2 %, y el h1 de la Home se correria 6 px al llegar la fuente.
 */
 @font-face {
   font-family: "GSF Titulo Fallback";
@@ -241,18 +248,18 @@
   font-family: "GSF Hero Fallback";
   src: local("Segoe UI Bold"), local("SegoeUI-Bold");
   font-weight: 100 1000;
-  size-adjust: 136.16%;
-  ascent-override: 70.95%;
-  descent-override: 21%;
+  size-adjust: 135.77%;
+  ascent-override: 71.15%;
+  descent-override: 21.07%;
   line-gap-override: 0%;
 }
 @font-face {
   font-family: "GSF Hero Fallback Roboto";
   src: local("Roboto Bold"), local("Roboto-Bold");
   font-weight: 100 1000;
-  size-adjust: 141.29%;
-  ascent-override: 68.37%;
-  descent-override: 20.24%;
+  size-adjust: 141.86%;
+  ascent-override: 68.1%;
+  descent-override: 20.16%;
   line-gap-override: 0%;
 }
 @font-face {
@@ -448,6 +455,12 @@
   body {
     @apply bg-ink text-paper font-body antialiased;
   }
+  /* El pie al final de la ventana en una pagina mas baja que ella (la 404, o una lista sin nada publicado: BDIS-04 del
+     barrido de diseno del cierre de E6.3, 09/11/2026; quedaban hasta 731 px negros debajo del pie a 2560x1440): #root
+     (index.html) va en columna, de al menos el alto de la ventana (svh, la regla de Safari), y el <main> se estira
+     (Layout.jsx). El header va absolute y no cuenta. En las paginas mas altas que la ventana no cambia nada (medido: los
+     altos y las capturas de todas las rutas, iguales a las de antes). */
+  #root { display: flex; min-height: 100svh; flex-direction: column; }
   h1, h2, h3 { text-wrap: balance; }
   /* En em y no en ch: el ancho del "0" cambia entre Geologica y el fallback. */
   p { max-width: 42em; }

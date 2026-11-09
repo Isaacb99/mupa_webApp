@@ -9,8 +9,8 @@
 // contacto: el formulario de contacto (server/contacto.js), para saber si se dibuja.
 // Devuelve los datos, null (404 real) o redirigir(destino) (301). Si la base falla, la consulta tira
 // BASE_NO_DISPONIBLE y la página sale con la 503 simple (server/ssr.js), salvo la Home y Divulgación, que salen sin el
-// carrusel de novedades (ultimasNovedadesPara), y las fijas del tablero (Educación y Circuitos, desde el 06/11/2026),
-// que no leen la base (cargarFija).
+// carrusel de novedades (ultimasNovedadesPara), y las fijas del tablero (El Museo, Educación y Circuitos, desde el
+// 06/11/2026), que no leen la base (cargarFija).
 //
 // Reglas del plan 6.1: un borrador da 404 (el lector no lo ve); lo finalizado o realizado da 200 en su página pero no
 // se lista; una sección sin contenido no se dibuja (las listas vacías y los textos null los saltea cada página).
@@ -103,12 +103,13 @@ export const cargarHome = (ctx) => ultimasNovedadesPara('home_sin_novedades', ct
  */
 export const cargarDivulgacion = (ctx) => ultimasNovedadesPara('divulgacion_sin_novedades', ctx)
 
-// --- Las páginas fijas del tablero "Web" (Educación y Circuitos, 06/11/2026; decisiones IN1 a IN10) ---
+// --- Las páginas fijas del tablero "Web" (El Museo, Educación y Circuitos, 06/11/2026; decisiones IN1 a IN10) ---
 
 /**
- * Las páginas fijas del tablero "Web" (desde el 06/11/2026, Educación y Circuitos): todo su texto y sus fotos están en
- * src/content.js (IN3) y no leen la base, así que salen igual con la base caída (la compra del header viaja en el
- * estado común, server/museo.js). Datos vacíos. Las demás páginas fijas del tablero que no lean la base usan esta misma.
+ * Las páginas fijas del tablero "Web" (desde el 06/11/2026, El Museo, Educación y Circuitos): todo su texto y sus fotos
+ * están en src/content.js (IN3) y no leen la base, así que salen igual con la base caída (la compra del header viaja en
+ * el estado común, server/museo.js; con la base colgada, como toda página, esperan el museo hasta TOPE_MUSEO_MS). Datos
+ * vacíos. Una página fija nueva que no lea la base usa esta misma.
  */
 export async function cargarFija() {
   return {}
@@ -173,7 +174,7 @@ export async function cargarMuestra({ params, hoy, lector }) {
  * (null: cerrado). Si ningún día abre (lo que deja la migración con el horario sin cargar), vacío: no se dibuja (como
  * el resumen de compartido/horarios.js).
  * Sin uso desde la Visitas del tablero (03/11/2026, decisión V3: la tarjeta Horarios muestra solo el resumen, sin la
- * tabla ni "Hoy"): queda, como TablaHorarios.jsx, hasta que se decida al cierre (D1).
+ * tabla ni "Hoy"): queda sin usar, como TablaHorarios.jsx, sin borrar (C1, 09/11/2026).
  */
 export function horarioDeLaSemana(horarios, hoy) {
   const dias = (Array.isArray(horarios) ? horarios : []).filter((h) => Number.isInteger(h?.dia) && h.dia >= 1 && h.dia <= 7)

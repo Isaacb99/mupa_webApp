@@ -15,7 +15,9 @@
 //
 // crearRecepcion(): POST /contacto, en este orden (plan 8):
 //   1. CSRF por origen (la misma regla que la API del panel, crearVerificadorDeOrigen): 403 simple;
-//   2. application/x-www-form-urlencoded (si no, 415 simple) y el cuerpo, hasta 64 kB (413);
+//   2. application/x-www-form-urlencoded y sin Content-Encoding (si no, 415 simple: un navegador nunca lo manda
+//      comprimido, y así no se arma un descompresor con lo que llega, GHSA-27r3-jxmh-p828 de body-parser, BCOD-01 del
+//      cierre de E6.3) y el cuerpo, hasta 64 kB (413);
 //   3. el campo trampa (sitio_web, oculto: solo lo llenan los robots): si trae algo, 303 como si hubiera salido, sin
 //      guardar ni mandar nada;
 //   4. sin formulario (sin casilla), la página con el aviso y lo escrito (503);
@@ -206,8 +208,8 @@ function valoresDe(cuerpo) {
 }
 
 /**
- * Una respuesta simple (sin el bundle), con no-store: el origen ajeno (403) y el tipo equivocado (415, con el texto
- * del 400: el de 415 habla del JSON de la API).
+ * Una respuesta simple (sin el bundle), con no-store: el origen ajeno (403) y el tipo equivocado o un cuerpo
+ * comprimido (415, con el texto del 400: el de 415 habla del JSON de la API).
  */
 function simple(res, status) {
   res
@@ -261,7 +263,7 @@ function crearRepetidos() {
  */
 export function crearRecepcion({ config, contacto, ssr }) {
   const esDelSitio = crearVerificadorDeOrigen(config)
-  const leerFormulario = express.urlencoded({ extended: false, limit: '64kb', parameterLimit: 20 })
+  const leerFormulario = express.urlencoded({ extended: false, limit: '64kb', parameterLimit: 20, inflate: false })
   const { correo } = contacto
   const topes = contacto.topes ?? TOPES_CONTACTO
   const repetidos = crearRepetidos()
@@ -285,7 +287,8 @@ export function crearRecepcion({ config, contacto, ssr }) {
   }
 
   function tipo(req, res, next) {
-    if (!req.is('application/x-www-form-urlencoded')) return simple(res, 415)
+    const comprimido = (req.headers['content-encoding'] ?? 'identity').toLowerCase() !== 'identity'
+    if (!req.is('application/x-www-form-urlencoded') || comprimido) return simple(res, 415)
     next()
   }
 

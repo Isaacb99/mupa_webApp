@@ -1,7 +1,8 @@
 // Configuración del servicio (plan 2.5), leída de las variables de entorno y validada con zod al arrancar: si falta o
 // está mal algo, el proceso no arranca y dice qué (nunca el valor: puede ser una contraseña).
 // En desarrollo todo tiene un valor por defecto razonable salvo la base, que es opcional: sin DATABASE_URL (o con
-// SIN_BASE) la Home se sirve igual y /salud/base responde 503. En producción son obligatorias URL_PUBLICA y la base.
+// SIN_BASE) el sitio se sirve igual, sin contenidos (server/contenido-publico.js), y /salud/base responde 503. En
+// producción son obligatorias URL_PUBLICA y la base.
 // El correo del formulario de contacto (E4.5, server/correo.js): CORREO_MODO y las SMTP_*. Sin SMTP_USUARIO (la casilla
 // de envío) no hay formulario; con ella, en modo smtp, también SMTP_HOST y SMTP_CLAVE (y SMTP_PUERTO, 465 por defecto).
 // Las fotos van en la base (decisión del 15/10/2026, plan 16.1): no hay DIR_FOTOS. ESPACIO_BASE_MB (E3.1) es el
@@ -67,7 +68,7 @@ const esquema = z.object({
     .email({ error: 'tiene que ser la dirección de la casilla, p. ej. web@mupa.ar' })
     .optional(),
   SMTP_CLAVE: z.string().max(500).optional(),
-  // Sin base (plan 2.5 y 6.7): la Home con un museo de ejemplo. 1 o "maximo": todos los campos llenos; "vacio": nada.
+  // Sin base (plan 2.5 y 6.7): el sitio con un museo de ejemplo. 1 o "maximo": todos los campos llenos; "vacio": nada.
   SIN_BASE: z.enum(['0', '1', 'maximo', 'vacio']).default('0'),
   DIR_BUILD: z.string().min(1).default('dist'),
   DEPURAR_IP: bandera,

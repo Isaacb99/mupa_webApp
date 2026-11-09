@@ -8,8 +8,10 @@
 //   3. express.json con tope de 100 kB, o el de la ruta (limiteJson: 300 kB en lo que guarda textos con formato, plan
 //      2.4: PUT /museo y PUT /novedades, /muestras y /salas/:id; el de una ruta con :id lee solo si el :id es un id,
 //      así /salas/orden y /muestras/orden quedan con los 100 kB comunes: COD-08 de la verificación de E3) (413; un
-//      JSON roto, 400). El multipart lo lee multer, en la ruta (después de la sesión, el rol, el límite y un lugar en
-//      la cola: server/api/fotos.js);
+//      JSON roto, 400), sin descomprimir: un cuerpo con Content-Encoding (gzip, deflate, br) da 415 antes de leerlo
+//      (inflate: false; ni el panel ni un navegador mandan cuerpos comprimidos, y así no se arma un descompresor con
+//      lo que llega antes de la sesión: GHSA-27r3-jxmh-p828 de body-parser, BCOD-01 del cierre de E6.3). El multipart
+//      lo lee multer, en la ruta (después de la sesión, el rol, el límite y un lugar en la cola: server/api/fotos.js);
 // y por ruta:
 //   4. con rol: requiereSesion (401), la contraseña temporal ya cambiada salvo las rutas que la permiten (403 con
 //      debeCambiarClave), 300 pedidos por minuto por usuario (429) y el rol (403);
@@ -136,11 +138,11 @@ export function crearApi({ config, sequelize, registroTareas = null, almacen = n
   // 300 kB (COD-08 de la verificación de E3).
   for (const def of DEFINICIONES) {
     if (!def.limiteJson) continue
-    const leer = express.json({ limit: def.limiteJson })
+    const leer = express.json({ limit: def.limiteJson, inflate: false })
     const leerSiEsId = (req, res, next) => (parseId(req.params.id) == null ? next() : leer(req, res, next))
     api[def.metodo.toLowerCase()](def.ruta, def.ruta.includes(':id') ? leerSiEsId : leer)
   }
-  api.use(express.json({ limit: '100kb' }))
+  api.use(express.json({ limit: '100kb', inflate: false }))
 
   if (!sequelize) {
     api.use((req, res) => {

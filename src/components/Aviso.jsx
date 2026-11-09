@@ -1,5 +1,5 @@
 // Sin uso desde la Visitas del tablero "Web" de la diseñadora (03/11/2026, decisión V1: el tablero no trae el aviso):
-// queda hasta que se decida al cierre (D1).
+// queda sin borrar (C1 del desarrollador, 09/11/2026).
 //
 // El aviso general de Visitas (un cierre, un feriado): el texto que carga el museo, en el recuadro naranja del sitio.
 // Solo llega si está vigente (server/museo.js). No es una alerta que interrumpa: es parte de la página.

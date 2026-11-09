@@ -1,7 +1,8 @@
 import Foto from '../components/Foto.jsx'
 import HeroPagina from '../components/HeroPagina.jsx'
 import { FlechaDerecha } from '../components/Iconos.jsx'
-import Seccion, { SeccionDeTarjetas } from '../components/Seccion.jsx'
+import Seccion from '../components/Seccion.jsx'
+import SeccionDeTarjetas from '../components/SeccionDeTarjetas.jsx'
 import TextoRico from '../components/TextoRico.jsx'
 import {
   CLASES_TEXTO_TABLERO,
@@ -69,17 +70,24 @@ export function tamanoSala({ ancho, alto }) {
  */
 const CLASES_DESCRIPCION = { ...CLASES_TEXTO_TABLERO, h: 'pt-2 text-xl leading-7 font-medium' }
 
-/** Lo más largo que puede ser la última palabra de un título para ir entera pegada a la flecha (sin cortarse). */
-const PEGADA_MAX = 24
-/** De una última palabra más larga, solo sus últimas letras van pegadas a la flecha. */
-const COLA = 10
+/**
+ * Lo más largo que puede ser la última palabra de un título para ir entera pegada a la flecha. Eran 24 letras hasta el
+ * cierre de E6.3 (VR1-01 de la re-verificación del rediseño, 09/11/2026): en Roboto Mono, con la letra del navegador en
+ * 20 o 24, «interdisciplinariamente→» (y «ischigualastensis→») no entraba en la columna del celular y abría scroll
+ * horizontal entre 320 y 390 px.
+ */
+const PEGADA_MAX = 8
+/** De una última palabra más larga, solo sus últimas letras van pegadas a la flecha (el resto se parte si no entra). */
+const COLA = 4
 
 /**
  * Una muestra de "En esta sala": un enlace con flecha (ENLACE_FLECHA, 44 de alto) con la flecha al final del texto,
  * pegada a la última palabra (whitespace-nowrap), y no al costado del bloque: como un elemento más del flex, con un
  * título de varios renglones quedaba a la derecha del renglón más largo y en el medio del alto (PAN-02 de la
- * verificación del rediseño, 05/11/2026). De una última palabra de más de PEGADA_MAX caracteres (sin cortes no entraría
- * en el celular) se pegan a la flecha solo sus últimas COLA letras: el resto se parte si no entra, como siempre. El
+ * verificación del rediseño, 05/11/2026). De una última palabra de más de PEGADA_MAX caracteres (entera y sin cortes
+ * puede no entrar en el celular) se pegan a la flecha solo sus últimas COLA letras: la palabra pasa entera al renglón
+ * siguiente si no entra en el suyo, como siempre, y solo si no entra en un renglón entero se parte, con la cola y la
+ * flecha juntas. El
  * texto del enlace es el título, igual: la última palabra va en dos trozos de texto seguidos, sin espacio entre ellos.
  * 7,6 arriba y abajo (py): de un renglón mide 44, como siempre, y con varios renglones queda el mismo aire (15) entre
  * una muestra y la siguiente (sin él, el título de varios renglones quedaba pegado al de abajo).

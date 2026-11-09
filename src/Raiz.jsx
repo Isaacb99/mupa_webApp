@@ -20,8 +20,9 @@ export async function cargarPagina(nombre) {
 // el servidor.
 // Desde E4.1 toda página va dentro de Layout (header con el menú, <main id="main">, pie y la única instancia de Lenis):
 // una página dibuja solo lo de adentro del <main>.
-// sobreFoto: la página empieza con una foto debajo del header (la declara la página: Home.sobreFoto = true, y desde el
-// 03/11/2026 Visitas, con el hero de las páginas internas, HeroPagina.jsx). El header va siempre absolute arriba
+// sobreFoto: la página empieza con una foto debajo del header (la declara la página: Home.sobreFoto = true, y las que
+// llevan el hero de las páginas internas, HeroPagina.jsx: Visitas, Divulgación, El Museo, Educación, Circuitos,
+// Exposiciones, Novedades y Contacto). El header va siempre absolute arriba
 // (tablero "Web", 02/11/2026); sobre una foto, el logo no se invierte con colores forzados en un tema claro (Logo.jsx,
 // A11Y-08).
 export default function Raiz({ estado, Pagina = NoEncontrada }) {

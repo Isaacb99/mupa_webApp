@@ -9,7 +9,8 @@ import { circuitos } from '../content.js'
 // pie): acá, la página COMPLETA, como el tablero (IN1), con el relleno marcado en src/content.js ("RELLENO DEL
 // TABLERO:", IN4):
 // - El hero (HeroPagina.jsx con la bajada en dos renglones de 32/40, bajadaJusta): el h1 "Circuitos / paleontológicos"
-//   sobre el esqueleto del carnívoro con los técnicos (la foto del tablero, de campo, no alcanza: R-D).
+//   sobre el soldador con la máscara entre los caños (Mosaico - IMG_1085: la foto del tablero, de campo, no alcanza, y con
+//   el esqueleto del carnívoro la bajada no llegaba al contraste; R-D del orquestador, aceptada por el desarrollador, C3).
 // - Un BloqueTextoFoto por circuito (circuitos.destinos de src/content.js: filas, IN3), con el rótulo "Circuitos
 //   paleontológicos", el h2 con el nombre, el párrafo, la lista (Valle de la Luna), "Coordinar visita" (a Contacto: IN2)
 //   y, en Valle de la Luna, "Conexión MuPa" (el apartado: un h3 y su párrafo, después del enlace). El id de cada h2,

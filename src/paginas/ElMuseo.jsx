@@ -36,8 +36,9 @@ import { elMuseo } from '../content.js'
 //   que no harían nada, IN2); el "play" es un decorado (aria-hidden). Con url en la fila, el título es el enlace,
 //   estirado sobre la tarjeta (ENLACE_TARJETA, como las de Novedades).
 // - "El MuPa en números": el h2 centrado (escrita a mano, como "El MuPa en imágenes": Seccion no lo centra) y un <dl>
-//   de cuatro columnas con una línea entre ellas; la cifra arriba (order-first: en el HTML va después de su etiqueta,
-//   así el lector dice "Piezas fósiles, …"), con la letra del h1 de los hero sin la sombra.
+//   de cuatro columnas con una línea entre ellas (debajo de lg, dos, o una si no entran: CIFRAS); la cifra arriba
+//   (order-first: en el HTML va después de su etiqueta, así el lector dice "Piezas fósiles, …"), con la letra del h1 de
+//   los hero sin la sombra.
 // - "Autoridades" y "Nuestro equipo": las personas sin retrato (IN5: el recuadro de 120 en bg-caja, aria-hidden); con
 //   foto en la fila, el <img> con su nombre de alt.
 // Las secciones llevan 120 arriba y abajo (el tablero de esta página; las demás, 80: SECCION_TABLERO) y 16 entre el
@@ -56,8 +57,11 @@ const PIEDRITAS = 'pointer-events-none absolute inset-x-0 top-0 hidden h-0 lg:bl
 const DOS_COLUMNAS = 'mt-12 grid gap-8 lg:grid-cols-2 lg:gap-x-20'
 const COLUMNA_TEXTO = 'flex min-w-0 flex-col gap-6'
 const FOTO_PATIO = 'block aspect-[5/3] h-auto w-full rounded-2xl object-cover'
-/** La lista de las partes de la cogestión: la de BloqueTextoFoto.jsx (cada ítem 16/24 con la viñeta de 6 px). */
-const LISTA = `${CLASES_TEXTO_TABLERO.ul} flex flex-col gap-3 text-base leading-6 font-normal text-paper`
+/**
+ * La lista de las partes de la cogestión: la de BloqueTextoFoto.jsx (cada ítem 16/24 con la viñeta de 6 px), con
+ * text-pretty como los párrafos (a 1024 un ítem terminaba con «paleontología» sola: BDIS-03 del cierre, 09/11/2026).
+ */
+const LISTA = `${CLASES_TEXTO_TABLERO.ul} flex flex-col gap-3 text-base leading-6 font-normal text-paper text-pretty`
 /** Una parte de la cogestión: 40 de padding (como las tarjetas de información de Visitas; 24 a los costados hasta xl). */
 const PARTE = 'flex min-w-0 flex-col gap-6 lg:px-6 lg:py-10 xl:px-10'
 const LOGO = 'block h-auto max-w-full'
@@ -76,18 +80,33 @@ const SUBTITULO_DOCUMENTAL = 'text-sm leading-[1.375rem] font-normal text-muted'
 const TITULO_CENTRADO = `${TITULO_SECCION} text-center`
 /** Cada cifra: 40 arriba y abajo y 24 a los costados desde lg, con la línea de 1 px a la derecha salvo en la última. */
 const COLUMNA_CIFRA = 'flex min-w-0 flex-col gap-2 px-2 py-6 text-center lg:px-6 lg:py-10 lg:not-last:border-r lg:border-line'
-const ETIQUETA_CIFRA = 'font-mono text-sm leading-5 font-medium text-muted uppercase'
+/**
+ * Debajo de lg van en dos columnas y, si no entran, en una (CIFRAS): con la letra del navegador agrandada, la palabra más
+ * larga de los rótulos ("INVESTIGADORES", 7,35rem) se metía en la columna de al lado o sacaba la página de la pantalla
+ * (VDIS-01 de la verificación del cierre de E6.3, 09/11/2026: a 320 px con la letra en 24, 28 px de scroll horizontal).
+ * Medido: entra en su celda sin tocar el padding desde 19,7rem de ancho; el corte, en 20rem (320 px con la letra normal,
+ * así que en los celulares no cambia nada; 400 con 20 y 480 con 24). Una palabra que igual no entre se parte
+ * (wrap-break-word), como la cifra: un rótulo nuevo más largo no saca la página de la pantalla.
+ */
+const CIFRAS = 'mt-16 grid grid-cols-2 max-[20rem]:grid-cols-1 lg:grid-cols-4'
+const ETIQUETA_CIFRA = 'font-mono text-sm leading-5 font-medium text-muted uppercase wrap-break-word'
 /** La cifra: la letra del h1 de los hero (755 con el ancho en 130 %), 64/72 desde 32rem y 36 debajo, sin sombra. */
 const CIFRA =
   'order-first font-hero text-[2.25rem] leading-[1.125] font-[weight:755] [font-stretch:130%] text-paper ' +
   'wrap-break-word min-[32rem]:text-[4rem]'
 const FICHA_AUTORIDAD = 'flex min-w-0 flex-col gap-8 lg:py-10'
 const NOMBRE_AUTORIDAD = 'mt-2 text-[1.75rem] leading-9 font-medium text-paper wrap-break-word'
-const BIO = `${TEXTO_TARJETA} text-pretty`
+const BIO = TEXTO_TARJETA
 /** El lugar del retrato (IN5): 120x120 con esquinas de 20; sin foto, el recuadro neutro en el color de la caja. */
 const RECUADRO = 'block size-30 shrink-0 rounded-[1.25rem] bg-caja'
 const RETRATO = 'block size-30 shrink-0 rounded-[1.25rem] object-cover'
 const PARRAFO_EQUIPO = `${PARRAFO_SECUNDARIO} mt-4 max-w-[43.75rem]`
+/**
+ * El equipo: cuatro columnas desde lg y dos debajo; una debajo de 20rem, como las cifras (CIFRAS): dos recuadros de 7,5rem
+ * con su espacio necesitan 19,5rem, y con la letra agrandada se pisaban (a 320 px con la letra en 24, 38 px uno encima del
+ * otro y la página 1 px más ancha; encontrado al corregir VDIS-01 del cierre de E6.3, 09/11/2026).
+ */
+const EQUIPO = 'mt-12 grid grid-cols-2 max-[20rem]:grid-cols-1 gap-6 lg:grid-cols-4'
 const INTEGRANTE = 'flex min-w-0 flex-col items-center gap-4 text-center'
 const NOMBRE_INTEGRANTE = 'text-base leading-6 font-medium text-paper wrap-break-word'
 const ROL_INTEGRANTE = 'mt-1 font-mono text-xs leading-[1.125rem] font-normal text-muted'
@@ -184,7 +203,10 @@ export default function ElMuseo() {
             patron-b), de 617x606, de 502 a 1108 px desde el borde de arriba de la sección (bajan 256 dentro de
             "Misión y visión" a 1440, sin pisar texto) y saliendo 280 por el borde derecho de la página. Entre lg y xl salen
             48 px más (328): la columna de Gobierno se angosta y, con 280, de 1024 a ~1050 px una piedra tocaba el final de
-            "Comunicación y difusión provincial" (medido con los trazos contra los renglones). */}
+            "Comunicación y difusión provincial" (medido con los trazos contra los renglones). La lista de las partes va
+            posicionada (relative) y después en el HTML: así, si los renglones se corren (con el espaciado de texto de
+            WCAG 1.4.12, de 1024 a 1366, MUS-01 de la verificación de El Museo) y una piedra los cruza, pasa por detrás
+            de las letras y no por encima. */}
         <div aria-hidden="true" className={PIEDRITAS}>
           <img
             src={cogestion.piedritas}
@@ -196,7 +218,7 @@ export default function ElMuseo() {
             className="patron-b absolute top-[31.375rem] right-[-20.5rem] w-[38.58rem] max-w-none xl:right-[-17.5rem]"
           />
         </div>
-        <ul className="mt-12 grid gap-10 lg:grid-cols-[502fr_738fr]">
+        <ul className="relative mt-12 grid gap-10 lg:grid-cols-[502fr_738fr]">
           {cogestion.partes.map((parte) => (
             <li key={parte.rotulo} className={PARTE}>
               <div className="flex flex-col gap-4">
@@ -285,7 +307,7 @@ export default function ElMuseo() {
           <h2 id="el-museo-numeros" className={TITULO_CENTRADO}>
             {numeros.titulo}
           </h2>
-          <dl className="mt-16 grid grid-cols-2 lg:grid-cols-4">
+          <dl className={CIFRAS}>
             {numeros.cifras.map((c) => (
               <div key={c.rotulo} className={COLUMNA_CIFRA}>
                 <dt className={ETIQUETA_CIFRA}>{c.rotulo}</dt>
@@ -319,7 +341,7 @@ export default function ElMuseo() {
 
       <Seccion id="el-museo-equipo" rotulo={equipo.rotulo} titulo={equipo.titulo} cerca className={SECCION}>
         <p className={PARRAFO_EQUIPO}>{equipo.parrafo}</p>
-        <ul className="mt-12 grid grid-cols-2 gap-6 lg:grid-cols-4">
+        <ul className={EQUIPO}>
           {equipo.personas.map((persona, i) => (
             <li key={i} className={INTEGRANTE}>
               <Retrato persona={persona} />

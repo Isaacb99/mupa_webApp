@@ -4,8 +4,8 @@
 // - cuerpoDe(estado): lo que se manda en PUT /horarios: los 7 días, sin las franjas vacías y, de un día cerrado, ninguna.
 // La nota de cada día ya no se ve en la pantalla (desde la Visitas del tablero "Web" de la diseñadora, 03/11/2026: V2 y
 // V3 del desarrollador, el sitio no la muestra), pero viaja tal como llegó: PUT /horarios guarda los 7 días enteros, y
-// una nota que no se mandara se guardaría vacía. Así lo que el museo cargó no se pierde (la columna sigue: se decide al
-// cierre, como D1). La nota general de los horarios (nota_horarios del museo) tampoco se ve ni se manda: PUT /museo es
+// una nota que no se mandara se guardaría vacía. Así lo que el museo cargó no se pierde (la columna sigue, sin borrar:
+// C1, 09/11/2026). La nota general de los horarios (nota_horarios del museo) tampoco se ve ni se manda: PUT /museo es
 // parcial y queda como estaba.
 
 /** Una franja recién agregada, sin horas. */

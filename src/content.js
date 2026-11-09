@@ -66,6 +66,7 @@ import heroEsqueletos1440 from './assets/hero-esqueletos-1440.webp'
 import heroEsqueletos1920 from './assets/hero-esqueletos-1920.webp'
 import heroEsqueletos2394 from './assets/hero-esqueletos-2394.webp'
 import mapaMuseo from './assets/mapa-museo.svg'
+import mapaMuseoHover from './assets/mapa-museo-hover.svg'
 import patronGaleria from './assets/patron-galeria.svg'
 import heroVisitas960 from './assets/hero-visitas-960.webp'
 import heroVisitas1440 from './assets/hero-visitas-1440.webp'
@@ -102,6 +103,7 @@ import heroCircuitos1920 from './assets/hero-circuitos-1920.webp'
 import heroCircuitos2880 from './assets/hero-circuitos-2880.webp'
 import bloqueCiencia600 from './assets/bloque-ciencia-600.webp'
 import bloqueCiencia880 from './assets/bloque-ciencia-880.webp'
+import bloqueDivulgacion600 from './assets/bloque-divulgacion-600.webp'
 import heroElMuseo960 from './assets/hero-el-museo-960.webp'
 import heroElMuseo1440 from './assets/hero-el-museo-1440.webp'
 import heroElMuseo1920 from './assets/hero-el-museo-1920.webp'
@@ -184,16 +186,17 @@ export const ui = {
 
 // Menú del sitio (plan 6.7; desde el 02/11/2026, el del tablero "Web" de la diseñadora): textos de interfaz, no del
 // museo. Cada sección nombra su página (la clave de src/tablaDePaginas.js) y su dirección: el menú, el menú del celular,
-// el pie y la 404 dibujan solo las secciones cuya página existe (src/components/navegacion.js), así El Museo,
-// Divulgación, Educación y Circuitos aparecen solos el día que se construya su página (la dirección de cada una tiene
-// que ser la de su ruta en server/rutas-publicas.js: lo comprueba layout.test.js).
+// el pie y la 404 dibujan solo las secciones cuya página existe (src/components/navegacion.js; desde el 06/11/2026
+// existen todas: si se sacara una, su sección se va sola; la dirección de cada una tiene que ser la de su ruta en
+// server/rutas-publicas.js: lo comprueba layout.test.js).
 // - menu: las del header, en el orden del tablero. El tercer ítem dice "Divulgación" (el tablero dice "Producción" en
 //   cuatro páginas y "Divulgación" en dos: a confirmar con la diseñadora). Sin el selector de idioma "Es (Arg)" del
 //   tablero (fuera del alcance: un control que no hace nada no puede quedar).
 // - otras: las páginas que existen y el tablero no pone en el menú; van en el pie y en la 404.
 // - entradas: el botón naranja del header (la compra externa que carga el panel, solo si está activa). Texto fijo y
 //   corto (el tablero dice "Tikets": errata). comprar: el texto de "Comprar entradas" de BotonCompra.jsx si el museo
-//   no cargó uno; desde la Visitas del tablero (03/11/2026, V1) ninguna página dibuja ese botón (se decide al cierre).
+//   no cargó uno; desde la Visitas del tablero (03/11/2026, V1) ninguna página dibuja ese botón (queda sin usar, sin
+//   borrar: C1 del cierre, 09/11/2026).
 export const navegacion = {
   etiqueta: 'Principal',
   menu: [
@@ -249,7 +252,7 @@ export const paginas = {
   },
   muestra: { sala: 'Sala' },
   // Los de la página Visitas de E4. Desde la Visitas del tablero "Web" (03/11/2026, `visitas`, más abajo) la página ya
-  // no los usa: los leen TablaHorarios.jsx y ListaTarifas.jsx, que quedan sin usar hasta que se decida al cierre (D1).
+  // no los usa: los leen TablaHorarios.jsx y ListaTarifas.jsx, que quedan sin usar, sin borrar (C1, 09/11/2026).
   visitas: {
     titulo: 'Visitas',
     horario: 'Horario',
@@ -395,8 +398,8 @@ export const home = {
   },
   // La franja de accesos debajo del título (decisión D11): "Planificá tu visita" lleva a Visitas; "Tickets", a la compra
   // externa que carga el panel (sin la compra activa no se dibuja; su texto es el del botón del header,
-  // navegacion.entradas); "Recursos educativos" va a Educación y se dibuja recién cuando exista esa página. La "Tienda
-  // virtual" del tablero no va (fuera del alcance: "a futuro" en la nota de la diseñadora).
+  // navegacion.entradas); "Recursos educativos" va a Educación (se dibuja porque la página existe, desde el
+  // 06/11/2026). La "Tienda virtual" del tablero no va (fuera del alcance: "a futuro" en la nota de la diseñadora).
   accesos: {
     etiqueta: 'Accesos directos',
     visita: 'Planificá tu visita',
@@ -420,14 +423,22 @@ export const home = {
     titulo: 'El MuPa en imágenes',
     patron: patronGaleria,
   },
-  // "Mapa del Museo" (decisión D10): la versión bordó con los nombres del tablero (el grupo "Group 4", exportado en SVG),
-  // como imagen fija. Los nombres del dibujo son trazados: van además como texto para el lector de pantalla, en el
-  // orden en que se recorre el plano (de arriba a la izquierda hacia abajo y a la derecha). Sin interacción: el plano
-  // interactivo es el módulo opcional del plano.
+  // "Mapa del Museo" (decisión D15, 09/11/2026; reemplaza a D10): en reposo, la versión naranja del tablero ("Group 3",
+  // exportada en SVG) con los nombres en #010101; con el mouse sobre una sala, esa sala como la versión bordó con los
+  // nombres en blanco ("Group 4", hover). Los nombres del dibujo son trazados: van además como texto para el lector de
+  // pantalla, en el orden en que se recorre el plano (de arriba a la izquierda hacia abajo y a la derecha), que es
+  // también el de las salas de src/components/mapaSalas.js. El hover es solo visual: el plano interactivo es el módulo
+  // opcional del plano.
   mapa: {
     titulo: 'Mapa del Museo',
-    // El SVG mide 882,765x811,848 (los atributos width y height de la imagen van en enteros).
-    imagen: { src: mapaMuseo, ancho: 883, alto: 812, alt: 'Plano de la planta del museo, con sus salas y espacios' },
+    // Los dos SVG miden 882,765x811,848 (los atributos width y height de la imagen van en enteros).
+    imagen: {
+      src: mapaMuseo,
+      hover: mapaMuseoHover,
+      ancho: 883,
+      alto: 812,
+      alt: 'Plano de la planta del museo, con sus salas y espacios',
+    },
     etiqueta: 'Espacios del plano',
     espacios: [
       'Confitería',
@@ -545,18 +556,20 @@ export const visitas = {
 }
 
 // La foto de los cuatro bloques de Divulgación: la que les puso la diseñadora en el tablero, la paleontóloga con la
-// cuadrícula de hilos (area-ciencia-570 de la landing, del V04 "Acordeon - Ciencia", 920x633). Va en 600x420 (10:7) con
-// object-cover (BloqueTextoFoto.jsx); con 570 px no llega ni a los 600 de la caja (se estira un 5 %) ni a los 1200 de
-// una pantalla de densidad 2: pedir el original o fotos propias de cada bloque (pregunta 14 al museo).
+// cuadrícula de hilos (del V04 "Acordeon - Ciencia", 920x633), con el encuadre del tablero. Va en 600x420 (10:7) con
+// object-cover (BloqueTextoFoto.jsx). Hasta el cierre de E6.3 (DIV-FOTO-01, 09/11/2026) era area-ciencia-570 de la
+// landing (570x567), que se estiraba un 5 % para llenar los 600 de la caja; ahora sale del original con el mismo
+// recorte que se veía (bloque-divulgacion-600, tools/convertir-fotos.mjs), sin agrandar. Para una pantalla de densidad
+// 2 hace falta el original del museo (pregunta 14). El alt no nombra a nadie (IN5); repetido en cada bloque (R-I).
 // RELLENO DEL TABLERO: la misma foto en los cuatro bloques (y en la tarjeta 1 de las noticias del tablero), de la banda
 // Ciencia de la landing; la destraba la pregunta 14 de tools/salida/e6-divulgacion/prep/preguntas-museo.md (fotos del
 // laboratorio, del campo y de los investigadores). sizes: el de "Museo accesible" (la mitad del contenido desde lg).
 const fotoDeBloque = {
-  src: areaCiencia570,
-  srcSet: `${areaCiencia570} 570w`,
+  src: bloqueDivulgacion600,
+  srcSet: `${bloqueDivulgacion600} 600w`,
   sizes: '(min-width: 90rem) 600px, (min-width: 64rem) calc((100vw - 15rem) / 2), calc(100vw - 3rem)',
-  ancho: 570,
-  alto: 567,
+  ancho: 600,
+  alto: 420,
   alt: 'Paleontóloga registrando un hallazgo en el campo con una cuadrícula de hilos sobre el fósil',
 }
 
@@ -811,9 +824,9 @@ export const educacion = {
 // en el tablero, la paleontóloga con la cuadrícula de hilos (la misma de los bloques de Divulgación), pero desde su
 // original ("Acordeon - Ciencia" de la Selección, 920x633; decisión R-C del orquestador) y no desde area-ciencia-570: sin
 // el marco del escaneo y un poco más abierta, en 600 y 880 (1,47x a 600; para 2x hace falta el original del museo).
-// Divulgación sigue con area-ciencia-570 (fotoDeBloque): pasarla a esta es una decisión del cierre. El alt, el de
-// Divulgación (no nombra a nadie: IN5); repetido en los dos circuitos, como en Divulgación (R-I: vaciarlo en la repetida
-// se decide al cierre, para las dos páginas). sizes: el de "Museo accesible" (la mitad del contenido desde lg).
+// Divulgación va con el encuadre del tablero (fotoDeBloque, más arriba: el mismo original, desde el cierre de E6.3). El
+// alt, el de Divulgación (no nombra a nadie: IN5); repetido en los dos circuitos, como en Divulgación (R-I: vaciarlo en
+// la repetida queda a decidir, para las dos páginas). sizes: el de "Museo accesible" (la mitad del contenido desde lg).
 // RELLENO DEL TABLERO: la misma foto en los dos circuitos (y en los bloques de Divulgación); no es de Ischigualasto ni
 // del Parque las Huellas que se sepa. La destraba la pregunta 35 de tools/salida/e6-divulgacion/prep/preguntas-museo.md
 // (fotos de los dos lugares, con permiso y crédito).

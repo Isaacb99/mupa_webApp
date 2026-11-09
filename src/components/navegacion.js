@@ -14,7 +14,7 @@ export const seccionesDelSitio = () => [...navegacion.menu, ...navegacion.otras]
 
 /**
  * La sección de una página ({ pagina, ruta, texto }), solo si la página existe; si no, null. La usan los accesos de la
- * Home (HeroHome.jsx): "Recursos educativos" aparece solo el día que exista Educación, con su dirección del menú.
+ * Home (HeroHome.jsx): "Recursos educativos" va porque existe Educación (desde el 06/11/2026), con su dirección del menú.
  */
 export const seccionDe = (pagina) => seccionesDelSitio().find((s) => s.pagina === pagina) ?? null
 
@@ -30,6 +30,6 @@ export function marcaActual(ruta, destino) {
 
 /**
  * El texto de "Comprar entradas" (BotonCompra.jsx): el que cargó el museo o el de content.js. Sin uso desde la Visitas
- * del tablero (03/11/2026, V1: ninguna página dibuja ese botón), como BotonCompra.jsx: se decide al cierre (D1).
+ * del tablero (03/11/2026, V1: ninguna página dibuja ese botón), como BotonCompra.jsx: queda sin borrar (C1, 09/11/2026).
  */
 export const textoCompra = (compra) => compra?.texto || navegacion.comprar

@@ -2,7 +2,7 @@
   // Expresión para measure.mjs: el carrusel de Novedades de la Home (src/components/CarruselNovedades.jsx; tablero "Web"
   // de la diseñadora, 02/11/2026). Necesita novedades publicadas (con SIN_BASE no hay: cargarlas por la API en un
   // esquema aislado, como las páginas internas). Comprueba, después de hidratar:
-  // - la fila: scroll horizontal nativo, snap obligatorio (antes de hidratar es de proximidad), sin que Lenis tome los
+  // - la fila: scroll horizontal nativo, snap obligatorio (antes de hidratar no tiene snap), sin que Lenis tome los
   //   gestos horizontales (data-lenis-prevent-horizontal) y, con Lenis andando, que Mayús + rueda vaya nativa (no la
   //   cancela) y la rueda vertical sí la tome (baja la página);
   // - Anterior y Siguiente: con su nombre, aria-controls a la fila, aria-disabled en las puntas; cada uno lleva la fila a
@@ -14,6 +14,7 @@
   // - las tarjetas: el título es el enlace (con nombre), "leer más" no se repite para el lector; sin scroll horizontal
   //   de la página.
   // Uso: node tools/measure.mjs 1440 900 tools/carrusel-check.js --url http://127.0.0.1:5183/   (debe dar ok: true)
+  //   También en /divulgacion (desde el 06/11/2026: «Últimas noticias» es el mismo carrusel, con el mismo id del h2).
   //   Con --reduce también (los botones mueven la fila sin animar).
   const espera = (ms) => new Promise((r) => setTimeout(r, ms))
   const res = { ancho: innerWidth, alto: innerHeight, pasos: [], fallas: [] }
@@ -37,7 +38,7 @@
   const estilo = getComputedStyle(fila)
   if (estilo.overflowX !== 'auto') falla(`la fila tiene overflow-x ${estilo.overflowX}`)
   if (!/x mandatory/.test(estilo.scrollSnapType)) falla(`la fila tiene scroll-snap-type "${estilo.scrollSnapType}" (esperaba x mandatory después de hidratar)`)
-  if (document.documentElement.scrollWidth > innerWidth) falla('la página tiene scroll horizontal')
+  if (document.documentElement.scrollWidth > document.documentElement.clientWidth) falla('la página tiene scroll horizontal')
   if (vivo?.textContent !== '') falla(`la región viva no está vacía al cargar ("${vivo?.textContent}")`)
   // Las tarjetas: el título es el enlace, "leer más" aria-hidden.
   for (const [i, li] of tarjetas.entries()) {

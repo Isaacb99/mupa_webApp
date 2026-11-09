@@ -43,7 +43,7 @@ import {
 
 const TITULO = `${TITULO_SECCION} mt-6 whitespace-pre-line`
 const COLUMNA_TEXTO = 'flex min-w-0 flex-col gap-6 whitespace-pre-line'
-const LISTA = `${CLASES_TEXTO_TABLERO.ul} flex flex-col gap-3 text-base leading-6 font-normal text-paper`
+const LISTA = `${CLASES_TEXTO_TABLERO.ul} flex flex-col gap-3 text-base leading-6 font-normal text-paper text-pretty`
 const ACCIONES = 'flex flex-col gap-6'
 const ACCION = 'flex items-center gap-2 font-mono text-base leading-[1.8] text-blanco'
 const ENLACE = `${ENLACE_FLECHA} -my-2 self-start`

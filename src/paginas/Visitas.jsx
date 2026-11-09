@@ -2,6 +2,7 @@ import { resumirHorario } from '../../compartido/horarios.js'
 import HeroPagina from '../components/HeroPagina.jsx'
 import { FlechaDerecha, FlechaDiagonal } from '../components/Iconos.jsx'
 import { Accesibilidad, Brujula, Cerebro, Info, Ojo, Oreja, Reloj } from '../components/IconosTarjetas.jsx'
+import TextoCorreo from '../components/TextoCorreo.jsx'
 import TextoRico from '../components/TextoRico.jsx'
 import {
   correoPublico,
@@ -64,7 +65,7 @@ import { contacto, visitas } from '../content.js'
 // - Lo que el tablero no trae ya no se muestra (V1): el aviso general, "Comprar entradas", las tarifas y su nota, la
 //   tabla de la semana con "Hoy", la nota de horarios, "Cómo llegar" y las normas. La compra externa sigue en el header
 //   ("Tickets") y en la franja de la Home. Aviso.jsx, BotonCompra.jsx, ListaTarifas.jsx y TablaHorarios.jsx quedan sin
-//   usar hasta que se decida al cierre (D1).
+//   usar y sin borrar (C1 del desarrollador, 09/11/2026).
 // - Las tarjetas no tienen fondo propio: el del tablero es el de la página (#010101) y no se ve; su padding sí (corre el
 //   texto 40 y 32 px respecto del título, como en el tablero). Debajo de lg van en una columna (los recursos, en dos
 //   desde sm) y sin padding, alineadas con el título. Entre lg y xl (1024 a 1279): las de información, con 24 de padding
@@ -166,8 +167,8 @@ export default function Visitas({ estado }) {
                       )
                     ) : null}
                     {correo ? (
-                      <a href={`mailto:${correo}`} className={ENLACE_DATO}>
-                        {correo}
+                      <a href={`mailto:${correo}`} aria-label={correo} className={ENLACE_DATO}>
+                        <TextoCorreo correo={correo} />
                       </a>
                     ) : null}
                     {paginaDeContacto ? (
@@ -233,6 +234,7 @@ export default function Visitas({ estado }) {
               alt={a.imagen.alt}
               loading="lazy"
               decoding="async"
+              fetchPriority="low"
               className="block aspect-[5/3] h-auto w-full rounded-2xl object-cover"
             />
           </div>
