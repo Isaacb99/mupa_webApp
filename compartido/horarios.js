@@ -3,6 +3,8 @@
 // compartido/esquemas/ (plan 6.2); el esquema del PUT (compartido/esquemas/horarios.js) toma de acá los días.
 // Hasta el pie del tablero "Web" de la diseñadora (02/11/2026) el resumen iba en el pie; el pie nuevo no lleva el
 // horario y el resumen queda para la tarjeta "Horarios" de Visitas del mismo tablero.
+// Desde la versión de celular (10/11/2026, M3), también si un día abre (abreElDia): lo usa el servidor para la barra de
+// hoy (estado.abiertoHoy, server/ssr.js), con la misma lectura del horario que el resumen.
 //
 // La entrada es estado.museo.horarios (server/museo.js): [{ dia, abierto, franjas: [{ abre, cierra }] }] (desde la
 // Visitas del tablero, museoComun no publica la nota de cada día; si viene, resumirHorario la da aparte, en notas),
@@ -110,4 +112,19 @@ export function resumirHorario(horarios) {
   }
   const notas = [...porNota].map(([texto, lista]) => ({ dias: textoDias(lista), texto }))
   return { lineas, notas }
+}
+
+/**
+ * ¿El museo abre el día `dia` (ISO: 1 = lunes … 7 = domingo) según el horario semanal? true o false; null si no se
+ * puede decir: el horario sin cargar (ningún día abierto: ahí resumirHorario tampoco da ninguna línea) o un día que no
+ * está en el horario. Con la misma lectura que el resumen (diasLegibles): hay respuesta exactamente cuando Visitas
+ * dibuja la tarjeta Horarios. No mira la hora: es "hoy", no "ahora".
+ * @param {{ dia: number, abierto: boolean, franjas: { abre: string, cierra: string }[] }[]} horarios
+ * @param {number | null} dia
+ * @returns {boolean | null}
+ */
+export function abreElDia(horarios, dia) {
+  const dias = diasLegibles(horarios)
+  if (!dias.some((d) => d.abierto)) return null
+  return dias.find((d) => d.dia === dia)?.abierto ?? null
 }

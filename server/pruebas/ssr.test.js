@@ -52,13 +52,22 @@
 //   título del menú, "El Museo · MuPa", el canonical, la descripción y el JSON-LD); en el sitemap, primera después de
 //   la Home y sin lastmod; IndexNow no la avisa; la foto del hero primera en el <head> y las demás (el patio, los
 //   documentales, los logos y las piedritas), lazy y sin precargar; /el-museo/algo, 404.
+// - La barra de hoy del celular (10/11/2026, M3): estado.abiertoHoy lo resuelve el servidor con el reloj del pedido
+//   (inyectado: crearSsr({ reloj })) y el horario del museo, en la Home, las internas, la 404 y el POST /contacto que
+//   vuelve a dibujar la página; la medianoche de San Juan; sin horario, null y sin barra; con el último museo bueno, la
+//   barra de ese museo; y estado.museo con las mismas 11 claves. Con base, con el horario cargado por la API.
+// - El hero de las internas en el celular (10/11/2026): la posición de celular de la foto en el <img> servido (El Museo
+//   y Contacto la traen; Visitas, no) y la precarga de siempre (los cuatro anchos y el mismo sizes).
+// - La Home de celular (10/11/2026): la foto del hero va en un <picture> y lleva DOS precargas con prioridad (la de
+//   celular y la apaisada, cada una con su media), las dos primeras en el <head> y ninguna en lo dibujado, iguales al
+//   <source> y a la <img> que precargan; el plano y sus capas, sin precargar; y separarPrecargasConPrioridad con dos.
 import assert from 'node:assert/strict'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { after, before, describe, test } from 'node:test'
 import { urlPublica } from '../../compartido/contenidos.js'
-import { hoyEnSanJuan, localDeInstante } from '../../compartido/fechas.js'
+import { diaDeLaSemana, hoyEnSanJuan, localDeInstante } from '../../compartido/fechas.js'
 import { VARIANTES_FOTO } from '../../compartido/fotos.js'
 import { crearApp } from '../app.js'
 import { leerConfig } from '../config.js'
@@ -380,6 +389,15 @@ describe('las páginas internas con base', { skip: base.motivo ?? false }, () =>
     assert.match(app, /<a href="mailto:museo@example\.com" aria-label="museo@example\.com" class="inline-flex min-h-11 /)
     assert.match(app, /<a href="\/contacto" class="inline-flex min-h-11 /)
     assert.ok(app.includes('<p>Hay rampa en la entrada.</p>'))
+    // La barra de hoy del celular (M3): la resuelve el servidor con el horario cargado (de martes a domingo) y su "hoy"
+    // de San Juan, el del estado: vale cualquier día en que corra la prueba. En el header y en el menú, con "Horarios"
+    // a la tarjeta, que lleva su id.
+    const { abiertoHoy, hoy } = estadoDe(r.texto)
+    assert.equal(abiertoHoy, diaDeLaSemana(hoy) !== 1)
+    assert.equal(cuantas(app, `<div data-hoy="${abiertoHoy ? 'abierto' : 'cerrado'}"`), 2)
+    assert.equal(cuantas(app, 'data-hoy='), 2)
+    assert.equal(cuantas(app, 'href="/visitas#visitas-horarios"'), 2)
+    assert.equal(cuantas(app, '<li id="visitas-horarios"'), 1)
     // Sin "Insertar mapa" cargado, sin el mapa.
     assert.equal(cuantas(app, '<iframe'), 0)
     for (const fuera of ['Visitas guiadas', 'Nota de las tarifas', 'Gratis', '$ 3.000', '>General<', 'Así se llega.', 'aria-current="date"', 'data-entradas="" class="inline-block']) {
@@ -1018,7 +1036,7 @@ describe('sin base', () => {
       assert.equal(cuantas(articulos[3], 'Resumen'), 0)
       assert.equal(cuantas(r.texto, '>null<'), 0)
       // El contador, como lo dibuja el servidor (el navegador hidrata con lo mismo).
-      assert.match(r.texto, /<p aria-hidden="true" class="[^"]*">1<!-- -->\/<!-- -->6<\/p>/)
+      assert.match(r.texto, /<span aria-hidden="true" class="[^"]*">1<!-- -->\/<!-- -->6<\/span>/)
       assert.equal(cuantas(r.texto, '<h1'), 1)
     } finally {
       await new Promise((r) => servidor.close(r))
@@ -1065,7 +1083,7 @@ describe('sin base', () => {
       r = await pedir(puerto, 'GET', '/divulgacion')
       assert.deepEqual(estadoDe(r.texto).datos.novedades.map((n) => n.url), [1, 2, 3, 4, 5, 6].map((n) => `/novedades/novedad-${n}`))
       assert.equal(r.texto.split('<article').length - 1, 6)
-      assert.match(r.texto, /<p aria-hidden="true" class="[^"]*">1<!-- -->\/<!-- -->6<\/p>/)
+      assert.match(r.texto, /<span aria-hidden="true" class="[^"]*">1<!-- -->\/<!-- -->6<\/span>/)
       assert.equal(cuantas(r.texto, '<h1'), 1)
       // Lo que no existe debajo de /divulgacion, 404; también debajo de /educacion.
       assert.equal((await pedir(puerto, 'GET', '/divulgacion/algo')).status, 404)
@@ -1212,6 +1230,9 @@ describe('sin base', () => {
       assert.match(delHero[0], /fetchpriority="high"/i)
       assert.ok(r.texto.indexOf(delHero[0]) < r.texto.indexOf('<header'))
       assert.equal(precargas.filter((l) => l.includes('visitas-accesibilidad')).length, 0)
+      // El <img> del hero de Visitas no trae posición de celular: el object-position de siempre y nada más.
+      assert.match(app, /<img src="[^"]*hero-visitas-1440[^"]*"[^>]* fetchPriority="high" class="absolute inset-0 size-full object-cover" style="object-position:50% 80%"\/>/)
+      assert.equal(cuantas(app, 'posicion-movil'), 0)
       // El vacío: sin la sección (ni su rótulo) y con los párrafos del tablero.
       ahora = { museo: MUSEO_VACIO, alDia: true }
       r = await pedir(puerto, 'GET', '/visitas')
@@ -1264,6 +1285,10 @@ describe('sin base', () => {
       assert.match(delHero[0], /fetchpriority="high"/i)
       assert.ok(r.texto.indexOf(delHero[0]) < r.texto.indexOf('<title>'))
       assert.match(app, /<img src="[^"]*hero-contacto-1440[^"]*" srcSet="[^"]*" sizes="[^"]*" width="2880" height="960" alt="[^"]+" fetchPriority="high"/)
+      // En el celular el h1 va abajo y la foto se corre (para no pisar el cartel): la posición de celular va como
+      // variable en el style y una clase la usa debajo de 32rem. La precarga es la de siempre (los cuatro anchos, el sizes).
+      assert.match(app, /<img src="[^"]*hero-contacto-1440[^"]*"[^>]* class="absolute inset-0 size-full object-cover max-\[32rem\]:object-\(--posicion-movil\)!" style="object-position:50% 88%;--posicion-movil:100% 88%"\/>/)
+      assert.match(delHero[0], /imageSrcSet="[^"]* 960w, [^"]* 1440w, [^"]* 1920w, [^"]* 2880w" imageSizes="\(min-width: 64rem\) max\(100vw, 1440px\), max\(100vw, 960px\)"/)
       // El vacío: solo el hero (sin los datos ni sus rótulos; sin casilla, sin formulario).
       ahora = { museo: MUSEO_VACIO, alDia: true }
       r = await pedir(puerto, 'GET', '/contacto')
@@ -1278,6 +1303,105 @@ describe('sin base', () => {
       assert.equal(r.status, 503)
       assert.equal(r.h['cache-control'], 'no-store')
       assert.doesNotMatch(r.texto, /<script/)
+    } finally {
+      console.log = original
+      await new Promise((r) => servidor.close(r))
+    }
+  })
+
+  test('la barra de hoy (M3): estado.abiertoHoy sale del reloj del servidor y del horario del museo, en la Home, las internas, la 404 y el POST /contacto; la medianoche de San Juan; sin horario, null', async () => {
+    // La dirección de la base no se usa (el museo es el de la prueba): producción la exige.
+    const config = leerConfig({ NODE_ENV: 'production', URL_PUBLICA: 'https://mupa.ar/', DATABASE_URL: 'postgres://nadie:nada@127.0.0.1:1/no_existe' })
+    // El museo de ejemplo cierra los lunes y abre de martes a domingo.
+    let ahora = { museo: MUSEO_MAXIMO, alDia: true }
+    const museoPublico = Object.assign(async () => ahora.museo, { conEstado: async () => ahora })
+    // El reloj del servidor, fijo: la prueba no depende del día en que corre.
+    let hora = new Date('2026-11-09T15:00:00Z')
+    const ssr = crearSsr({ config, obtener, museoPublico, lector: LECTOR_VACIO, reloj: () => hora })
+    const app = crearApp({ config, ssr, estaticos: () => {} })
+    const servidor = app.listen(0, '127.0.0.1')
+    await new Promise((r) => servidor.once('listening', r))
+    const puerto = servidor.address().port
+    const dibujado = (html) => html.slice(html.indexOf('<div id="root">'), html.indexOf('<script id="estado"'))
+    const barras = (html) => [...dibujado(html).matchAll(/<div data-hoy="([^"]*)"/g)].map((m) => m[1])
+    // Todos los caminos que dibujan una página: responder() (la Home, una que no lee la base, una que espera el museo
+    // y la 404 de una ruta con datos), noEncontrada() (lo que no es una ruta) y dibujarPagina() (el POST /contacto: sin
+    // casilla de envío vuelve a dibujar Contacto con un 503).
+    const formulario = new URLSearchParams({ nombre: 'Ana Pérez', email: 'ana@example.com', mensaje: 'Hola, una consulta de prueba.' }).toString()
+    const PEDIDOS = [
+      ['GET', '/', 200, 'home'],
+      ['GET', '/el-museo', 200, 'el-museo'],
+      ['GET', '/visitas', 200, 'visitas'],
+      ['GET', '/novedades/no-existe', 404, 'no-encontrada'],
+      ['GET', '/no-existe', 404, 'no-encontrada'],
+      ['POST', '/contacto', 503, 'contacto'],
+    ]
+    const pedirTodas = async () => {
+      const paginas = []
+      for (const [metodo, ruta, status, pagina] of PEDIDOS) {
+        const r = await pedir(puerto, metodo, ruta, metodo === 'POST' ? { cuerpo: formulario, tipo: 'application/x-www-form-urlencoded' } : {})
+        assert.equal(r.status, status, `${metodo} ${ruta}`)
+        const estado = estadoDe(r.texto)
+        assert.equal(estado.pagina, pagina, `${metodo} ${ruta}`)
+        paginas.push({ nombre: `${metodo} ${ruta}`, html: r.texto, estado })
+      }
+      return paginas
+    }
+    const original = console.log
+    console.log = () => {}
+    try {
+      // Lunes 09/11/2026 al mediodía de San Juan: cerrado, en todas.
+      for (const { nombre, html, estado } of await pedirTodas()) {
+        assert.equal(estado.hoy, '2026-11-09', nombre)
+        assert.equal(estado.anio, 2026, nombre)
+        assert.equal(estado.abiertoHoy, false, nombre)
+        assert.deepEqual(barras(html), ['cerrado', 'cerrado'], nombre)
+        assert.equal(cuantas(dibujado(html), 'El museo se encuentra cerrado hoy'), 2, nombre)
+        assert.equal(cuantas(dibujado(html), 'El museo se encuentra abierto hoy'), 0, nombre)
+        // El museo del estado no cambia: las 11 claves de museoComun (el dato de la barra va aparte).
+        assert.equal(Object.keys(estado.museo).length, 11, nombre)
+        assert.ok(!('abiertoHoy' in estado.museo), nombre)
+      }
+      // Martes 10/11/2026: abierto, en todas.
+      hora = new Date('2026-11-10T15:00:00Z')
+      for (const { nombre, html, estado } of await pedirTodas()) {
+        assert.equal(estado.hoy, '2026-11-10', nombre)
+        assert.equal(estado.abiertoHoy, true, nombre)
+        assert.deepEqual(barras(html), ['abierto', 'abierto'], nombre)
+        assert.equal(cuantas(dibujado(html), 'El museo se encuentra abierto hoy'), 2, nombre)
+        assert.equal(cuantas(dibujado(html), 'href="/visitas#visitas-horarios"'), 2, nombre)
+      }
+      // La medianoche de San Juan (UTC-3): a las 23:59 del lunes 9 sigue cerrado; a las 00:01 del martes 10, abierto.
+      hora = new Date('2026-11-10T02:59:00Z')
+      let r = await pedir(puerto, 'GET', '/')
+      assert.deepEqual([estadoDe(r.texto).hoy, estadoDe(r.texto).abiertoHoy, barras(r.texto)], ['2026-11-09', false, ['cerrado', 'cerrado']])
+      hora = new Date('2026-11-10T03:01:00Z')
+      r = await pedir(puerto, 'GET', '/')
+      assert.deepEqual([estadoDe(r.texto).hoy, estadoDe(r.texto).abiertoHoy, barras(r.texto)], ['2026-11-10', true, ['abierto', 'abierto']])
+      // El 31/12 a la noche: el año del © y la barra salen del mismo "hoy".
+      hora = new Date('2027-01-01T02:30:00Z')
+      r = await pedir(puerto, 'GET', '/')
+      assert.deepEqual([estadoDe(r.texto).hoy, estadoDe(r.texto).anio, estadoDe(r.texto).abiertoHoy], ['2026-12-31', 2026, true])
+      // Sin horario cargado (el museo vacío): null y sin barra, en todas (el POST /contacto también).
+      ahora = { museo: MUSEO_VACIO, alDia: true }
+      hora = new Date('2026-11-10T15:00:00Z')
+      for (const { nombre, html, estado } of await pedirTodas()) {
+        assert.equal(estado.abiertoHoy, null, nombre)
+        assert.deepEqual(barras(html), [], nombre)
+        assert.equal(cuantas(dibujado(html), 'visitas-horarios'), 0, nombre)
+      }
+      // El museo que no es el de ahora (la base no respondió: el último bueno): la Home y las que no leen la base
+      // salen con la barra de ese museo, como "Tickets"; Visitas, que espera el de ahora, sigue con la 503 simple.
+      ahora = { museo: MUSEO_MAXIMO, alDia: false }
+      hora = new Date('2026-11-09T15:00:00Z')
+      for (const ruta of ['/', '/el-museo', '/no-existe']) {
+        r = await pedir(puerto, 'GET', ruta)
+        assert.equal(estadoDe(r.texto).abiertoHoy, false, ruta)
+        assert.deepEqual(barras(r.texto), ['cerrado', 'cerrado'], ruta)
+      }
+      r = await pedir(puerto, 'GET', '/visitas')
+      assert.equal(r.status, 503)
+      assert.equal(cuantas(r.texto, 'data-hoy'), 0)
     } finally {
       console.log = original
       await new Promise((r) => servidor.close(r))
@@ -1331,6 +1455,12 @@ describe('sin base', () => {
     assert.deepEqual(separarPrecargasConPrioridad(`${conMayor}<main/>`), [conMayor, '<main/>'])
     // Solo lo del principio: una etiqueta igual más adelante (dentro de la página) no se toca.
     assert.deepEqual(separarPrecargasConPrioridad(`<header>${alta}</header>`), ['', `<header>${alta}</header>`])
+    // Dos con prioridad, cada una con su media (la Home: la foto de celular y la apaisada, con el orden de atributos de
+    // preload() de react-dom): salen las dos, en su orden, y el logo queda. Los < y > de las media llegan escapados.
+    const movil = '<link rel="preload" as="image" fetchPriority="high" imageSrcSet="/m-720.webp 720w, /m-963.webp 963w" imageSizes="100vw" media="(width &lt; 30rem)"/>'
+    const resto = '<link rel="preload" as="image" fetchPriority="high" imageSrcSet="/a-800.webp 800w, /a-1440.webp 1440w" imageSizes="100vw" media="(width &gt;= 30rem)"/>'
+    assert.deepEqual(separarPrecargasConPrioridad(`${movil}${resto}${comun}<header>x</header>`), [movil + resto, `${comun}<header>x</header>`])
+    assert.deepEqual(separarPrecargasConPrioridad(`${comun}${movil}${resto}<header>x</header>`), [movil + resto, `${comun}<header>x</header>`])
     // Sin precargas, o con una sin terminar, todo queda igual.
     assert.deepEqual(separarPrecargasConPrioridad('<header>x</header>'), ['', '<header>x</header>'])
     assert.deepEqual(separarPrecargasConPrioridad('<link rel="preload" as="image"'), ['', '<link rel="preload" as="image"'])
@@ -1429,9 +1559,44 @@ describe('sin base', () => {
       const sinLazy = (mainM.match(/<img [^>]*>/g) ?? []).filter((i) => !i.includes('loading="lazy"'))
       assert.equal(sinLazy.length, 1, sinLazy.join(' | '))
       assert.match(sinLazy[0], /hero-el-museo/)
+      // Con su posición de celular (el h1 abajo, sobre el cielo); la precarga, la de siempre.
+      assert.match(sinLazy[0], /style="object-position:50% 60%;--posicion-movil:62% 60%"/)
+      assert.match(fotoM[0], /imageSrcSet="[^"]* 960w, [^"]* 1440w, [^"]* 1920w, [^"]* 2880w" imageSizes="\(min-width: 64rem\) max\(100vw, 1440px\), max\(100vw, 960px\)"/)
       for (const asset of ['carrusel-', 'patron-', 'logo-unsj', 'logo-gobierno']) {
         assert.ok(!new RegExp(`<link rel="preload" as="image"[^>]*${asset}`).test(m.texto), asset)
       }
+      // La Home (la de celular, 10/11/2026): su foto va en un <picture> y React no precarga sola una <img> que está
+      // dentro de uno; el componente pide DOS precargas con prioridad, la de la foto de celular y la de la apaisada,
+      // cada una con su media (el navegador baja solo la que va a dibujar). Las dos van primeras en el <head>, antes del
+      // título y en ese orden, y en lo dibujado no queda ninguna: al hidratar, React las encuentra en el <head> y no las
+      // repite.
+      const h = await pedir(servidor.address().port, 'GET', '/')
+      assert.equal(h.status, 200)
+      const headH = h.texto.slice(0, h.texto.indexOf('</head>'))
+      const raizH = h.texto.slice(h.texto.indexOf('<div id="root">'), h.texto.indexOf('<script id="estado"'))
+      const fotosH = h.texto.match(/<link rel="preload" as="image"[^>]*fetchPriority="high"[^>]*>/gi) ?? []
+      assert.equal(fotosH.length, 2, fotosH.join('\n'))
+      assert.match(fotosH[0], /imageSrcSet="[^"]*hero-esqueletos-movil-720[^"]* 720w, [^"]*hero-esqueletos-movil-963[^"]* 963w" imageSizes="100vw" media="\(width &lt; 32rem\)"\/>$/)
+      assert.match(
+        fotosH[1],
+        /imageSrcSet="[^"]* 800w, [^"]* 1280w, [^"]* 1440w, [^"]* 1920w, [^"]* 2394w" imageSizes="\(min-width: 64rem\) max\(100vw, 1165px\), max\(100vw, 50rem\)" media="\(width &gt;= 32rem\)"\/>$/,
+      )
+      assert.doesNotMatch(fotosH[1], /movil/)
+      for (const foto of fotosH) assert.ok(headH.indexOf(foto) > 0 && headH.indexOf(foto) < headH.indexOf('<title>'), foto)
+      assert.ok(headH.indexOf(fotosH[0]) < headH.indexOf(fotosH[1]))
+      assert.ok(headH.indexOf('<title>') < headH.indexOf('rel="stylesheet"'))
+      assert.equal(cuantas(raizH, 'rel="preload" as="image" fetchPriority'), 0, 'ninguna precarga con prioridad en lo dibujado')
+      assert.equal(cuantas(raizH, 'fetchPriority="high"'), 1, 'solo la <img> del hero')
+      assert.match(raizH, /^<div id="root"><link rel="preload" as="image" href="[^"]*isotipo-unsj[^"]*"\/><header/)
+      // Cada precarga, igual a lo que precarga (si no, el navegador bajaría dos archivos): la de celular, con la media, el
+      // srcset y el sizes del <source>; la otra, con el srcset y el sizes de la <img>.
+      const fuente = /<picture class="contents"><source media="([^"]*)" srcSet="([^"]*)" sizes="([^"]*)" width="963" height="1198"\/><img src="[^"]*hero-esqueletos-1440[^"]*" srcSet="([^"]*)" sizes="([^"]*)"/.exec(raizH)
+      assert.ok(fuente, 'el <picture> del hero')
+      assert.ok(fotosH[0].includes(`imageSrcSet="${fuente[2]}" imageSizes="${fuente[3]}" media="${fuente[1]}"`), fotosH[0])
+      assert.ok(fotosH[1].includes(`imageSrcSet="${fuente[4]}" imageSizes="${fuente[5]}" media="(width &gt;= 32rem)"`), fotosH[1])
+      // El plano (el de celular, el de escritorio y las 14 capas del hover) no se precarga: todo lazy.
+      assert.ok(!/<link rel="preload"[^>]*mapa-museo/.test(h.texto))
+      assert.equal((raizH.match(/<img [^>]*mapa-museo[^>]*loading="lazy"/g) ?? []).length, 15)
       // Sin la foto con prioridad (la 404), el <head> arranca como siempre, con el título.
       const no = await pedir(servidor.address().port, 'GET', '/no-existe')
       assert.equal(no.status, 404)

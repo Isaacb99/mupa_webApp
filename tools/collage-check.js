@@ -1,12 +1,16 @@
 (async () => {
-  // Expresión para measure.mjs: recorre el collage enganchado de Identidad (las fotos salen del montón de a una con el
-  // scroll) y comprueba que en cada tramo estén fuera exactamente las fotos que corresponden (las de adelante), que las
-  // que salieron hayan subido hasta pasar el borde de arriba de la pantalla (y queden con visibility hidden: sin puntero
-  // ni lector), sin fundidos, y las demás en su lugar; que cada cambio anime solo las fotos que cambian, que el bloque
-  // quede enganchado arriba mientras dura el efecto y que la caja entre entera en la pantalla.
+  // Expresión para measure.mjs: recorre el collage enganchado de "El MuPa en imágenes" (las fotos salen del montón de a
+  // una con el scroll) y comprueba que en cada tramo estén fuera exactamente las fotos que corresponden (las de
+  // adelante), que las que salieron hayan subido hasta pasar el borde de arriba de la pantalla (y queden con visibility
+  // hidden: sin puntero ni lector), sin fundidos, y las demás en su lugar; que cada cambio anime solo las fotos que
+  // cambian, que el bloque quede enganchado arriba mientras dura el efecto y que la caja entre entera en la pantalla.
+  // "Las de adelante" son las de la pila que se ve: debajo de md (la pila del cuadro de celular, 10/11/2026) el orden
+  // lo da el z-index de cada foto y no el del HTML (sale primero la del dremel); desde md, el del HTML (la del patio).
+  // La receta las ordena como aplicar() de Collage.jsx, y los números de foto de sus mensajes son los de ese orden.
   // Con --reduce (o en una pantalla baja: la variante apilado de index.css) el collage va apilado, quieto y sin efecto:
   // la receta lo reconoce (el bloque fijo no es sticky) y comprueba eso, las cinco fotos a la vista en su lugar, sin
-  // data-fuera ni animaciones aunque se recorra el bloque, y la caja en su ancho (el 69,86 % desde lg: 1006x628 a 1440).
+  // data-fuera ni animaciones aunque se recorra el bloque, y la caja en su ancho y su proporción (desde lg, el 69,86 %
+  // en 1006:628: 1006x628 a 1440; debajo de md, el ancho del contenido con un tope de 30rem, en 354:472).
   // Hasta el cierre de E6.3 esperaba el efecto también ahí y daba ok: false (VCOD-02 de la verificación, 09/11/2026).
   // Uso: node tools/measure.mjs 1440 900 "$(cat tools/collage-check.js)" [--url ...] [--reduce]   (debe dar ok: true)
   const raf = () => new Promise((r) => requestAnimationFrame(r));
@@ -15,8 +19,15 @@
   const bloque = document.getElementById('identidad-collage');
   const fijo = bloque.firstElementChild;
   const caja = bloque.querySelector('[data-caja]');
-  const fotos = [...caja.children];
+  // De atrás hacia adelante, como las ordena aplicar(): por z-index y, a igual z-index (desde md), en el orden del HTML.
+  const fotos = [...caja.children]
+    .map((el, i) => ({ el, i, z: Number(getComputedStyle(el).zIndex) || 0 }))
+    .sort((a, b) => a.z - b.z || a.i - b.i)
+    .map((x) => x.el);
   const n = fotos.length;
+  // Los cortes del CSS (md y lg de Tailwind, en rem de la letra del navegador), preguntados como los pregunta el CSS.
+  const desdeMd = matchMedia('(width >= 48rem)').matches;
+  const desdeLg = matchMedia('(width >= 64rem)').matches;
   const top0 = bloque.getBoundingClientRect().top + scrollY;
   const topFijo = parseFloat(getComputedStyle(fijo).top) || 0;
   // Recorrido de las fotos: el del bloque menos la cola (data-cola), en la que la última foto queda quieta antes de soltarse.
@@ -32,12 +43,15 @@
     res.modo = 'apilado';
     if (n < 2) res.fallas.push(`hay ${n} fotos`);
     if (cola !== 0) res.fallas.push(`la cola mide ${cola} px (apilado no lleva cola)`);
-    // El ancho de la caja: el 69,86 % de su contenedor desde lg, el contenedor menos 5rem desde md y todo el ancho debajo.
+    // El ancho de la caja: el 69,86 % de su contenedor desde lg y el contenedor menos 5rem desde md; debajo de md (la
+    // pila de celular), el contenido del contenedor (que lleva 1,5rem a cada lado) con un tope de 30rem. Y su
+    // proporción: 1006:628 desde md y 354:472 debajo.
     const contenedor = caja.parentElement.getBoundingClientRect().width;
     const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
-    const esperado = innerWidth >= 1024 ? contenedor * 0.6986 : innerWidth >= 768 ? contenedor - 5 * rem : contenedor;
+    const esperado = desdeLg ? contenedor * 0.6986 : desdeMd ? contenedor - 5 * rem : Math.min(contenedor - 3 * rem, 30 * rem);
+    const [pw, ph] = desdeMd ? [1006, 628] : [354, 472];
     if (Math.abs(cajaRect.width - esperado) > 1.5) res.fallas.push(`la caja mide ${cajaRect.width.toFixed(1)} px de ancho (esperado ${esperado.toFixed(1)})`);
-    if (Math.abs(cajaRect.height - (cajaRect.width * 628) / 1006) > 1.5) res.fallas.push(`la caja no está en 1006:628 (${cajaRect.width.toFixed(1)}x${cajaRect.height.toFixed(1)})`);
+    if (Math.abs(cajaRect.height - (cajaRect.width * ph) / pw) > 1.5) res.fallas.push(`la caja no está en ${pw}:${ph} (${cajaRect.width.toFixed(1)}x${cajaRect.height.toFixed(1)})`);
     // Se recorre el bloque de punta a punta: nada se mueve ni se anima, las cinco quedan a la vista dentro de la caja.
     const top = bloque.getBoundingClientRect().top + scrollY;
     for (const p of [-0.5, 0, 0.25, 0.5, 0.75, 1, 1.5, 0.25]) {

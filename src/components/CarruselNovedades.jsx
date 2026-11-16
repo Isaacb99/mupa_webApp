@@ -1,8 +1,8 @@
-import { useEffect, useId, useRef, useState } from 'react'
 import { home } from '../content.js'
-import { crearAvisador } from './avisoCarrusel.js'
+import useCarrusel from '../hooks/useCarrusel.js'
+import ControlesCarrusel from './ControlesCarrusel.jsx'
 import Foto from './Foto.jsx'
-import { FlechaDerecha, FlechaDiagonal, FlechaIzquierda } from './Iconos.jsx'
+import { FlechaDiagonal } from './Iconos.jsx'
 import { CONTENEDOR_TABLERO, ENLACE_FLECHA, TITULO_SECCION } from './tablero.js'
 
 // El carrusel de Novedades de la Home (tablero "Web" de la diseñadora, Figma 2627:1775, 02/11/2026; decisión D12 del
@@ -52,21 +52,25 @@ import { CONTENEDOR_TABLERO, ENLACE_FLECHA, TITULO_SECCION } from './tablero.js'
 // - Foco: contorno blanco (el tablero no lo dibuja). La fila tiene 8 px de margen por dentro a la izquierda, arriba y
 //   abajo (y los mismos afuera, en negativo) para que el contorno del foco no quede cortado en sus bordes.
 // - Al imprimir, las tarjetas van todas (en renglones) y sin los botones.
+// La lógica de la fila (el estado, el foco con Tab, la región viva, Anterior y Siguiente) está en
+// src/hooks/useCarrusel.js y los controles, en ControlesCarrusel.jsx: desde el 10/11/2026 los comparte con los
+// documentales de El Museo (src/paginas/ElMuseo.jsx), sin cambios en el HTML de esta sección.
+//
+// Debajo de lg, la tarjeta del cuadro de celular (Figma "Web Mobile", 3106:17432, 10/11/2026; la reciben la Home y
+// Divulgación): una por pantalla, del ancho del contenido (354 a 402 px) y de 384 como mucho (desde 432 px de ancho
+// asoma la siguiente; a 768, una entera y parte de la segunda), con la portada en 354x300, el título en 24/32 y el
+// título y el resumen a todo el ancho de la tarjeta; 24 entre "Ver todas las novedades" y la tarjeta, y entre tarjetas
+// (el cuadro tiene 48, que con una por pantalla solo se vería al deslizar). El contador llega a "6/6". Lo demás (el
+// snap, los botones, la región viva, sin JavaScript) no cambia.
 
 /**
  * El tamaño de la portada en la fila, para el srcset de Foto.jsx: 485 px a 1440 y más; entre lg y 1440, el 37,89 % del
- * contenido (100vw menos los 80 de cada lado), como la tarjeta.
+ * contenido (100vw menos los 80 de cada lado), como la tarjeta. Debajo de lg, el ancho del contenido con un tope de
+ * 320 px, un poco menos de lo que mide (354 a 402 px, 384 como mucho): así un teléfono de densidad 3 pide la variante
+ * de 960 (2,7 píxeles por punto) y no la de 1600, que pesa el doble.
  */
-const TAMANO = '(min-width: 90rem) 485px, (min-width: 64rem) calc((100vw - 10rem) * 0.3789), min(80vw, 485px)'
-
-/** El margen por dentro de la fila a la izquierda (pl-2 / scroll-pl-2: 8 px): donde se apoyan las tarjetas al deslizar. */
-const MARGEN_FILA = 8
-
-/** Desliza la fila `f` hasta la tarjeta `li`, apoyada en su borde izquierdo (sin animar con reduced-motion). */
-function llevarA(f, li) {
-  const quieto = matchMedia('(prefers-reduced-motion: reduce)').matches
-  f.scrollTo({ left: li.offsetLeft - MARGEN_FILA, behavior: quieto ? 'instant' : 'smooth' })
-}
+const TAMANO =
+  '(min-width: 90rem) 485px, (min-width: 64rem) calc((100vw - 10rem) * 0.3789), min(calc(100vw - 3rem), 20rem)'
 
 /**
  * @param {{ titulo: string, url: string, resumen?: string | null, portada?: object | null, leerMas: string }} props
@@ -74,12 +78,12 @@ function llevarA(f, li) {
 function TarjetaNovedad({ titulo, url, resumen, portada, leerMas }) {
   return (
     <article className="group relative flex flex-col">
-      {/* 24/32 desde 32rem (y no desde lg: con el zoom al 200 % un escritorio ya es el diseño de debajo de lg y el
-          título tiene que verse al doble, como los de tablero.js); 20/28 en el celular. */}
+      {/* 24/32 en todos los anchos (el cuadro de celular también: con el zoom al 200 % un escritorio ya es el diseño
+          de debajo de lg y el título se ve al doble, como los de tablero.js). La columna de texto del 86,4 %, desde
+          lg: debajo, el título y el resumen van a todo el ancho de la tarjeta. */}
       <h3
         className={[
-          'order-2 max-w-[86.4%] font-mono text-xl leading-7 font-medium text-paper uppercase wrap-break-word',
-          'min-[32rem]:text-2xl min-[32rem]:leading-8',
+          'order-2 font-mono text-2xl leading-8 font-medium text-paper uppercase wrap-break-word lg:max-w-[86.4%]',
           portada ? 'mt-6' : '',
         ]
           .filter(Boolean)
@@ -93,7 +97,7 @@ function TarjetaNovedad({ titulo, url, resumen, portada, leerMas }) {
         </a>
       </h3>
       {resumen ? (
-        <p className="order-3 mt-2 max-w-[86.4%] text-[1.03125rem] leading-[1.6875rem] font-normal text-paper wrap-break-word text-pretty">
+        <p className="order-3 mt-2 text-[1.03125rem] leading-[1.6875rem] font-normal text-paper wrap-break-word text-pretty lg:max-w-[86.4%]">
           {resumen}
         </p>
       ) : null}
@@ -104,7 +108,7 @@ function TarjetaNovedad({ titulo, url, resumen, portada, leerMas }) {
         {leerMas}
       </p>
       {portada ? (
-        <Foto foto={portada} sizes={TAMANO} className="order-1 aspect-[485/355] w-full rounded-xl object-cover" />
+        <Foto foto={portada} sizes={TAMANO} className="order-1 aspect-[354/300] w-full rounded-xl object-cover lg:aspect-[485/355]" />
       ) : null}
     </article>
   )
@@ -117,126 +121,10 @@ function TarjetaNovedad({ titulo, url, resumen, portada, leerMas }) {
  */
 export default function CarruselNovedades({ id, titulo, bajada = null, verTodas = null, tarjetas }) {
   const textos = home.novedades
-  const idFila = useId()
-  const fila = useRef(null)
-  // listo: ya se midió en el navegador (antes, y sin JavaScript, la fila de los botones queda invisible).
-  const [estado, setEstado] = useState({ listo: false, desborda: false, actual: 1, alInicio: true, alFinal: false })
-  // Lo que avisa la región viva (A11Y-03 y R1-01): vacío hasta el primer Anterior o Siguiente; lo maneja el avisador
-  // (avisoCarrusel.js), que vive en el efecto. avisar: la fila se está moviendo por un botón, hacia `destino` (su
-  // scrollLeft), hasta que quede quieta ahí (o 2 s como mucho, por si el navegador no llega a moverla); null si no.
-  const [aviso, setAviso] = useState('')
-  const avisar = useRef(null)
-  const avisador = useRef(null)
   const total = tarjetas.length
-
-  useEffect(() => {
-    const f = fila.current
-    if (!f) return undefined
-    const av = crearAvisador({ escribir: setAviso })
-    avisador.current = av
-    let cuadro = 0
-    // La primera tarjeta que se ve entera desde la izquierda (1 px de tolerancia: el snap redondea), desde 1.
-    const primeraEntera = () => {
-      const i = [...f.children].findIndex((li) => li.offsetLeft - f.scrollLeft >= MARGEN_FILA - 1)
-      return i < 0 ? total : i + 1
-    }
-    let quieta = 0
-    const medir = () => {
-      cuadro = 0
-      const max = f.scrollWidth - f.clientWidth
-      const x = f.scrollLeft
-      const siguiente = {
-        listo: true,
-        desborda: max > 1,
-        actual: primeraEntera(),
-        alInicio: x <= 1,
-        alFinal: x >= max - 1,
-      }
-      setEstado((antes) =>
-        Object.keys(siguiente).every((k) => antes[k] === siguiente[k]) ? antes : siguiente,
-      )
-    }
-    const pedir = () => {
-      if (!cuadro) cuadro = requestAnimationFrame(medir)
-    }
-    // La fila quedó quieta: si la movió un botón y llegó adonde iba, la región viva dice en qué tarjeta quedó.
-    const alQuedarQuieta = () => {
-      clearTimeout(quieta)
-      quieta = 0
-      const pedido = avisar.current
-      if (!pedido) return
-      if (performance.now() > pedido.hasta) {
-        avisar.current = null
-        return
-      }
-      if (Math.abs(f.scrollLeft - pedido.destino) > 2) return
-      avisar.current = null
-      av.llegada(textos.contador(primeraEntera(), total), f.scrollLeft)
-    }
-    const alScroll = () => {
-      pedir()
-      // Mientras la mueve un botón: quieta después de 150 ms sin scroll (o con scrollend, lo que llegue primero). Si la
-      // mueve otra cosa (la mano, el foco), el aviso que quedaba en la región ya no vale.
-      if (avisar.current) {
-        clearTimeout(quieta)
-        quieta = setTimeout(alQuedarQuieta, 150)
-      } else av.movida(f.scrollLeft)
-    }
-    // Con Tab, el navegador trae a la vista el título enfocado lo justo y el snap obligatorio puede devolver la fila a
-    // la tarjeta anterior (en el celular, con una tarjeta por vez, la enfocada quedaba afuera): si la tarjeta del foco
-    // no se ve entera, la fila va a ella.
-    const alEnfocar = (e) => {
-      const li = e.target.closest?.('li')
-      if (!li || li.parentElement !== f) return
-      const desde = li.offsetLeft - f.scrollLeft
-      if (desde >= MARGEN_FILA - 1 && desde + li.offsetWidth <= f.clientWidth + 1) return
-      llevarA(f, li)
-    }
-    medir()
-    f.addEventListener('scroll', alScroll, { passive: true })
-    f.addEventListener('scrollend', alQuedarQuieta)
-    f.addEventListener('focusin', alEnfocar)
-    const observador = new ResizeObserver(pedir)
-    observador.observe(f)
-    return () => {
-      f.removeEventListener('scroll', alScroll)
-      f.removeEventListener('scrollend', alQuedarQuieta)
-      f.removeEventListener('focusin', alEnfocar)
-      observador.disconnect()
-      if (cuadro) cancelAnimationFrame(cuadro)
-      clearTimeout(quieta)
-      av.cerrar()
-      avisador.current = null
-    }
-  }, [total, textos])
-
-  /**
-   * Lleva la fila a la tarjeta `indice` (desde 0), apoyada en su borde izquierdo (el navegador la frena en el final), y
-   * le pide a la región viva que avise dónde quedó cuando termine de moverse (si se mueve: 2 s como mucho). La región se
-   * vacía ya: así el aviso vuelve a sonar aunque sea el mismo texto (R1-01).
-   */
-  const ir = (indice) => {
-    const f = fila.current
-    const li = f?.children[Math.min(Math.max(indice, 0), total - 1)]
-    if (!li) return
-    const destino = Math.min(Math.max(li.offsetLeft - MARGEN_FILA, 0), f.scrollWidth - f.clientWidth)
-    if (Math.abs(destino - f.scrollLeft) < 1) return
-    avisar.current = { destino, hasta: performance.now() + 2000 }
-    avisador.current?.pedido()
-    llevarA(f, li)
-  }
-  const anterior = () => {
-    if (!estado.alInicio) ir(estado.actual - 2)
-  }
-  const siguiente = () => {
-    if (!estado.alFinal) ir(estado.actual)
-  }
-
-  const conBotones = total > 1
-  const visibles = estado.listo && estado.desborda
-  const BOTON =
-    '-m-3 grid size-11 shrink-0 place-items-center rounded-full text-blanco transition-opacity ' +
-    'focus-visible:outline-2 focus-visible:-outline-offset-4 focus-visible:outline-blanco aria-disabled:opacity-35'
+  // La fila, el estado, la región viva, Anterior y Siguiente (src/hooks/useCarrusel.js).
+  const carrusel = useCarrusel({ total, contador: textos.contador })
+  const { fila, idFila, estado } = carrusel
 
   return (
     <section aria-labelledby={id} className="pt-12 pb-10">
@@ -259,64 +147,38 @@ export default function CarruselNovedades({ id, titulo, bajada = null, verTodas 
           ) : null}
         </div>
 
-        {/* 24 px debajo del encabezado: mt-4 más los 8 del margen por dentro de arriba (py-2); -mb-2 y -ml-2 devuelven
-            el margen de abajo y el de la izquierda. A la derecha no lleva margen: la fila se corta en el borde del
-            contenido, como en el tablero (el foco de una tarjeta es su título, que queda a la izquierda). Las clases
-            van en una lista, como las de abajo: la que esconde la barra en Safari iba pegada a la interpolación y Tailwind
-            no la encontraba (R2-02, 03/11/2026; lo controla server/pruebas/clases.test.js). */}
+        {/* 24 px debajo del encabezado: el margen de arriba (16 desde lg; debajo de lg, 8, porque el enlace "Ver todas
+            las novedades" mide 44 de alto y deja 8 de aire propio) más los 8 del margen por dentro de arriba; los
+            márgenes negativos de abajo y de la izquierda devuelven los de adentro. A la derecha no lleva margen: la
+            fila se corta en el borde del contenido, como en el tablero (el foco de una tarjeta es su título, que queda
+            a la izquierda). Las clases van en una lista, como las de abajo: la que esconde la barra en Safari iba
+            pegada a la interpolación y Tailwind no la encontraba (R2-02, 03/11/2026; lo controla
+            server/pruebas/clases.test.js). */}
         <ul
           ref={fila}
           id={idFila}
           aria-label={textos.lista}
           data-lenis-prevent-horizontal=""
           className={[
-            'relative mt-4 -mb-2 -ml-2 flex scroll-pl-2 gap-6 overflow-x-auto overscroll-x-contain py-2 pl-2 [scrollbar-width:none] lg:gap-[min(3rem,calc((100vw-10rem)*0.0375))] noscript:flex-wrap noscript:gap-y-10 noscript:overflow-visible print:flex-wrap print:overflow-visible [&::-webkit-scrollbar]:hidden',
+            'relative mt-2 -mb-2 -ml-2 flex scroll-pl-2 gap-6 overflow-x-auto overscroll-x-contain py-2 pl-2 [scrollbar-width:none] lg:mt-4 lg:gap-[min(3rem,calc((100vw-10rem)*0.0375))] noscript:flex-wrap noscript:gap-y-10 noscript:overflow-visible print:flex-wrap print:overflow-visible [&::-webkit-scrollbar]:hidden',
             estado.listo ? 'snap-x snap-mandatory' : '',
           ]
             .filter(Boolean)
             .join(' ')}
         >
           {tarjetas.map((t) => (
-            <li key={t.url} className="w-[min(80vw,30.3125rem)] shrink-0 snap-start lg:w-[min(30.3125rem,calc((100vw-10rem)*0.3789))]">
+            <li key={t.url} className="w-[min(100%,24rem)] shrink-0 snap-start lg:w-[min(30.3125rem,calc((100vw-10rem)*0.3789))]">
               <TarjetaNovedad {...t} leerMas={textos.leerMas} />
             </li>
           ))}
         </ul>
 
-        {conBotones ? (
-          <div
-            className={['mt-6 flex items-center justify-end gap-2 noscript:hidden print:hidden', visibles ? '' : 'invisible']
-              .filter(Boolean)
-              .join(' ')}
-          >
-            <button
-              type="button"
-              aria-controls={idFila}
-              aria-disabled={estado.alInicio}
-              onClick={anterior}
-              className={BOTON}
-            >
-              <FlechaIzquierda />
-              <span className="sr-only">{textos.anterior}</span>
-            </button>
-            <p aria-hidden="true" className="min-w-11 text-center font-mono text-2xl leading-[1.2] font-medium text-blanco">
-              {estado.actual}/{total}
-            </p>
-            <button
-              type="button"
-              aria-controls={idFila}
-              aria-disabled={estado.alFinal}
-              onClick={siguiente}
-              className={BOTON}
-            >
-              <FlechaDerecha />
-              <span className="sr-only">{textos.siguiente}</span>
-            </button>
-            <p aria-live="polite" className="sr-only">
-              {aviso}
-            </p>
-          </div>
-        ) : null}
+        <ControlesCarrusel
+          carrusel={carrusel}
+          total={total}
+          textos={textos}
+          className="mt-6 flex items-center justify-end gap-2 noscript:hidden print:hidden"
+        />
       </div>
     </section>
   )

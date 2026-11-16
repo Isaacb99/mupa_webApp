@@ -16,18 +16,41 @@
   // Uso: node tools/measure.mjs 1440 900 tools/carrusel-check.js --url http://127.0.0.1:5183/   (debe dar ok: true)
   //   También en /divulgacion (desde el 06/11/2026: «Últimas noticias» es el mismo carrusel, con el mismo id del h2).
   //   Con --reduce también (los botones mueven la fila sin animar).
+  //   Otro carrusel con la misma lógica (src/hooks/useCarrusel.js y ControlesCarrusel.jsx, desde el 10/11/2026): en la
+  //   dirección, ?carrusel=<id del h2 de su sección> y ?aviso=<la palabra de la región viva> (por defecto,
+  //   novedades-titulo y Novedad). Los documentales de El Museo:
+  //     --url "http://127.0.0.1:5183/el-museo?carrusel=el-museo-documentales&aviso=Documental"
+  //   Sus tarjetas no son enlaces (url: null) ni tienen "leer más": lo de los enlaces y el foco se prueba solo si las
+  //   tarjetas los tienen, y "leer más", solo en Novedades. Desde md los documentales van en una fila de tres, sin
+  //   controles (md:hidden): ahí la receta comprueba que la fila no tenga scroll y da ok con una nota.
   const espera = (ms) => new Promise((r) => setTimeout(r, ms))
   const res = { ancho: innerWidth, alto: innerHeight, pasos: [], fallas: [] }
   const falla = (texto) => res.fallas.push(texto)
-  const seccion = document.querySelector('section[aria-labelledby="novedades-titulo"]')
-  if (!seccion) return { ...res, ok: false, fallas: ['no hay carrusel de Novedades (¿hay novedades publicadas?)'] }
+  const parametros = new URLSearchParams(location.search)
+  const idTitulo = parametros.get('carrusel') || 'novedades-titulo'
+  const palabra = parametros.get('aviso') || 'Novedad'
+  const esNovedades = idTitulo === 'novedades-titulo'
+  res.carrusel = idTitulo
+  const seccion = document.querySelector(`section[aria-labelledby="${idTitulo}"]`)
+  if (!seccion) return { ...res, ok: false, fallas: [`no hay carrusel en la sección de #${idTitulo} (¿hay novedades publicadas?)`] }
   const fila = seccion.querySelector('ul[data-lenis-prevent-horizontal]')
   const botones = [...seccion.querySelectorAll('button')]
   const vivo = seccion.querySelector('[aria-live]')
-  const contador = seccion.querySelector('p[aria-hidden="true"].min-w-11')
+  // El contador (dibujo, aria-hidden): desde el 11/11/2026, un <span> debajo de lg y el <p> de siempre desde lg
+  // (VA11-03); los dos en el HTML con el mismo número: se toma el que se dibuja.
+  const contadores = [...seccion.querySelectorAll('.min-w-11[aria-hidden="true"]')]
+  const contador = contadores.find((e) => getComputedStyle(e).display !== 'none') ?? contadores[0]
   const tarjetas = fila ? [...fila.children] : []
   const total = tarjetas.length
   if (!fila) return { ...res, ok: false, fallas: ['no está la fila (ul con data-lenis-prevent-horizontal)'] }
+  // Los controles no van en este ancho (los documentales desde md): la fila, sin scroll; la página, tampoco.
+  const controles = botones[0]?.parentElement
+  if (controles && getComputedStyle(controles).display === 'none') {
+    if (fila.scrollWidth - fila.clientWidth > 1) falla(`sin controles, la fila tiene scroll (${fila.scrollWidth} en ${fila.clientWidth})`)
+    if (document.documentElement.scrollWidth > document.documentElement.clientWidth) falla('la página tiene scroll horizontal')
+    if (/mandatory/.test(getComputedStyle(fila).scrollSnapType)) falla('sin controles, la fila tiene snap')
+    return { ...res, tarjetas: total, ok: res.fallas.length === 0, nota: 'en este ancho no hay carrusel (los controles no van)' }
+  }
   // Hidratada y medida: la fila de los botones deja de estar invisible (si las tarjetas desbordan).
   for (let i = 0; i < 100 && botones[0]?.parentElement.classList.contains('invisible'); i++) await espera(50)
   const desborda = fila.scrollWidth - fila.clientWidth > 1
@@ -40,13 +63,20 @@
   if (!/x mandatory/.test(estilo.scrollSnapType)) falla(`la fila tiene scroll-snap-type "${estilo.scrollSnapType}" (esperaba x mandatory después de hidratar)`)
   if (document.documentElement.scrollWidth > document.documentElement.clientWidth) falla('la página tiene scroll horizontal')
   if (vivo?.textContent !== '') falla(`la región viva no está vacía al cargar ("${vivo?.textContent}")`)
-  // Las tarjetas: el título es el enlace, "leer más" aria-hidden.
+  // Las tarjetas: el título es el enlace (si las tarjetas son enlaces: en Novedades, siempre), "leer más" aria-hidden
+  // (en Novedades).
+  const conEnlaces = esNovedades || tarjetas.some((li) => li.querySelector('a[href]'))
+  res.conEnlaces = conEnlaces
   for (const [i, li] of tarjetas.entries()) {
-    const a = li.querySelector('h3 a[href]')
-    if (!a || !a.textContent.trim()) falla(`la tarjeta ${i + 1} no tiene el enlace en el título`)
-    if (li.querySelectorAll('a[href]').length !== 1) falla(`la tarjeta ${i + 1} tiene ${li.querySelectorAll('a[href]').length} enlaces`)
-    const leer = [...li.querySelectorAll('p')].find((p) => p.getAttribute('aria-hidden') === 'true')
-    if (!leer) falla(`la tarjeta ${i + 1}: "leer más" no es aria-hidden`)
+    if (conEnlaces) {
+      const a = li.querySelector('h3 a[href]')
+      if (!a || !a.textContent.trim()) falla(`la tarjeta ${i + 1} no tiene el enlace en el título`)
+      if (li.querySelectorAll('a[href]').length !== 1) falla(`la tarjeta ${i + 1} tiene ${li.querySelectorAll('a[href]').length} enlaces`)
+    } else if (!li.querySelector('h3')?.textContent.trim()) falla(`la tarjeta ${i + 1} no tiene título`)
+    if (esNovedades) {
+      const leer = [...li.querySelectorAll('p')].find((p) => p.getAttribute('aria-hidden') === 'true')
+      if (!leer) falla(`la tarjeta ${i + 1}: "leer más" no es aria-hidden`)
+    }
   }
   if (total < 2) return { ...res, ok: res.fallas.length === 0, nota: 'una sola tarjeta: sin botones' }
   if (botones.length !== 2) falla(`hay ${botones.length} botones (esperaba Anterior y Siguiente)`)
@@ -93,7 +123,7 @@
     const { n, visto } = anotar(`Siguiente ${i + 1}`)
     if (n <= previo) falla(`Siguiente ${i + 1}: la fila no avanzó (primera entera ${n})`)
     if (visto !== `${n}/${total}`) falla(`Siguiente ${i + 1}: el contador dice ${visto} y la primera entera es la ${n}`)
-    if (vivo.textContent !== `Novedad ${n} de ${total}`) falla(`Siguiente ${i + 1}: la región viva dice "${vivo.textContent}"`)
+    if (vivo.textContent !== `${palabra} ${n} de ${total}`) falla(`Siguiente ${i + 1}: la región viva dice "${vivo.textContent}"`)
     previo = n
   }
   if (siguiente.getAttribute('aria-disabled') !== 'true') falla('al final, Siguiente no quedó deshabilitado')
@@ -103,7 +133,7 @@
   await quieta()
   const atras = anotar('Anterior')
   if (atras.n >= previo) falla('Anterior: la fila no volvió')
-  if (vivo.textContent !== `Novedad ${atras.n} de ${total}`) falla(`Anterior: la región viva dice "${vivo.textContent}"`)
+  if (vivo.textContent !== `${palabra} ${atras.n} de ${total}`) falla(`Anterior: la región viva dice "${vivo.textContent}"`)
 
   // Los textos que toma la región viva (cada uno es un aviso si no está vacío), con un MutationObserver.
   const escritos = []
@@ -123,25 +153,27 @@
   siguiente.click()
   await quieta()
   const segunda = anotar('Siguiente, a mano al principio y Siguiente otra vez').n
-  if (vivo.textContent !== `Novedad ${segunda} de ${total}`) falla(`la región viva dice "${vivo.textContent}"`)
+  if (vivo.textContent !== `${palabra} ${segunda} de ${total}`) falla(`la región viva dice "${vivo.textContent}"`)
   desde = escritos.length
   fila.scrollTo({ left: 0, behavior: 'instant' })
   await quieta()
   siguiente.click()
   await quieta()
   anotar('otra vez')
-  if (avisos(desde).join() !== `Novedad ${segunda} de ${total}`) falla(`R1-01: el mismo aviso no volvió a sonar (${JSON.stringify(escritos.slice(desde))})`)
-  // El foco en una tarjeta cortada la trae entera, sin avisar nada.
-  desde = escritos.length
-  const ultima = tarjetas[total - 1]
-  ultima.querySelector('h3 a').focus()
-  await quieta()
-  const r = ultima.getBoundingClientRect()
-  const f = fila.getBoundingClientRect()
-  anotar('foco en la última tarjeta')
-  if (r.left < f.left - 1 || r.right > f.right + 1) falla(`con el foco, la última tarjeta no se ve entera (${Math.round(r.left)}..${Math.round(r.right)} en ${Math.round(f.left)}..${Math.round(f.right)})`)
-  if (avisos(desde).length) falla(`el foco en una tarjeta avisó ${JSON.stringify(avisos(desde))}`)
-  document.activeElement?.blur()
+  if (avisos(desde).join() !== `${palabra} ${segunda} de ${total}`) falla(`R1-01: el mismo aviso no volvió a sonar (${JSON.stringify(escritos.slice(desde))})`)
+  // El foco en una tarjeta cortada la trae entera, sin avisar nada (si las tarjetas son enlaces: sin enlace no hay foco).
+  if (conEnlaces) {
+    desde = escritos.length
+    const ultima = tarjetas[total - 1]
+    ultima.querySelector('h3 a').focus()
+    await quieta()
+    const r = ultima.getBoundingClientRect()
+    const f = fila.getBoundingClientRect()
+    anotar('foco en la última tarjeta')
+    if (r.left < f.left - 1 || r.right > f.right + 1) falla(`con el foco, la última tarjeta no se ve entera (${Math.round(r.left)}..${Math.round(r.right)} en ${Math.round(f.left)}..${Math.round(f.right)})`)
+    if (avisos(desde).length) falla(`el foco en una tarjeta avisó ${JSON.stringify(avisos(desde))}`)
+    document.activeElement?.blur()
+  }
 
   // Lenis (solo con puntero fino): Mayús + rueda queda nativa; la rueda vertical la toma Lenis (baja la página).
   if (document.documentElement.classList.contains('lenis')) {

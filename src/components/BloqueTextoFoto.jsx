@@ -17,9 +17,10 @@ import {
 // 2996:5345, desde el mismo día; los dos nodos se llaman "Visitas Escolares Section": son copias del de Educación).
 // Medidas a 1440 (el relevamiento de Divulgación, tools/salida/e6-divulgacion/prep/figma.md, y el anexo de su spec.md):
 // - La sección: 80 arriba y abajo y 1280 de contenido (SECCION_TABLERO y CONTENEDOR_TABLERO: quedan 160 entre un bloque
-//   y el siguiente). El rótulo en Roboto Mono Medium 14/20 en mayúsculas (ROTULO_SECCION) y, 24 abajo, el h2 Thin 64
-//   (TITULO_SECCION), con su corte en el texto ("\n": "Investigaciones recientes\ndel equipo MuPa - UNSJ"). Es lo mismo
-//   que dibuja Seccion.jsx, con el corte de renglón: va escrito acá para no tocar Seccion.jsx.
+//   y el siguiente). El rótulo en Roboto Mono Medium 14/20 en mayúsculas (ROTULO_SECCION) y, 24 abajo (16 debajo de
+//   lg), el h2 Thin 64 (TITULO_SECCION), con su corte en el texto ("\n":
+//   "Investigaciones recientes\ndel equipo MuPa - UNSJ"). Es lo mismo que dibuja Seccion.jsx, con el corte de renglón:
+//   va escrito acá para no tocar Seccion.jsx.
 // - 48 abajo, dos columnas de 600 con 80 entre sí (como "Museo accesible" de Visitas; entre lg y 1440, la mitad del
 //   contenido menos 40 cada una):
 //   - a la izquierda, el texto, con 24 entre sus partes: los párrafos (Regular 18/30, PARRAFO_TABLERO; la nota en gris,
@@ -41,7 +42,7 @@ import {
 // debajo del h1 del hero de la página, y el h3 del apartado. La foto no se estira al alto de la columna de texto si
 // esta es más alta (Valle de la Luna): es un <img> con su proporción, y en la grilla queda arriba.
 
-const TITULO = `${TITULO_SECCION} mt-6 whitespace-pre-line`
+const TITULO = `${TITULO_SECCION} mt-4 lg:mt-6 whitespace-pre-line`
 const COLUMNA_TEXTO = 'flex min-w-0 flex-col gap-6 whitespace-pre-line'
 const LISTA = `${CLASES_TEXTO_TABLERO.ul} flex flex-col gap-3 text-base leading-6 font-normal text-paper text-pretty`
 const ACCIONES = 'flex flex-col gap-6'

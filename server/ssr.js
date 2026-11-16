@@ -36,10 +36,16 @@
 // - Desde E4.5, el formulario de contacto (server/contacto.js): cargar() recibe además contacto (¿se dibuja el
 //   formulario?), y POST /contacto vuelve a dibujar la página con dibujarPagina() (con lo escrito, los errores y
 //   no-store). El servicio va en ssr.contacto, para que la app use el mismo (server/app.js).
+// - Desde la versión de celular (10/11/2026, M3), el estado lleva abiertoHoy: si el museo abre HOY (el día de San
+//   Juan de este pedido) según el horario semanal (abreElDia, compartido/horarios.js): true, false o null (el horario
+//   sin cargar: la barra de hoy no se dibuja, src/components/BarraHoy.jsx). Va en todo lo que pasa por dibujar(): las
+//   páginas, la 404 y el POST /contacto. Sale del museo de este pedido (el último bueno si la base no responde, como
+//   "Tickets") y del reloj del servidor (opción reloj, para las pruebas): el navegador no calcula ninguna fecha.
 import { readFile, stat } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { hoyEnSanJuan } from '../compartido/fechas.js'
+import { diaDeLaSemana, hoyEnSanJuan } from '../compartido/fechas.js'
+import { abreElDia } from '../compartido/horarios.js'
 import { crearContacto } from './contacto.js'
 import { crearLectorPublico, esBaseNoDisponible } from './contenido-publico.js'
 import { paginaDeError } from './errores.js'
@@ -155,6 +161,7 @@ export async function cargarBuild(dirBuild) {
  * @param {ReturnType<typeof crearLectorPublico>} [opciones.lector]  otro lector (las pruebas)
  * @param {ReturnType<typeof crearContacto>} [opciones.contacto]  el formulario de contacto, con el correo de la app
  *   (servidor.js y dev.js lo crean para compartir el correo con las tareas diarias); sin él, uno con la configuración
+ * @param {() => Date} [opciones.reloj]  la hora de cada pedido (las pruebas ponen una fija); por defecto, la de ahora
  */
 export function crearSsr({
   config,
@@ -163,6 +170,7 @@ export function crearSsr({
   sequelize = null,
   lector = crearLectorPublico(sequelize),
   contacto = crearContacto({ config, sequelize }),
+  reloj = () => new Date(),
 }) {
   const leerMuseo = async () => (museoPublico.conEstado ? museoPublico.conEstado() : { museo: await museoPublico(), alDia: true })
 
@@ -181,6 +189,8 @@ export function crearSsr({
       museo: museoComun(museo),
       hoy,
       anio: Number(hoy.slice(0, 4)),
+      // La barra de hoy del celular (M3): ¿abre hoy según el horario semanal? true, false o null (sin horario: no va).
+      abiertoHoy: abreElDia(museo?.horarios, diaDeLaSemana(hoy)),
       medir: publico,
       userway: config.USERWAY_ID ?? null,
     }
@@ -220,7 +230,7 @@ export function crearSsr({
    * real) o redirigir() (301).
    */
   async function responder(req, res, ruta, params) {
-    const ahora = new Date()
+    const ahora = reloj()
     const hoy = hoyEnSanJuan(ahora)
     const lectura = leerMuseo()
     let datos
@@ -241,12 +251,12 @@ export function crearSsr({
    * @param {{ status: number, pagina: string, datos: object, cache?: string }} opciones
    */
   function dibujarPagina(req, res, { status, pagina, datos, cache = 'no-cache' }) {
-    return dibujar(req, res, { status, pagina, datos, lectura: leerMuseo(), hoy: hoyEnSanJuan(), cache })
+    return dibujar(req, res, { status, pagina, datos, lectura: leerMuseo(), hoy: hoyEnSanJuan(reloj()), cache })
   }
 
   /** 404 real, con la página NoEncontrada (src/paginas/NoEncontrada.jsx). */
   function noEncontrada(req, res) {
-    return dibujar(req, res, { status: 404, pagina: 'no-encontrada', datos: {}, lectura: leerMuseo(), hoy: hoyEnSanJuan() })
+    return dibujar(req, res, { status: 404, pagina: 'no-encontrada', datos: {}, lectura: leerMuseo(), hoy: hoyEnSanJuan(reloj()) })
   }
 
   /**

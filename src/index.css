@@ -128,6 +128,10 @@
   /* El h1 de los hero del tablero "Web" (TITULO_HERO de src/components/tablero.js: Google Sans Flex 755 con el ancho en
      130 %), con sus propios respaldos (mas abajo, COD-02). */
   --font-hero: "Google Sans Flex", "GSF Hero Fallback", "GSF Hero Fallback Roboto", "GSF Hero Fallback Arial", system-ui, sans-serif;
+  /* Debajo de lg (el celular y las tablets), el h1 de la Home y el de las paginas internas con respaldos medidos contra
+     las frases que ahi deciden los renglones (mas abajo, VHOM-04 y VREN-01). */
+  --font-hero-portada: "Google Sans Flex", "GSF Hero Portada Fallback", "GSF Hero Fallback Roboto", "GSF Hero Portada Fallback Arial", system-ui, sans-serif;
+  --font-hero-internas: "Google Sans Flex", "GSF Hero Fallback", "GSF Hero Fallback Roboto", "GSF Hero Internas Fallback Arial", system-ui, sans-serif;
   /* Los h2 Thin del tablero "Web" (TITULO_SECCION), con respaldos del mismo ancho en Thin (mas abajo, COD-02). */
   --font-titulo: "Google Sans Flex", "GSF Titulo Fallback", "GSF Titulo Fallback Roboto", "GSF Titulo Fallback Arial", system-ui, sans-serif;
   /* Roboto Mono variable 400..700 (ver index.html): 500 en las etiquetas, 400 en los anios y 700 en el anio activo. Con
@@ -271,6 +275,58 @@
   descent-override: 21.64%;
   line-gap-override: 0%;
 }
+/*
+  Los del h1 de los hero debajo de lg (--font-hero-portada y --font-hero-internas; 11/11/2026, la correccion de la
+  version de celular). El ancho de cada frase se desvia distinto en cada respaldo (de -5 a +2,5 %), asi que un solo
+  size-adjust no sirve para todos los titulos: estos estan medidos contra las frases que, en el celular y en las
+  tablets, deciden cuantos renglones lleva el titulo (con los de --font-hero, en la primera visita el titulo cambiaba
+  de renglones al llegar la fuente y la pagina se corria). Medidos en Chrome a 64 px, 755 al 130 %, con size-adjust
+  100 % (Google Sans Flex / respaldo):
+  - La Home (TITULO_HERO): "nuestros origenes" (737,58 px), que decide si va en dos renglones o en tres a 28 y a 64 px:
+    Segoe UI Bold, medido 138,17 % y puesto en 138,15 % (con el 135,77 % de --font-hero media un 1,74 % menos: de 805 a
+    817 px y de 366 a 370 el titulo iba en dos renglones con el respaldo y en tres con la fuente, CLS de 0,042 y de
+    0,02: VHOM-04 y VREN-02) y Arial Bold 132,94 % (-0,57 %: de 369 a 370). Roboto Bold queda con el de --font-hero
+    (-0,05 %: ningun ancho entero cae entre los dos). Con estos, de 320 a 1023 px el titulo de la Home no cambia de
+    renglones al llegar la fuente con ninguno de los tres.
+  - Las internas (TITULO_HERO_PAGINA): con Arial Bold, "Acerca del MuPa" 133,71 %, "paleontologicos" 133,90 % y
+    "divulgacion cientifica" 133,79 % (con el 132,18 % de --font-hero, un 1,2 % mas angostas: en un iPhone de 428 px el
+    h1 de Divulgacion iba en dos renglones con el respaldo y en tres con la fuente, CLS de 0,026: VREN-01; y El Museo y
+    Circuitos, en otros anchos). Con 133,79 %, medido ancho por ancho de 320 a 1023, el unico ancho entero que cae entre
+    los dos es 701 (Divulgacion a 48 px, con los tres respaldos; con el de --font-hero, de 694 a 701, y ademas El Museo
+    de 556 a 561, Circuitos de 535 a 540 y Divulgacion de 941 a 950). Segoe UI y Roboto, con los de --font-hero: las
+    tres frases se desvian para lados distintos y no hay un valor que deje a todas sin un ancho entre los dos. Quedan, a
+    28 px, El Museo de 346 a 347 px con Segoe UI y de 348 a 350 con Roboto y Circuitos de 334 a 335 con los dos; y a 48
+    y 64 px, los mismos que antes del celular (El Museo de 558 a 561 con Segoe UI, de 562 a 566 y de 768 a 771 con
+    Roboto; Circuitos de 538 a 540 con Segoe UI y de 537 a 540 con Roboto; Divulgacion en 701 con los dos): anchos sin
+    ningun telefono comun.
+*/
+@font-face {
+  font-family: "GSF Hero Portada Fallback";
+  src: local("Segoe UI Bold"), local("SegoeUI-Bold");
+  font-weight: 100 1000;
+  size-adjust: 138.15%;
+  ascent-override: 69.92%;
+  descent-override: 20.7%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: "GSF Hero Portada Fallback Arial";
+  src: local("Arial Bold"), local("Arial-BoldMT");
+  font-weight: 100 1000;
+  size-adjust: 132.94%;
+  ascent-override: 72.66%;
+  descent-override: 21.51%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: "GSF Hero Internas Fallback Arial";
+  src: local("Arial Bold"), local("Arial-BoldMT");
+  font-weight: 100 1000;
+  size-adjust: 133.79%;
+  ascent-override: 72.2%;
+  descent-override: 21.38%;
+  line-gap-override: 0%;
+}
 @font-face {
   font-family: "RM Fallback Cascadia";
   src: local("Cascadia Mono"), local("CascadiaMono-Regular");
@@ -360,31 +416,34 @@
 }
 
 /*
-  Cola del carrusel de fotos (Collage.jsx): el bloque enganchado centra la caja en la pantalla, asi que al soltarse
-  quedarian (100svh - alto de la caja) / 2 px de bloque vacio debajo de ella, antes de la seccion siguiente. Este margen
-  negativo los descuenta: lo que sigue va justo debajo de la caja (y en los ultimos px del recorrido asoma por debajo
-  de ella, como es normal en una seccion enganchada). El alto de la caja se calcula con el ancho del contenedor (cqw: el
-  envoltorio @container de Collage.jsx) con las mismas formulas que su ancho: 713/1006,6 del ancho (la caja del V04),
-  con los mismos topes.
+  Cola del carrusel de fotos (Collage.jsx): el bloque enganchado centra la caja en la pantalla (desde md; debajo va
+  arriba), asi que al soltarse quedarian (100svh - alto de la caja) / 2 px de bloque vacio debajo de ella, antes de la
+  seccion siguiente. Este margen negativo los descuenta: lo que sigue va justo debajo de la caja (y en los ultimos px
+  del recorrido asoma por debajo de ella, como es normal en una seccion enganchada). El alto de la caja se calcula con
+  el ancho del contenedor (cqw: el envoltorio @container de Collage.jsx) con las mismas formulas que su ancho en cada
+  tramo, con los mismos topes.
 */
 @utility collage-cola {
-  /* Desde la Home del tablero "Web" (02/11/2026) la caja es la del tablero: 1006x628 a 1440 (alto = 0,6243 del ancho;
-     hasta entonces, la del V04, 1006,6x713). */
-  --alto-caja: min(62.43cqw, 100svh - 6rem);
-  /* Ademas descuenta el 42,5 % de abajo de la caja, que queda vacio cuando salieron las cuatro fotos de adelante (la
-     que queda, las lamas, termina en el 57,47 % de la caja; en el V04, en el 56,49): asi lo que sigue va a la distancia
-     de esa foto y no de la caja, y entra subiendo por debajo de ella mientras el bloque todavia esta enganchado, en vez
-     de dejar media pantalla en negro (pedido del desarrollador, 28/09/2026). En la variante apilado no aplica (mt-0 y
-     mb-0): ahi se ven las cinco fotos y la caja esta llena.
-     En celular la caja no va centrada sino a 10svh del borde de arriba (Collage.jsx): lo que queda vacio debajo de ella
-     es 90svh menos su alto, y de eso se descuenta el 42,5 % de la caja: 0,5747 alto - 90svh. Y arriba, el bloque sube
-     para que la caja quede 48 px debajo del titulo de la seccion (GaleriaHome.jsx). */
-  margin-top: calc(3rem - 10svh);
-  margin-bottom: calc(0.5747 * var(--alto-caja) - 90svh);
+  /* Debajo de md, la pila del cuadro de celular (Collage.jsx, 10/11/2026): la caja mide 354x472 a 402 px (alto = 1,3333
+     del ancho del contenido, que son 100cqw menos los 24 px de cada lado), 480 de ancho como mucho y nunca mas que la
+     pantalla menos 9rem. Desde md, la del tablero "Web" (02/11/2026): 1006x628 a 1440 (alto = 0,6243 del ancho; hasta
+     entonces, la del V04, 1006,6x713). */
+  --alto-caja: min((100cqw - 3rem) * 1.3335, 40rem, 100svh - 9rem);
+  /* Ademas descuenta la parte de abajo de la caja que queda vacia cuando salieron las cuatro fotos de adelante: asi lo
+     que sigue va a la distancia de la foto que queda (las lamas) y no de la caja, y entra subiendo por debajo de ella
+     mientras el bloque todavia esta enganchado, en vez de dejar media pantalla en negro (pedido del desarrollador,
+     28/09/2026). En la variante apilado no aplica (mt-0 y mb-0): ahi se ven las cinco fotos y la caja esta llena.
+     En celular la caja no va centrada sino a 7,5rem del borde de arriba (Collage.jsx) y las lamas ocupan su mitad de
+     arriba: lo que queda vacio debajo de ellas es 100svh menos 7,5rem y menos media caja. Y arriba, el bloque sube
+     6rem para que la caja quede 24 px debajo del titulo de la seccion (GaleriaHome.jsx): 1,5rem menos los 7,5. */
+  margin-top: -6rem;
+  margin-bottom: calc(7.5rem + 0.5 * var(--alto-caja) - 100svh);
   @media (width >= 48rem) {
     --alto-caja: min((100cqw - 5rem) * 0.6243, 100svh - 6rem);
     /* Desde md la caja va centrada en la pantalla: el bloque sube lo que queda arriba de ella menos 80 px, asi antes
-       de engancharse la caja queda 80 px debajo del titulo, como en el tablero (a 1440x900 sube 56 px). */
+       de engancharse la caja queda 80 px debajo del titulo, como en el tablero (a 1440x900 sube 56 px). Abajo se
+       descuenta, ademas de la mitad de pantalla que queda bajo la caja, el 42,5 % de abajo de la caja (las lamas
+       terminan en el 57,47 %; en el V04, en el 56,49). */
     margin-top: calc(5rem - (100svh - var(--alto-caja)) / 2);
     margin-bottom: calc((var(--alto-caja) - 100svh) / 2 - 0.4253 * var(--alto-caja));
   }

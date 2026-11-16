@@ -30,17 +30,21 @@ import { contacto, visitas } from '../content.js'
 
 // /visitas: la página del tablero "Web" de la diseñadora (Figma, nodo 2846:997, 03/11/2026; decisiones V1 a V9 del
 // desarrollador). Solo escritorio (D2): fiel a 1440, con los tamaños del tablero entre lg y 1440 y centrada más allá;
-// debajo de lg, en una columna y sin pulir. Va dentro de Layout (el header absolute encima de la foto, el <main>, el
-// pie): acá, sus tres partes.
+// debajo de lg, en una columna y sin pulir: su versión de celular todavía no está dibujada, y de la de celular tiene
+// solo lo compartido (el marco, el hero de HeroPagina.jsx y la tipografía de tablero.js). Va dentro de Layout (el
+// header absolute encima de la foto, el <main>, el pie): acá, sus tres partes.
 // - El hero (HeroPagina.jsx, el común de las páginas internas): la foto del pincel y el h1 "Visitá el MuPa".
 // - "Información práctica / Cómo llegar y cuándo" (80 de aire arriba y abajo, 1280 de contenido): el rótulo, 24 abajo
-//   el h2 y 48 abajo las tarjetas Dirección, Horarios y Contacto (tres columnas de 400 con 40 entre sí y 40 de padding;
-//   el ícono de 24 en su cuadrado de 48, 16 a su derecha el rótulo, 20 abajo el texto Regular 18/28 en gris) y 48 abajo
-//   el mapa de 1280x400 con esquinas de 16.
+//   (16 debajo de lg) el h2 y 48 abajo las tarjetas Dirección, Horarios y Contacto (tres columnas de 400 con 40 entre
+//   sí y 40 de padding; el ícono de 24 en su cuadrado de 48, 16 a su derecha el rótulo, 20 abajo el texto Regular 18/28
+//   en gris) y 48 abajo el mapa de 1280x400 con esquinas de 16.
 //   - Los datos son los que carga el museo en el panel y ya vienen en estado.museo (datosMuseo.js): la dirección en
 //     renglones; el horario resumido (compartido/horarios.js: los días con las mismas franjas juntos, los cerrados al
 //     final) sin sus notas, sin la tabla de la semana ni "Hoy" (V3); el teléfono (tel: si es un solo número) y el correo
 //     público (mailto:). Una tarjeta sin datos no se dibuja; con una o dos, van en las primeras columnas (V6).
+//   - La tarjeta Horarios lleva un id: es adonde lleva "Horarios" de la barra de hoy del celular (BarraHoy.jsx,
+//     10/11/2026, que escribe el mismo id en su enlace: lo comprueba layout.test.js), con 24 de aire arriba al llegar.
+//     No cambia nada a la vista.
 //   - Contacto lleva además "Ir a Contacto" (/contacto, si la página existe): el tablero no tiene enlaces en el cuerpo
 //     (desvío a confirmar con la diseñadora; con el teclado y el lector, es el camino al formulario). Los enlaces miden
 //     44 de alto (el texto, 28): si el primero es un enlace, el bloque sube 8 px (-mt-2), así el primer renglón queda a
@@ -87,11 +91,12 @@ const sinCortes = (horas) => horas.replace(/(\d+:\d\d) a (\d+:\d\d)/g, '$1\u00a0
 /**
  * Una tarjeta de información: el ícono y el rótulo en una fila, y 20 abajo el texto.
  * @param {{ Icono: (props: { className?: string }) => import('react').ReactNode, titulo: string, extra?: string,
- *   children: import('react').ReactNode }} props  extra: clases del texto (Contacto lo pone en una columna)
+ *   id?: string, children: import('react').ReactNode }} props  extra: clases del texto (Contacto lo pone en una
+ *   columna); id: para llegar a la tarjeta con un enlace (el aire de arriba al llegar ya está en la tarjeta)
  */
-function TarjetaInfo({ Icono, titulo, extra = '', children }) {
+function TarjetaInfo({ Icono, titulo, extra = '', id, children }) {
   return (
-    <li className="flex min-w-0 flex-col gap-5 lg:px-6 lg:py-10 xl:px-10">
+    <li id={id} className="flex min-w-0 scroll-mt-6 flex-col gap-5 lg:px-6 lg:py-10 xl:px-10">
       <div className="flex items-center gap-4">
         <span className={ICONO_TARJETA}>
           <Icono />
@@ -125,7 +130,7 @@ export default function Visitas({ estado }) {
         <section aria-labelledby="visitas-practica" className={SECCION_TABLERO}>
           <div className={CONTENEDOR_TABLERO}>
             <p className={ROTULO_SECCION}>{p.rotulo}</p>
-            <h2 id="visitas-practica" className={`${TITULO_SECCION} mt-6`}>
+            <h2 id="visitas-practica" className={`${TITULO_SECCION} mt-4 lg:mt-6`}>
               {p.titulo}
             </h2>
 
@@ -143,7 +148,7 @@ export default function Visitas({ estado }) {
                   </TarjetaInfo>
                 ) : null}
                 {horario.length > 0 ? (
-                  <TarjetaInfo Icono={Reloj} titulo={p.horarios}>
+                  <TarjetaInfo Icono={Reloj} titulo={p.horarios} id="visitas-horarios">
                     <ul>
                       {horario.map((l, i) => (
                         <li key={i}>{`${l.dias}: ${l.horas ? sinCortes(l.horas) : p.cerrado}`}</li>
@@ -209,7 +214,7 @@ export default function Visitas({ estado }) {
       <section aria-labelledby="visitas-accesible" className={SECCION_TABLERO}>
         <div className={CONTENEDOR_TABLERO}>
           <p className={ROTULO_SECCION}>{a.rotulo}</p>
-          <h2 id="visitas-accesible" className={`${TITULO_SECCION} mt-6`}>
+          <h2 id="visitas-accesible" className={`${TITULO_SECCION} mt-4 lg:mt-6`}>
             {a.titulo}
           </h2>
 

@@ -14,8 +14,17 @@ import { marcaActual, seccionesDelSitio } from './navegacion.js'
 //   (estado.museo.redes; si no hay, nada), en Roboto Mono 14 gris. Desde lg van en una fila si entran (desde ~1240 px
 //   con tres redes); si no, las redes pasan enteras al renglón de abajo, contra el borde derecho (lg:flex-wrap y
 //   lg:ml-auto: hasta el cierre de E6.3 las dos listas se achicaban a la vez, iban en dos renglones cada una y las redes
-//   terminaban antes del borde, BDIS-01 del barrido de diseño, 09/11/2026). Andan sin JavaScript y antes de que cargue, cuando el botón "Menú" del celular todavía no abre nada
-//   (A11Y-03 de la verificación de E4). Sin dirección, horario, teléfono ni correo: los muestran Visitas y Contacto.
+//   terminaban antes del borde, BDIS-01 del barrido de diseño, 09/11/2026). Andan sin JavaScript (el botón del menú de
+//   debajo de xl no se ve sin él) y antes de que cargue, cuando ese botón todavía no abre nada (A11Y-03 de la
+//   verificación de E4). Sin dirección, horario, teléfono ni correo: los muestran Visitas y Contacto.
+// - Debajo de lg, el pie del cuadro de celular (Figma "Web Mobile", 3108:17538, 10/11/2026): una columna con 16 entre
+//   bloques (la marca, el © y los logos, que entran en una fila desde 320 px). Y debajo, la fila de las secciones y las
+//   redes, que el cuadro tampoco tiene: debajo de md, cada lista en una grilla de dos columnas con renglones de 44 (un
+//   enlace por renglón daba un pantallazo entero de enlaces); de md a lg, envueltas en renglones. Cada columna mide
+//   al menos 6,5rem (la palabra más larga, «Exposiciones», mide 6,3rem en Roboto Mono 14, también con la letra del
+//   navegador agrandada): si dos no entran, la lista va en una (con la letra en 20, debajo de 350 px; en 24, debajo de
+//   420; con la letra normal, siempre en dos). Con dos columnas fijas, la letra agrandada partía las palabras por la
+//   mitad (VMAR-03 de la verificación, 11/11/2026).
 // - La línea de privacidad (content.js), solo cuando el museo mande el texto.
 // - La marca va sin alt (alt=""): repite el nombre que dice el © de al lado. Los logos sí lo llevan (son información).
 //   Las tres, lazy y con prioridad baja (la convención del sitio: en una página corta asoman en el primer pantallazo,
@@ -35,6 +44,9 @@ const ENLACE_BASE =
 const ENLACE = `${ENLACE_BASE} text-muted`
 // La sección de la página: en crema y subrayada en naranja, como en el menú.
 const ENLACE_ACTUAL = `${ENLACE_BASE} text-paper underline decoration-naranja decoration-2`
+// Las dos listas: debajo de md, dos columnas de 6,5rem como mínimo (si no entran, una: ver arriba); desde md, en
+// renglones.
+const LISTA = 'grid grid-cols-[repeat(auto-fit,minmax(max(6.5rem,calc(50%_-_0.8rem)),1fr))] gap-x-6 md:flex md:flex-wrap'
 
 /**
  * @param {{ museo: object | null | undefined, ruta?: string | null, anio?: number | null }} props  museo: estado.museo
@@ -50,7 +62,7 @@ export default function Pie({ museo, ruta = null, anio = null }) {
   return (
     <footer className="border-t border-line">
       <div className="mx-auto w-full max-w-tablero px-6 py-10 md:px-10 lg:px-20">
-        <div className="flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between lg:gap-8">
           <div className="flex flex-col items-start gap-4">
             <img
               src={site.logo.marca}
@@ -63,7 +75,7 @@ export default function Pie({ museo, ruta = null, anio = null }) {
               data-logo-blanco=""
               className="block h-10 w-30"
             />
-            <p className="text-xs leading-4 text-muted">{legal}</p>
+            <p className="text-xs leading-4 text-muted text-pretty">{legal}</p>
           </div>
 
           {instituciones.length > 0 ? (
@@ -91,7 +103,7 @@ export default function Pie({ museo, ruta = null, anio = null }) {
           <div className="mt-8 flex flex-col gap-x-12 gap-y-2 lg:flex-row lg:flex-wrap lg:items-start lg:justify-between">
             {secciones.length > 0 ? (
               <nav aria-label={pie.secciones} className="min-w-0">
-                <ul className="flex flex-wrap gap-x-6">
+                <ul className={LISTA}>
                   {secciones.map((s) => {
                     const actual = marcaActual(ruta, s.ruta)
                     return (
@@ -107,7 +119,7 @@ export default function Pie({ museo, ruta = null, anio = null }) {
             ) : null}
 
             {redes.length > 0 ? (
-              <ul aria-label={pie.redes} className="flex min-w-0 flex-wrap gap-x-6 lg:ml-auto">
+              <ul aria-label={pie.redes} className={`min-w-0 ${LISTA} lg:ml-auto`}>
                 {redes.map((r, i) => (
                   <li key={i}>
                     <a href={r.url} className={ENLACE}>

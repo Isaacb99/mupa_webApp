@@ -65,8 +65,11 @@ import heroEsqueletos1280 from './assets/hero-esqueletos-1280.webp'
 import heroEsqueletos1440 from './assets/hero-esqueletos-1440.webp'
 import heroEsqueletos1920 from './assets/hero-esqueletos-1920.webp'
 import heroEsqueletos2394 from './assets/hero-esqueletos-2394.webp'
+import heroEsqueletosMovil720 from './assets/hero-esqueletos-movil-720.webp'
+import heroEsqueletosMovil963 from './assets/hero-esqueletos-movil-963.webp'
 import mapaMuseo from './assets/mapa-museo.svg'
 import mapaMuseoHover from './assets/mapa-museo-hover.svg'
+import mapaMuseoMovil from './assets/mapa-museo-movil.svg'
 import patronGaleria from './assets/patron-galeria.svg'
 import heroVisitas960 from './assets/hero-visitas-960.webp'
 import heroVisitas1440 from './assets/hero-visitas-1440.webp'
@@ -148,15 +151,20 @@ const FOTOS_CARRUSEL = {
 // La foto del hero de una página interna sin hero en el tablero (Exposiciones, Novedades y Contacto: HeroPagina.jsx,
 // decisión R1 del desarrollador, 04/11/2026), como la de Visitas: 3:1, de la "Seleccion Fotográfica" con
 // tools/convertir-fotos.mjs, en sus cuatro anchos (960, 1440, 1920 y 2880). sizes: desde lg el hero mide 480 de alto y la
-// foto lo cubre, así que nunca es más angosta que 1440 px; debajo, el hero mide 20rem (320) como mínimo: 960 o más.
-// posicion: su punto de interés (object-position, HeroPagina.jsx). El alt es nuestro: a validar con el museo.
-const fotoDeHero = ([f960, f1440, f1920, f2880], posicion, alt) => ({
+// foto lo cubre, así que nunca es más angosta que 1440 px; debajo, el hero mide 350 como mínimo (el cuadro de celular,
+// desde el 10/11/2026; hasta entonces, 320) y la foto se dibuja de 1050 px de ancho o más: se siguen declarando 960 (un
+// 9 % menos: con 1050, un teléfono de densidad 2 pasaría del archivo de 1920 al de 2880).
+// posicion: su punto de interés (object-position, HeroPagina.jsx). posicionMovil (opcional): el object-position debajo
+// de 32rem (512 px), donde el título va abajo y tapa otra parte de la foto; sin ella, vale posicion. El alt es nuestro:
+// a validar con el museo.
+const fotoDeHero = ([f960, f1440, f1920, f2880], posicion, alt, posicionMovil) => ({
   src: f1440,
   srcSet: `${f960} 960w, ${f1440} 1440w, ${f1920} 1920w, ${f2880} 2880w`,
   sizes: '(min-width: 64rem) max(100vw, 1440px), max(100vw, 960px)',
   ancho: 2880,
   alto: 960,
   posicion,
+  ...(posicionMovil ? { posicionMovil } : {}),
   alt,
 })
 
@@ -197,6 +205,8 @@ export const ui = {
 //   corto (el tablero dice "Tikets": errata). comprar: el texto de "Comprar entradas" de BotonCompra.jsx si el museo
 //   no cargó uno; desde la Visitas del tablero (03/11/2026, V1) ninguna página dibuja ese botón (queda sin usar, sin
 //   borrar: C1 del cierre, 09/11/2026).
+// - abrir y cerrar: el nombre accesible de los botones de ícono del menú de debajo de xl (las tres líneas y la cruz,
+//   MenuMovil.jsx; desde la versión de celular, 10/11/2026, ya no se ven como texto) y, abrir, el del <dialog>.
 export const navegacion = {
   etiqueta: 'Principal',
   menu: [
@@ -215,6 +225,15 @@ export const navegacion = {
   comprar: 'Comprar entradas',
   abrir: 'Menú',
   cerrar: 'Cerrar',
+}
+
+// La barra de hoy del celular (src/components/BarraHoy.jsx; Figma "Web Mobile", 10/11/2026, decisión M3): textos de
+// interfaz. Cuál de los dos va lo resuelve el servidor (estado.abiertoHoy). "cerrado" es el del cuadro; "abierto" es
+// nuestro (O7: a validar con la diseñadora y el museo). horarios: el enlace a la tarjeta Horarios de Visitas.
+export const barraHoy = {
+  abierto: 'El museo se encuentra abierto hoy',
+  cerrado: 'El museo se encuentra cerrado hoy',
+  horarios: 'Horarios',
 }
 
 // Página 404 (src/paginas/NoEncontrada.jsx): textos de interfaz, no del museo. Debajo, el inicio y las secciones del
@@ -307,10 +326,13 @@ export const contacto = {
   // el h1 encima: a 1920 y a 2560 (medido) el borde de abajo no corta el «co» del final y el h1 no pisa las letras. Hasta
   // la corrección del rediseño (EST-03 de su verificación, 05/11/2026) el recorte cortaba el «co» en todos los anchos y,
   // con '50% 80%', a 2560 se leía «Museo Paleont…».
+  // En el celular (posicionMovil, 10/11/2026) el h1 va abajo: con la foto centrada quedaba encima de las letras del
+  // cartel (dos textos encimados); con '100% 88%' va sobre la torre de la derecha y del cartel se lee el final.
   imagen: fotoDeHero(
     [heroContacto960, heroContacto1440, heroContacto1920, heroContacto2880],
     '50% 88%',
     'Fachada del museo con el cartel «Museo Paleontológico» bajo el cielo azul',
+    '100% 88%',
   ),
   datos: 'Datos de contacto',
   direccion: 'Dirección',
@@ -376,15 +398,17 @@ export const contacto = {
 // carrusel, el contador, el alt de las fotos y del plano), neutros y mínimos.
 export const home = {
   hero: {
-    // \n: el corte de línea del tablero (whitespace-pre-line). Así el título va en dos renglones también con la fuente
-    // de respaldo, antes de que cargue Google Sans Flex: si no, entraba en uno y al cargar la fuente pasaba a dos y la
-    // bajada bajaba 72 px (corrimiento de 0,01 a 1440, medido el 02/11/2026).
+    // \n: el corte de línea del tablero, que vale desde lg (HeroHome.jsx). Así el título va en dos renglones también
+    // con la fuente de respaldo, antes de que cargue Google Sans Flex: si no, entraba en uno y al cargar la fuente
+    // pasaba a dos y la bajada bajaba 72 px (corrimiento de 0,01 a 1440, medido el 02/11/2026). Debajo de lg el salto
+    // es un espacio y el título va balanceado, como en el cuadro de celular ("Un viaje a / nuestros orígenes").
     titulo: 'Un viaje a nuestros\norígenes',
     bajada: 'Explorá el Triásico desde una de las regiones paleontológicas más importantes de Argentina',
     // La foto del tablero (nodo 2627:1169): el original que tiene el archivo, 2394x1346 (no está en la "Seleccion
     // Fotográfica" del V04: pedir el original al museo). Va entera, sin recorte: el encuadre del tablero lo hace el CSS
     // (HeroHome.jsx). sizes: desde lg el hero mide 655 de alto y la foto lo cubre, así que nunca es más angosta que
-    // 1165 px (655 × 1,7786); debajo de lg (sin diseño) el hero es más bajo pero la foto lo sigue cubriendo.
+    // 1165 px (655 × 1,7786); debajo de lg el hero mide 500 como mínimo (el cuadro de celular) y la apaisada, que va
+    // desde 32rem (512 px), se dibuja de 889 px de ancho o más: se declaran 800 (un 10 % menos, como en fotoDeHero).
     imagen: {
       src: heroEsqueletos1440,
       srcSet:
@@ -394,6 +418,22 @@ export const home = {
       ancho: 2394,
       alto: 1346,
       alt: 'Esqueleto montado de un dinosaurio carnívoro en una sala del museo, con el cráneo de fauces abiertas en primer plano',
+      // La foto de celular (Figma "Web Mobile", 3106:17309: el cráneo llenando el hero de 402x500): el recorte vertical
+      // del mismo original (desde 261, 73, de 963x1198; src/assets/README.md), en 720 y 963 de ancho. Va debajo de
+      // 32rem (512 px, donde el texto del hero pasa a los tamaños grandes): la elige el <source> del <picture> con su
+      // media, y mediaResto es la de la apaisada (las dos precargas del <head> llevan cada una la suya: HeroHome.jsx).
+      // Hasta el 11/11/2026 iba debajo de 30rem, y de 480 a 511 px la bajada de 16 px quedaba sobre la parte clara de
+      // la apaisada (VHOM-01 de la verificación). El original no da más de 963 px: en un teléfono de densidad 3 se
+      // estira 1,25 veces (a 511 px con densidad 2, 1,06), hasta que el museo mande la foto.
+      movil: {
+        src: heroEsqueletosMovil963,
+        srcSet: `${heroEsqueletosMovil720} 720w, ${heroEsqueletosMovil963} 963w`,
+        sizes: '100vw',
+        ancho: 963,
+        alto: 1198,
+        media: '(width < 32rem)',
+      },
+      mediaResto: '(width >= 32rem)',
     },
   },
   // La franja de accesos debajo del título (decisión D11): "Planificá tu visita" lleva a Visitas; "Tickets", a la compra
@@ -428,13 +468,15 @@ export const home = {
   // nombres en blanco ("Group 4", hover). Los nombres del dibujo son trazados: van además como texto para el lector de
   // pantalla, en el orden en que se recorre el plano (de arriba a la izquierda hacia abajo y a la derecha), que es
   // también el de las salas de src/components/mapaSalas.js. El hover es solo visual: el plano interactivo es el módulo
-  // opcional del plano.
+  // opcional del plano. En el celular (debajo de md; decisión M5, 10/11/2026) va el plano del cuadro de celular (movil),
+  // la versión naranja sin los nombres de las salas, y sin el hover; los nombres siguen como texto para el lector.
   mapa: {
     titulo: 'Mapa del Museo',
-    // Los dos SVG miden 882,765x811,848 (los atributos width y height de la imagen van en enteros).
+    // Los tres SVG miden 882,765x811,848 (los atributos width y height de la imagen van en enteros).
     imagen: {
       src: mapaMuseo,
       hover: mapaMuseoHover,
+      movil: mapaMuseoMovil,
       ancho: 883,
       alto: 812,
       alt: 'Plano de la planta del museo, con sus salas y espacios',
@@ -469,7 +511,7 @@ export const visitas = {
   // Las fotos van sin deformar (el tablero estira la del hero un tercio a lo ancho) y con el encuadre del tablero
   // (tools/convertir-fotos.mjs, desde los originales de la "Seleccion Fotográfica"). sizes del hero: desde lg mide 480
   // de alto (HeroPagina.jsx) y la foto, 3:1, lo cubre, así que nunca es más angosta que 1440 px; debajo, el hero mide
-  // 20rem (320) como mínimo: 960 px o más.
+  // 350 como mínimo y la foto se dibuja de 1050 px o más: se declaran 960, como en fotoDeHero (más arriba).
   // posicion: el punto de interés (HeroPagina.jsx): la punta del pincel sobre el fósil está al 80 % del alto de la
   // foto (a 1440, a 385 de los 480); con "50% 80%" queda ahí también a 1920 y a 2560, donde la foto se recorta arriba
   // y abajo (centrada, a 1920 quedaba contra el borde de abajo y a 2560 afuera: FID-01 de la verificación, 03/11/2026).
@@ -754,10 +796,14 @@ export const educacion = {
     // ningún ancho. El alt es nuestro (a validar con el museo, pregunta 38 de la lista de Divulgación). La destraban
     // EDU-1 (el original de los chicos en alta resolución) y la pregunta 30 de la lista de Divulgación (fotos de visitas
     // escolares).
+    // En el celular (posicionMovil, 10/11/2026) el h1 va abajo: con la foto centrada, la «n» quedaba pegada a los
+    // anteojos y la cara, cortada por el borde; con '25% 90%' el título va sobre la mano con el pincel y la cara queda
+    // afuera.
     imagen: fotoDeHero(
       [heroEducacion960, heroEducacion1440, heroEducacion1920, heroEducacion2880],
       '50% 90%',
       'Restauradora del museo sonriendo mientras trabaja con un pincel, en el hall',
+      '25% 90%',
     ),
   },
   // "Visitas Escolares" (BloqueTextoFoto.jsx, Figma 2851:77).
@@ -935,9 +981,16 @@ export const circuitos = {
 }
 
 // El tamaño de las fotos de El Museo (src/paginas/ElMuseo.jsx), para el srcset: la del patio, la mitad del contenido
-// desde lg (como "Museo accesible" de Visitas); las de los documentales, un tercio (tres columnas con 32 entre sí).
-const SIZES_MITAD = '(min-width: 90rem) 600px, (min-width: 64rem) calc((100vw - 15rem) / 2), calc(100vw - 3rem)'
-const SIZES_TERCIO = '(min-width: 90rem) 405px, (min-width: 64rem) calc((100vw - 14rem) / 3), calc(100vw - 3rem)'
+// desde md (desde lg, como "Museo accesible" de Visitas; de md a lg, con 40 a los costados y 32 entre columnas), el
+// contenido de 32rem a md y, debajo de 32rem, el ancho del contenido por 1,52, porque ahí se ve agrandada 1,515 veces
+// (el recorte del cuadro de celular); las de los documentales, un tercio desde md (tres columnas con 32 entre sí desde
+// lg y 24 de md a lg) y, debajo, el contenido.
+const SIZES_MITAD =
+  '(min-width: 90rem) 600px, (min-width: 64rem) calc((100vw - 15rem) / 2), ' +
+  '(min-width: 48rem) calc((100vw - 7rem) / 2), (min-width: 32rem) calc(100vw - 3rem), calc((100vw - 3rem) * 1.52)'
+const SIZES_TERCIO =
+  '(min-width: 90rem) 405px, (min-width: 64rem) calc((100vw - 14rem) / 3), ' +
+  '(min-width: 48rem) calc((100vw - 8rem) / 3), calc(100vw - 3rem)'
 
 // El Museo (src/paginas/ElMuseo.jsx): la página del tablero "Web" (Figma 2823:10228; decisiones IN1 a IN10 del
 // desarrollador, 06/11/2026). Va COMPLETA, como el tablero (IN1): el hero, El MuPa, Cómo nos organizamos, Misión y visión
@@ -952,8 +1005,9 @@ const SIZES_TERCIO = '(min-width: 90rem) 405px, (min-width: 64rem) calc((100vw -
 // "Director científico" (como la nota). Como están (no son erratas evidentes; M2 y M3): "Co-gestión" y "Cogestión",
 // "socio-ambiental" y "socioambiental", los nombres científicos sin cursiva y "3500". Lo que algún día podría cargar el
 // museo en el panel va como filas (IN3): las partes de la cogestión, los valores, los documentales, las cifras, las
-// autoridades y el equipo. La página no tiene enlaces ni botones propios (IN2): el "play" de los documentales es un
-// decorado y las píldoras de Valores, una lista.
+// autoridades y el equipo. La página no tiene enlaces propios (IN2): el "play" de los documentales es un decorado y
+// las píldoras de Valores, una lista; los únicos botones son Anterior y Siguiente del carrusel de documentales del
+// celular (debajo de md), que sí hacen algo.
 export const elMuseo = {
   hero: {
     titulo: 'Acerca del MuPa', // el de la nota y el tablero (el menú dice "El Museo": pregunta 15); sin bajada
@@ -963,10 +1017,13 @@ export const elMuseo = {
     // al 95 % y las filas del 0 al 45 %, con el h1 sobre el cielo y las torres blancas debajo (el cartel queda afuera).
     // posicion: más allá de 1440 la foto se recorta arriba y abajo; con el 60 % el h1 sigue sobre el cielo y abajo se ven
     // las torres. El alt es nuestro (a validar, pregunta 38 de la lista de Divulgación). La destraba la M1.
+    // En el celular (posicionMovil, 10/11/2026) el h1 va abajo: con la foto centrada caía sobre el borde de la torre
+    // blanca de la izquierda; con '62% 60%' queda sobre el cielo, encima del cilindro del medio.
     imagen: fotoDeHero(
       [heroElMuseo960, heroElMuseo1440, heroElMuseo1920, heroElMuseo2880],
       '50% 60%',
       'Las torres curvas y blancas del frente del museo contra el cielo azul',
+      '62% 60%',
     ),
   },
   // "El MuPa" (Figma 2825:123).
@@ -1056,6 +1113,11 @@ export const elMuseo = {
     titulo: 'Haciendo el MuPa',
     bajada: 'Conocé quiénes forman parte del MuPa', // de la nota (rara para documentales: la 20 de Divulgación)
     etiqueta: 'Documental', // "Documental · 1": del tablero (el número, el orden en la lista)
+    // El carrusel de debajo de md (como el cuadro de celular): los nombres de los botones y lo que dice la región viva
+    // después de uno (textos de interfaz, para el lector de pantalla, como los de home.novedades).
+    anterior: 'Anterior',
+    siguiente: 'Siguiente',
+    contador: (n, total) => `Documental ${n} de ${total}`,
     // RELLENO DEL TABLERO: los tres títulos, "[Título pendiente]" y las fotos (las del Collage de la Home, no cuadros de
     // los documentales); la nota dice solo "*Carrusel de documentales*". Sin enlace (url: null): no se reproducen ni
     // llevan a ningún lado (IN2); con url, el título de la tarjeta pasa a ser el enlace (ElMuseo.jsx). Los destraban la

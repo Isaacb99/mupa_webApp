@@ -33,7 +33,7 @@ import {
 // Con el lenguaje del tablero "Web" de la diseñadora (decisiones R1 a R7 del desarrollador; el tablero no dibuja esta
 // página), como "Información práctica" de Visitas (src/paginas/Visitas.jsx):
 // - La sección: 80 de aire arriba y abajo y 1280 de contenido a 1440; el rótulo (el título de la página, "Contacto",
-//   como Exposiciones y Novedades: ningún texto nuevo) y, 24 abajo, el h2 Thin "Datos de contacto".
+//   como Exposiciones y Novedades: ningún texto nuevo) y, 24 abajo (16 debajo de lg), el h2 Thin "Datos de contacto".
 // - 48 abajo, cada dato como una tarjeta de información de Visitas: el ícono de 24 en su cuadrado de 48 (Brujula de
 //   IconosTarjetas.jsx; Telefono, Correo y Redes de IconosContacto.jsx), 16 a su derecha el rótulo (Roboto Mono 12) y
 //   20 abajo el texto Regular 18/28 en gris. Sigue siendo una lista de definiciones (<dl>: el rótulo en <dt>, el dato
@@ -100,7 +100,7 @@ export default function DatosDeContacto({ datos: d }) {
     <section aria-labelledby="datos-contacto" className={SECCION_TABLERO}>
       <div className={CONTENEDOR_TABLERO}>
         <p className={ROTULO_SECCION}>{t.titulo}</p>
-        <h2 id="datos-contacto" className={`${TITULO_SECCION} mt-6`}>
+        <h2 id="datos-contacto" className={`${TITULO_SECCION} mt-4 lg:mt-6`}>
           {t.datos}
         </h2>
         {hayLista ? (

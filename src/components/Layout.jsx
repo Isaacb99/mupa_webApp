@@ -9,6 +9,8 @@ import Pie from './Pie.jsx'
 //   scrollSuaveEnCurso para el acordeón de Áreas de la landing.
 // - El header va absolute arriba en todas las páginas (decisión D8): la página pone debajo su foto (sobreFoto, lo
 //   declara la página) o deja el lugar que mide el header (las que no tienen foto, CONTENEDOR_SIN_FOTO de tablero.js).
+//   Debajo de lg lleva la barra de hoy del celular (BarraHoy.jsx, M3), con lo que resolvió el servidor
+//   (estado.abiertoHoy: true, false o null).
 // - <main id="main" tabIndex={-1}>: el destino de "Ir al contenido" (y lo que mantienen las recetas de la Home). Solo
 //   lleva grow: cada página pone sus clases adentro.
 // - Header, main y footer van sueltos en #root, sin envoltorio. Desde el cierre de E6.3 (BDIS-04, 09/11/2026) #root va
@@ -17,8 +19,8 @@ import Pie from './Pie.jsx'
 // - El año del © del pie llega del servidor en el estado (estado.anio): igual en el servidor y en el navegador.
 
 /**
- * @param {{ estado: { pagina: string, ruta: string, museo?: object, anio?: number }, sobreFoto?: boolean,
- *   children: import('react').ReactNode }} props
+ * @param {{ estado: { pagina: string, ruta: string, museo?: object, anio?: number, abiertoHoy?: boolean | null },
+ *   sobreFoto?: boolean, children: import('react').ReactNode }} props
  */
 export default function Layout({ estado, sobreFoto = false, children }) {
   useScrollSuave()
@@ -28,7 +30,7 @@ export default function Layout({ estado, sobreFoto = false, children }) {
   const ruta = estado.pagina === 'no-encontrada' ? null : estado.ruta
   return (
     <>
-      <Header ruta={ruta} compra={museo?.compra ?? null} sobreFoto={sobreFoto} />
+      <Header ruta={ruta} compra={museo?.compra ?? null} sobreFoto={sobreFoto} abiertoHoy={estado.abiertoHoy ?? null} />
       <main id="main" tabIndex={-1} className="grow">
         {children}
       </main>

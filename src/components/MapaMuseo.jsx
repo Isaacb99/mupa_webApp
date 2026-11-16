@@ -20,26 +20,36 @@ import { CONTENEDOR_TABLERO, TITULO_SECCION } from './tablero.js'
 //   vista) después del plano, que tiene su alt.
 // - Entre lg y 1440, y debajo, el plano se achica con el ancho (nunca más ancho que el contenido); el recorte, en
 //   objectBoundingBox, se achica con él.
+// - Debajo de md, el cuadro de celular (Figma "Web Mobile", 3108:17522, 10/11/2026; decisión M5 del desarrollador):
+//   48 arriba y 40 abajo, el título a la izquierda y, 24 más abajo, el plano sin los nombres de las salas (a ese
+//   tamaño medirían 3 px) y con los trazos más gruesos (imagen.movil: src/assets/README.md), sin hover. El plano va en
+//   un <picture> que no arma caja: desde md, su <source> pone el de escritorio; las 14 capas del hover no se dibujan
+//   debajo de md y, como son lazy, el teléfono no baja su archivo. Los tres SVG miden lo mismo: nada se corre. La
+//   lista de los 14 nombres para el lector de pantalla y el alt no cambian. De md a lg, lo de escritorio (los nombres
+//   ya se leen: 6,5 px de alto a 768).
 
 export default function MapaMuseo() {
   const { titulo, imagen, etiqueta, espacios } = home.mapa
   return (
-    <section aria-labelledby="mapa-titulo" className="py-16">
+    <section aria-labelledby="mapa-titulo" className="pt-12 pb-10 md:py-16">
       <div className={CONTENEDOR_TABLERO}>
-        <h2 id="mapa-titulo" className={`${TITULO_SECCION} text-center`}>
+        <h2 id="mapa-titulo" className={`${TITULO_SECCION} md:text-center`}>
           {titulo}
         </h2>
-        <div className="relative mx-auto mt-10 w-[min(100%,55.1728rem)]">
-          <img
-            src={imagen.src}
-            alt={imagen.alt}
-            width={imagen.ancho}
-            height={imagen.alto}
-            loading="lazy"
-            decoding="async"
-            fetchPriority="low"
-            className="block h-auto w-full"
-          />
+        <div className="relative mx-auto mt-6 w-[min(100%,55.1728rem)] md:mt-10">
+          <picture className="contents">
+            <source media="(min-width: 48rem)" srcSet={imagen.src} />
+            <img
+              src={imagen.movil}
+              alt={imagen.alt}
+              width={imagen.ancho}
+              height={imagen.alto}
+              loading="lazy"
+              decoding="async"
+              fetchPriority="low"
+              className="block h-auto w-full"
+            />
+          </picture>
           <svg aria-hidden="true" focusable="false" className="absolute size-0">
             <defs>
               {SALAS_DEL_PLANO.map(({ id, d }) => (
@@ -66,7 +76,7 @@ export default function MapaMuseo() {
               fetchPriority="low"
               draggable={false}
               data-sala={id}
-              className="absolute inset-0 size-full opacity-0 transition-opacity duration-200 hover:opacity-100 motion-reduce:transition-none print:hidden"
+              className="absolute inset-0 size-full opacity-0 transition-opacity duration-200 hover:opacity-100 motion-reduce:transition-none max-md:hidden print:hidden"
               style={{ clipPath: `url(#mapa-${id})` }}
             />
           ))}

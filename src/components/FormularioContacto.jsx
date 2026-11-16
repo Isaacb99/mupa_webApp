@@ -37,8 +37,8 @@ import {
 // página ni ningún formulario: lo de acá es lo mínimo con su lenguaje, desvío a confirmar con la diseñadora). La lógica
 // de arriba no cambió: solo las clases y el lugar de las piezas.
 // - La sección, como las de Visitas: 80 de aire arriba y abajo y 1280 de contenido a 1440; el rótulo (el título de la
-//   página, "Contacto", como en los datos: ningún texto nuevo) y, 24 abajo, el h2 Thin "Escribinos". 48 abajo, el aviso
-//   con que llega la página (si hay) y, 48 abajo, el formulario.
+//   página, "Contacto", como en los datos: ningún texto nuevo) y, 24 abajo (16 debajo de lg), el h2 Thin "Escribinos".
+//   48 abajo, el aviso con que llega la página (si hay) y, 48 abajo, el formulario.
 // - El formulario, en la grilla del tablero (dos columnas de 620 con 40 entre sí a 1440): "Todos los campos son
 //   obligatorios." como la bajada de una sección (Regular 18/28 en gris), el nombre y el correo lado a lado, el mensaje
 //   a lo ancho y el botón naranja del tablero (BOTON_NARANJA: Roboto Mono 14 con el texto oscuro, D4). Debajo de lg, una
@@ -152,7 +152,7 @@ export default function FormularioContacto({ formulario, enviado = false, valore
     <section id="formulario" aria-labelledby="formulario-titulo" className={SECCION_TABLERO}>
       <div className={CONTENEDOR_TABLERO}>
         <p className={ROTULO_SECCION}>{contacto.titulo}</p>
-        <h2 id="formulario-titulo" className={`${TITULO_SECCION} mt-6`}>
+        <h2 id="formulario-titulo" className={`${TITULO_SECCION} mt-4 lg:mt-6`}>
           {t.titulo}
         </h2>
 

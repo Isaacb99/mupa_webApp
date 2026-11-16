@@ -5,7 +5,10 @@ import useScrollPorPasos from '../hooks/useScrollPorPasos.js'
 // Desde la Home del tablero "Web" de la diseñadora (02/11/2026; decisión D9 del desarrollador) es "El MuPa en imágenes"
 // (GaleriaHome.jsx, con el título y las piedritas): las mismas cinco fotos con la composición del tablero (Figma
 // 2628:2246: una caja de 1006x628 a 1440, centrada, con las fotos en otras alturas) y el mismo efecto de scroll de
-// siempre, que el tablero (estático) no dibuja. Lo que sigue es la historia del efecto.
+// siempre, que el tablero (estático) no dibuja. Debajo de md, el acomodo del cuadro de celular (Figma "Web Mobile",
+// 3108:17510, 10/11/2026; decisión O4: conserva el efecto): una pila de 354x472 a 402 px, las cinco fotos enteras
+// (3:2, del ancho de la caja), cada una un octavo de la caja más abajo que la anterior, con la del dremel adelante.
+// Lo que sigue es la historia del efecto.
 //
 // Carrusel de fotos superpuestas entre la intro e Identidad (V04 de la diseñadora, 28/09/2026: cinco fotos nuevas en
 // abanico; hasta entonces era el collage del Figma, con otras cinco fotos, después de los ejes de Identidad). Al llegar,
@@ -22,17 +25,31 @@ const DURACION_FOTO = 600
 // px de más que sube la foto una vez fuera de la pantalla.
 const MARGEN_SALIDA = 16
 
-// Posición de cada capa en % de la caja (1006x628 a 1440, la del tablero "Web", Figma 2628:2246; hasta el 02/11/2026
-// era la del V04, 1006,6x713, con las mismas x y otras alturas), en el mismo orden que las fotos de content.js: la
-// primera al fondo (las lamas, la que queda) y la última adelante (el patio, la primera en salir). Dos tamaños: 667x445
-// (dremel y pincel) y 542x362 (las otras tres).
+// Posición de cada capa en % de la caja, en el mismo orden que las fotos de content.js (lamas, dremel, restaurador,
+// pincel, patio).
+// - Desde md, la caja del tablero "Web" (1006x628 a 1440, Figma 2628:2246; hasta el 02/11/2026 era la del V04,
+//   1006,6x713, con las mismas x y otras alturas): la primera al fondo (las lamas, la que queda) y la última adelante
+//   (el patio, la primera en salir), en el orden del HTML. Dos tamaños: 667x445 (dremel y pincel) y 542x362 (las otras
+//   tres).
+// - Debajo de md, la pila del cuadro de celular (cada foto, la mitad del alto de la caja y todo su ancho): de atrás
+//   hacia adelante, lamas, restaurador, pincel, patio y dremel. Es otro orden que el del HTML (la del dremel pasa de
+//   segunda a última): lo da el z-index de cada capa, y aplicar() saca las fotos en ese orden (enOrdenDePila).
 const CAPAS = [
-  'left-[7.626%] top-[0.03%] w-[53.79%] h-[57.44%]',
-  'left-[33.72%] top-[29.17%] w-[66.31%] h-[70.82%]',
-  'left-[41.05%] top-[8.98%] w-[53.96%] h-[57.6%]',
-  'left-[-0.028%] top-[22.73%] w-[66.34%] h-[70.85%]',
-  'left-[23.56%] top-[29.67%] w-[53.92%] h-[57.6%]',
+  'top-0 z-[1] md:left-[7.626%] md:top-[0.03%] md:z-auto md:w-[53.79%] md:h-[57.44%]',
+  'top-1/2 z-[5] md:left-[33.72%] md:top-[29.17%] md:z-auto md:w-[66.31%] md:h-[70.82%]',
+  'top-[12.5%] z-[2] md:left-[41.05%] md:top-[8.98%] md:z-auto md:w-[53.96%] md:h-[57.6%]',
+  'top-1/4 z-[3] md:left-[-0.028%] md:top-[22.73%] md:z-auto md:w-[66.34%] md:h-[70.85%]',
+  'top-[37.5%] z-[4] md:left-[23.56%] md:top-[29.67%] md:z-auto md:w-[53.92%] md:h-[57.6%]',
 ]
+
+// Las fotos de la caja en el orden de la pila que se ve, de atrás hacia adelante: por z-index (el acomodo de celular)
+// y, a igual z-index (ninguna lo tiene desde md), en el orden del HTML. Lo decide el CSS: acá solo se lee.
+function enOrdenDePila(caja) {
+  return [...caja.children]
+    .map((el, i) => ({ el, i, z: Number(getComputedStyle(el).zIndex) || 0 }))
+    .sort((a, b) => a.z - b.z || a.i - b.i)
+    .map((x) => x.el)
+}
 
 // paso 0 cuando no está enganchado: así el motor pinta directo (sin fundidos) al pasar de apilado a enganchado o al revés.
 function medir({ fijo, cola }) {
@@ -52,7 +69,8 @@ function progreso(rect, alto, medida) {
   return util > 0 ? Math.min((p * recorrido) / util, 1) : p
 }
 
-// Parada `fila` = cuántas fotos están fuera, contando desde la de adelante. Sin estado propio: el estado de cada foto es
+// Parada `fila` = cuántas fotos están fuera, contando desde la de adelante de la pila que se ve (enOrdenDePila: en el
+// celular, la primera en salir es la del dremel; desde md, la del patio). Sin estado propio: el estado de cada foto es
 // data-fuera, y un cambio a mitad de viaje arranca desde donde la dejó la animación anterior. Una foto "fuera" está
 // trasladada hasta que su borde de abajo pasa el borde de arriba de la pantalla, más MARGEN_SALIDA, y queda con
 // visibility hidden: si no, seguiría en el hit test (clic derecho, arrastre o toque sobre la foto visible iban a la de
@@ -65,7 +83,8 @@ function progreso(rect, alto, medida) {
 // de la pantalla la distancia salía corta o negativa y la foto reaparecía sin bajar (hallazgo de la revisión
 // adversarial, 21/09/2026).
 function aplicar({ caja, fijo }, fila, animar) {
-  const fotos = [...caja.children]
+  // El orden de la pila es una lectura: va antes de escribir nada.
+  const fotos = fila < 0 ? [...caja.children] : enOrdenDePila(caja)
   // El efecto ya maneja las fotos: se apaga collage-espera (index.css), que hasta acá dejaba ver solo la del fondo.
   caja.dataset.efecto = ''
   if (fila < 0) {
@@ -77,8 +96,8 @@ function aplicar({ caja, fijo }, fila, animar) {
     }
     return
   }
-  // Lecturas. caja.offsetTop: la caja dentro del bloque fijo (su offsetParent), centrada desde md y a 10svh del borde
-  // en celular; no depende del scroll.
+  // Lecturas. caja.offsetTop: la caja dentro del bloque fijo (su offsetParent), centrada desde md y a 7,5rem del
+  // borde en celular; no depende del scroll.
   const topFijo = parseFloat(getComputedStyle(fijo).top) || 0
   const cajaTop = topFijo + caja.offsetTop
   const cambios = fotos.map((foto, i) => {
@@ -142,52 +161,63 @@ export default function Collage({ fotos = [] }) {
           usuario de prueba lo sintió trabado). Más la cola con la última foto quieta antes de soltarse (ver progreso):
           30 % de pantalla en lg y 45 % con el dedo, como en los ejes de Identidad (pedido del desarrollador, 28/09/2026).
           collage-cola (index.css) además sube el bloque para que, antes de engancharse, la caja quede 80 px debajo del
-          título de la sección (GaleriaHome.jsx), como en el tablero. Apilado (sin efecto: reduced-motion, impresión o
-          pantalla baja) va como el tablero, quieto: 80 px de aire arriba de la caja y nada abajo (lo pone la sección).
+          título de la sección (GaleriaHome.jsx), como en el tablero (debajo de md, 24: el cuadro de celular). Apilado
+          (sin efecto: reduced-motion, impresión, sin JavaScript o pantalla baja) va como el tablero, quieto: 80 px de
+          aire arriba de la caja (24 debajo de md) y nada abajo (lo pone la sección).
           El id es el de siempre: lo busca tools/collage-check.js. */}
       <div
         ref={bloque}
         id="identidad-collage"
         className={
           activo
-            ? 'collage-cola relative h-[calc(145svh+(var(--fotos)-1)*24.2rem)] lg:h-[calc(130svh+(var(--fotos)-1)*16rem)] apilado:h-auto apilado:mt-0 apilado:mb-0 apilado:pt-20 apilado:pb-0'
-            : 'relative pt-20'
+            ? 'collage-cola relative h-[calc(145svh+(var(--fotos)-1)*24.2rem)] lg:h-[calc(130svh+(var(--fotos)-1)*16rem)] apilado:h-auto apilado:mt-0 apilado:mb-0 apilado:pt-6 apilado:md:pt-20 apilado:pb-0'
+            : 'relative pt-6 md:pt-20'
         }
         style={{ '--fotos': fotos.length }}
       >
-      {/* En celular la caja va arriba, a 10 % de la pantalla del borde, en vez de centrada: centrada quedaba con
-          ~270 px vacíos encima y el desarrollador lo vio raro en el teléfono (28/09/2026). Desde md, centrada. */}
+      {/* En celular la caja va arriba en vez de centrada (centrada quedaba con ~270 px vacíos encima y el
+          desarrollador lo vio raro en el teléfono, 28/09/2026): a 7,5rem (120 px) del borde, que son el aire de la
+          sección (48), el título en un renglón (48) y 24. Así, en el momento de engancharse, la pantalla se ve como el
+          cuadro de celular (el título a 48 y la pila a 120); después el título se va con el scroll. Hasta el
+          10/11/2026 iba al 10 % del alto de la pantalla. Desde md, centrada. */}
       <div
         ref={fijo}
-        className={activo ? 'sticky top-0 flex h-svh items-start pt-[10svh] md:items-center md:pt-0 apilado:static apilado:h-auto apilado:pt-0' : 'flex'}
+        className={activo ? 'sticky top-0 flex h-svh items-start pt-[7.5rem] md:items-center md:pt-0 apilado:static apilado:h-auto apilado:pt-0' : 'flex'}
       >
         {/* La caja del tablero "Web" (1006x628 a 1440, 69,86 % del ancho, centrada; hasta el 02/11/2026 era la del V04,
             1006,6x713 y corrida 25 px a la derecha); mientras está enganchada nunca es más alta que la pantalla menos
-            6 rem (también en celular apaisado), así entra entera con aire para la foto que sube. En celular, de borde a
-            borde. Apilado: sin tope de alto, no hace falta. Esquinas de 16,4 px (V04 y tablero).
+            6 rem (también en celular apaisado), así entra entera con aire para la foto que sube. Esquinas de 16,4 px
+            (V04, tablero y cuadro de celular).
+            Debajo de md, la pila del cuadro de celular: 354x472 a 402 px (el ancho del contenido, con 24 a los costados),
+            de 480 de ancho como mucho y nunca más alta que la pantalla menos 9 rem (los 7,5 de arriba y 24 px abajo),
+            contra el margen izquierdo, como el título de la sección y el plano del Mapa (de 480 a 767 px, centrada,
+            quedaba corrida del título: VHOM-03 de la verificación, 11/11/2026):
+            con las barras de Safari a la vista entra entera (a 390x664 mide 342x456 y termina en 576; a 375x635,
+            327x436 y termina en 556). Los z-index de las fotos quedan adentro de la caja (apilada, el bloque fijo ya no
+            es sticky y no los contendría). Apilado: sin tope de alto, no hace falta.
             collage-espera (index.css): hasta que el efecto arranca (la página todavía no hidrató o el JavaScript no
             llegó) se ve solo la foto del fondo, como cuando ya salieron las otras cuatro; si no, las cinco quedaban en
             la caja enganchada y tapaban el título "Mapa del Museo", que sube por debajo de ella (A11Y-07 de la
             verificación, 02/11/2026). aplicar() lo apaga con data-efecto. Las clases van en una lista: la última
             iba pegada a la interpolación, Tailwind no la encontraba y en apilado la caja salía un 35 % más grande (R2-01,
             03/11/2026; lo controla server/pruebas/clases.test.js). */}
-        <div className="mx-auto w-full max-w-[90rem]">
+        <div className="mx-auto w-full max-w-[90rem] px-6 md:px-0">
           <div
             ref={caja}
             data-caja
             className={[
-              'relative mx-auto aspect-[1006/628] w-[min(100%,calc((100svh-6rem)*1.6019))] md:w-[min(calc(100%-5rem),calc((100svh-6rem)*1.6019))] lg:w-[min(69.86%,calc((100svh-6rem)*1.6019))] apilado:w-full apilado:md:w-[calc(100%-5rem)] apilado:lg:w-[69.86%]',
+              'relative mx-auto aspect-[354/472] w-[min(100%,30rem,calc((100svh-9rem)*0.75))] max-md:isolate max-md:ml-0 md:aspect-[1006/628] md:w-[min(calc(100%-5rem),calc((100svh-6rem)*1.6019))] lg:w-[min(69.86%,calc((100svh-6rem)*1.6019))] apilado:w-[min(100%,30rem)] apilado:md:w-[calc(100%-5rem)] apilado:lg:w-[69.86%]',
               activo ? 'collage-espera' : '',
             ]
               .filter(Boolean)
               .join(' ')}
           >
             {fotos.map((foto, i) => (
-              <div key={foto.src} className={`pointer-events-auto absolute overflow-hidden rounded-[1.025rem] ${CAPAS[i] ?? CAPAS[0]}`}>
+              <div key={foto.src} className={`pointer-events-auto absolute left-0 h-1/2 w-full overflow-hidden rounded-[1.025rem] ${CAPAS[i] ?? CAPAS[0]}`}>
                 <img
                   src={foto.src}
                   srcSet={foto.srcSet}
-                  sizes="(min-width: 1440px) 667px, (min-width: 1024px) 46vw, 66vw"
+                  sizes="(min-width: 1440px) 667px, (min-width: 1024px) 46vw, (min-width: 768px) 66vw, min(calc(100vw - 3rem), 350px)"
                   alt={foto.alt}
                   loading="lazy"
                   decoding="async"

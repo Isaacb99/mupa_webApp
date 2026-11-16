@@ -45,6 +45,29 @@
 // con 0, 1 y 6 novedades; los cuatro bloques de texto y foto y el newsletter con los textos del tablero; ningún control
 // sin destino (DV9: "Coordinar visita" a Contacto, y como texto sin esa página; las actividades y los "enlaces" de las
 // tarjetas, como texto); el límite de los guiones en los h1 de los hero (DV4) y HeroPagina sin bajada como antes.
+// Desde la versión de celular (10/11/2026, decisiones M1 a M5 y O2; acá, el marco): abreElDia con fechas fijas; la
+// barra de hoy con abiertoHoy true, false y sin dato (dos veces, sin ids ni región viva, solo debajo de lg) y su enlace
+// a la tarjeta Horarios de Visitas; el header con la fila de 73, el botón del menú como ícono con su nombre accesible
+// y oculto sin JavaScript; el menú abierto con los renglones del cuadro, la línea desde el segundo, la sección actual
+// y "Tickets" a todo el ancho solo con la compra; el logo con las medidas del cuadro y su corte en 20rem; el pie con
+// 16 entre bloques y las listas en dos columnas (en una si no entran, con la letra agrandada); y el lugar del marco
+// (10,0625rem debajo de lg) en la Home, los hero, las fichas y la 404. Un solo HTML para todos los anchos: lo de
+// celular y lo de escritorio los elige el CSS.
+// Y la base compartida de celular (el mismo día): el hero de las ocho páginas internas con la caja de 350 y el texto
+// abajo debajo de 32rem (arriba desde ahí), el degradé del cuadro y la posición de celular de la foto solo donde hace
+// falta (El Museo, Contacto y Educación); el h1 de las internas en 28/32 debajo de 32rem con el halo en rem, y la
+// bajada en 16/24; el h2 en 36/48 debajo de 32rem, y el rótulo a 16 del h2 debajo de lg (Seccion.jsx y los cinco
+// escritos a mano).
+// Y la corrección (11 y 12/11/2026): los arreglos de la verificación de la versión de celular (la barra, el menú, el
+// pie, los respaldos del h1 de los hero debajo de lg, los halos de la Home de 32rem a lg, la foto de celular hasta
+// 32rem, la pila contra el margen, la foto del patio, la fila de documentales y los controles de los carruseles), cada
+// uno en su prueba, con el VMAR, VHOM, VMUS, VREG, VA11 o VREN de su hallazgo; y, en la segunda ronda, la bajada de
+// Divulgación balanceada debajo de 32rem (RV-01).
+// Y la Home de celular (el mismo día): el hero con la caja de 500 y el texto abajo, la foto de celular en un <picture>
+// con sus dos precargas (cada una con su media), el h1 en 28/32 balanceado y la bajada en 16/24; la franja apilada con
+// el orden y los colores del cuadro (los fondos y el <li> de "Tickets", comparados enteros); la tarjeta del carrusel de
+// a una por pantalla (también en Divulgación); la pila de fotos con su z-index debajo de md y el abanico desde md; y el
+// plano sin nombres en un <picture>, con las capas del hover fuera del celular, y su SVG contra el de escritorio.
 import assert from 'node:assert/strict'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -52,7 +75,8 @@ import { fileURLToPath } from 'node:url'
 import { after, before, describe, test } from 'node:test'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { DIAS, resumirHorario, textoDias, textoFranjas, textoHora, unirConY } from '../../compartido/horarios.js'
+import { diaDeLaSemana, hoyEnSanJuan } from '../../compartido/fechas.js'
+import { DIAS, abreElDia, resumirHorario, textoDias, textoFranjas, textoHora, unirConY } from '../../compartido/horarios.js'
 import { DIAS as DIAS_DEL_ESQUEMA } from '../../compartido/esquemas/horarios.js'
 import { REDES as REDES_DEL_ESQUEMA } from '../../compartido/esquemas/museo.js'
 import { REDES } from '../../compartido/redes.js'
@@ -190,6 +214,47 @@ describe('compartido/horarios.js: el horario resumido', () => {
     })
     assert.deepEqual(resumirHorario(MUSEO_VACIO.horarios), { lineas: [], notas: [] })
   })
+
+  test('abreElDia (la barra de hoy del celular, M3): con fechas fijas, lunes cerrado y martes abierto; sin horario, null', () => {
+    const maximo = MUSEO_MAXIMO.horarios // lunes cerrado; de martes a domingo, abierto
+    const todaLaSemana = (h) => [1, 2, 3, 4, 5, 6, 7].map((d) => abreElDia(h, d))
+    // Con fechas fijas (no depende del día en que corre la prueba): el lunes 09/11/2026, el martes 10 y el domingo 15.
+    assert.equal(diaDeLaSemana('2026-11-09'), 1)
+    assert.equal(abreElDia(maximo, diaDeLaSemana('2026-11-09')), false)
+    assert.equal(abreElDia(maximo, diaDeLaSemana('2026-11-10')), true)
+    assert.equal(abreElDia(maximo, diaDeLaSemana('2026-11-15')), true)
+    assert.deepEqual(todaLaSemana(maximo), [false, true, true, true, true, true, true])
+    // Lo que viaja en el estado (museoComun, sin las notas) da lo mismo.
+    assert.deepEqual(todaLaSemana(museoComun(MUSEO_MAXIMO).horarios), todaLaSemana(maximo))
+    // El horario sin cargar (los 7 días cerrados que deja la migración), vacío o lo que no es un horario: null (la
+    // barra no se dibuja), nunca "cerrado".
+    const sinCargar = semana((n) => dia(n))
+    assert.deepEqual(todaLaSemana(sinCargar), [null, null, null, null, null, null, null])
+    assert.equal(abreElDia(MUSEO_VACIO.horarios, 2), null)
+    for (const nada of [[], null, undefined, 'martes', {}]) assert.equal(abreElDia(nada, 2), null)
+    // Un día que falta en la lista: no se sabe (null), no "cerrado"; los demás, como siempre.
+    const sinMiercoles = maximo.filter((d) => d.dia !== 3)
+    assert.equal(abreElDia(sinMiercoles, 3), null)
+    assert.equal(abreElDia(sinMiercoles, 4), true)
+    // Marcado abierto pero sin una franja válida: cerrado, como en el resumen.
+    const sinFranja = maximo.map((d) => (d.dia === 4 ? { ...d, franjas: [f('18:00', '09:00')] } : d))
+    assert.equal(abreElDia(sinFranja, 4), false)
+    assert.equal(abreElDia(sinFranja, 5), true)
+    // Lo que no es un día (hoy no es una fecha, un número fuera de 1 a 7, un texto): null.
+    assert.equal(diaDeLaSemana('no es una fecha'), null)
+    for (const noEsDia of [null, 0, 8, '2', undefined]) assert.equal(abreElDia(maximo, noEsDia), null, String(noEsDia))
+    // La misma condición que la tarjeta Horarios de Visitas (resumirHorario): hay respuesta si y solo si hay resumen.
+    const soloSabado = semana((n) => dia(n, n === 6 ? [f('10:00', '18:00')] : []))
+    for (const h of [maximo, MUSEO_VACIO.horarios, [], sinCargar, soloSabado, sinFranja, sinMiercoles]) {
+      assert.equal(todaLaSemana(h).some((r) => r !== null), resumirHorario(h).lineas.length > 0)
+    }
+    assert.deepEqual(todaLaSemana(soloSabado), [false, false, false, false, false, true, false])
+    // La medianoche de San Juan (UTC-3): a las 23:59 del lunes 9 sigue cerrado; a las 00:01 del martes 10, abierto.
+    const antes = hoyEnSanJuan(new Date('2026-11-10T02:59:00Z'))
+    const despues = hoyEnSanJuan(new Date('2026-11-10T03:01:00Z'))
+    assert.deepEqual([antes, despues], ['2026-11-09', '2026-11-10'])
+    assert.deepEqual([abreElDia(maximo, diaDeLaSemana(antes)), abreElDia(maximo, diaDeLaSemana(despues))], [false, true])
+  })
 })
 
 describe('src/analitica.js: ver_pie con un pie más alto que la pantalla (HOME-01)', () => {
@@ -314,8 +379,15 @@ describe('Layout, header, menú y pie (sin base)', () => {
     for (const ruta of SECCIONES_FUTURAS) assert.equal(cuantas(html, `href="${ruta}"`), 0, ruta)
     // Sin el selector de idioma del tablero.
     assert.equal(cuantas(html, 'Es (Arg)'), 0)
-    assert.match(html, /<button type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="menu-movil"/)
+    // El botón del menú de debajo de xl: el ícono de tres líneas con su nombre accesible, sin texto a la vista, y su
+    // <dialog>. Sin JavaScript no se ve (no abriría nada): el camino son las secciones del pie.
+    assert.match(
+      html,
+      /<div class="xl:hidden noscript:hidden"><button type="button" aria-label="Menú" aria-haspopup="dialog" aria-expanded="false" aria-controls="menu-movil" class="[^"]*"><svg [^>]*aria-hidden="true"[^>]*><path d="M5 10h30M5 20h30M5 30h30"><\/path><\/svg><\/button>/,
+    )
     assert.match(html, /<dialog id="menu-movil" aria-label="Menú" data-lenis-prevent=""/)
+    // Sin horario cargado (el museo vacío no lo tiene, y este estado no trae abiertoHoy), sin la barra de hoy.
+    assert.equal(cuantas(html, 'data-hoy'), 0)
     // El header va absolute arriba (antes del header, React pone la precarga de los isotipos).
     assert.match(html, /^(<link [^>]*>)*<header class="absolute inset-x-0 top-0 z-40">/)
     assert.equal(cuantas(html, 'aria-current'), 0)
@@ -532,8 +604,9 @@ describe('Layout, header, menú y pie (sin base)', () => {
     for (const ruta of ['/', ...SECCIONES_QUE_EXISTEN]) assert.ok(main.includes(`href="${ruta}"`), ruta)
     for (const ruta of SECCIONES_FUTURAS) assert.equal(cuantas(main, `href="${ruta}"`), 0, ruta)
     assert.equal(cuantas(html, '<footer'), 1)
-    // El contenido deja el lugar del header (absolute): el mismo padding que las páginas internas.
-    assert.match(main, /<main id="main" tabindex="-1" class="grow"><div class="[^"]*pt-32 [^"]*md:pt-40 [^"]*lg:pt-52/)
+    // El contenido deja el lugar del header (absolute), como las fichas: debajo de lg, la reserva del marco de celular
+    // (10,0625rem); desde lg, lo de siempre.
+    assert.match(main, /<main id="main" tabindex="-1" class="grow"><div class="[^"]* pt-\[10\.0625rem\] pb-16 lg:pt-52 lg:pb-20">/)
     // Desde el rediseño con el lenguaje del tablero (05/11/2026, R2): como las fichas, el título sin foto (el ancho del
     // contenido del tablero y el h1 de los hero, a la izquierda y sin sombra), el texto como bajada, "Volver al inicio"
     // con la flecha hacia atrás y las secciones como enlaces con flecha, debajo del rótulo; ninguna imagen ni sobreFoto.
@@ -648,9 +721,10 @@ describe('Layout, header, menú y pie (sin base)', () => {
     const visitas = imagenes(sinDialogo(delHeader(pagina({ pagina: 'visitas', ruta: '/visitas', museo: MUSEO_VACIO }))))
     assert.deepEqual(visitas.map(alt), [logo.alt, ...isotipos])
     for (const img of visitas) assert.ok(!img.includes('data-logo-blanco'), img.slice(0, 120))
-    // La marca es el enlace al inicio y mide 44 px o más de alto sin moverse (padding y margen negativo); los isotipos
-    // son una lista con nombre, no enlaces.
-    assert.match(home, /<a href="\/" class="-my-1.5 block shrink-0 rounded-sm py-1.5 [^"]*"><img [^>]*alt="MuPa - Museo Paleontológico de San Juan"/)
+    // La marca es el enlace al inicio y mide 44 px o más de alto sin moverse (padding y margen negativo: en el celular,
+    // con la marca de 26,5 de alto, 10 arriba y abajo; desde sm, con la de 40, 6); los isotipos son una lista con
+    // nombre, no enlaces.
+    assert.match(home, /<a href="\/" class="-my-2\.5 block shrink-0 rounded-sm py-2\.5 sm:-my-1\.5 sm:py-1\.5 [^"]*"><img [^>]*alt="MuPa - Museo Paleontológico de San Juan"/)
     assert.match(sinDialogo(delHeader(home)), /<ul aria-label="Instituciones"[^>]*><li><img [^>]*alt="Universidad Nacional de San Juan"/)
   })
 
@@ -670,8 +744,8 @@ describe('Layout, header, menú y pie (sin base)', () => {
     }
     assert.equal(cuantas(html, '<li class="min-w-0">'), 3)
     assert.match(html, /<h3 class="[^"]*wrap-anywhere/)
-    // El rótulo y el h2 de la sección (el lenguaje del tablero: Roboto Mono 14 y Thin 64).
-    assert.match(html, /<section aria-labelledby="x" class="py-16 lg:py-20"><div class="mx-auto w-full max-w-tablero [^"]*"><p class="font-mono text-sm [^"]*uppercase">Novedades<\/p><h2 id="x" class="font-titulo [^"]*font-thin[^"]* mt-6">X<\/h2>/)
+    // El rótulo y el h2 de la sección (el lenguaje del tablero: Roboto Mono 14 y Thin 64), a 24 desde lg y a 16 debajo.
+    assert.match(html, /<section aria-labelledby="x" class="py-16 lg:py-20"><div class="mx-auto w-full max-w-tablero [^"]*"><p class="font-mono text-sm [^"]*uppercase">Novedades<\/p><h2 id="x" class="font-titulo [^"]*font-thin[^"]* mt-4 lg:mt-6">X<\/h2>/)
   })
 
   test('la portada de una ficha: sizes con el tope de alto (PAG-03), con el ancho del contenido del tablero', async () => {
@@ -732,12 +806,17 @@ describe('Layout, header, menú y pie (sin base)', () => {
     // Su punto de interés (FID-01): la punta del pincel, al 80 % del alto, queda en su lugar más allá de 1440.
     assert.equal(v.hero.imagen.posicion, '50% 80%')
     assert.match(fotoHero, /style="object-position:50% 80%"/)
-    // El degradé, también con colores forzados (como la Home, A11Y-05).
-    assert.match(hero, /<div aria-hidden="true" class="absolute inset-0 bg-\[linear-gradient[^"]*forced-color-adjust-none"><\/div>/)
+    // Sin posición de celular (con el título abajo, la punta del pincel sigue a la vista): ni la variable ni su clase.
+    assert.equal(v.hero.imagen.posicionMovil, undefined)
+    assert.equal(cuantas(hero, 'posicion-movil'), 0)
+    // El hero entero: la caja de celular y la de escritorio, la foto, el degradé (también con colores forzados, como la
+    // Home, A11Y-05) y el texto con el lugar del marco.
+    comprobarHero(main, 'visitas-titulo', v.hero.titulo, v.hero.imagen)
 
-    // "Información práctica": el rótulo, el h2 y las tres tarjetas en el orden del tablero.
+    // "Información práctica": el rótulo, el h2 (a 24 desde lg y a 16 debajo) y las tres tarjetas en el orden del tablero.
     const practica = seccion(main, 'visitas-practica')
     assert.ok(practica.includes(`>${v.practica.rotulo}</p><h2 id="visitas-practica" class="`))
+    assert.deepEqual(margenesDelH2(practica, 'visitas-practica'), ['mt-4', 'lg:mt-6'])
     assert.ok(practica.includes(`>${v.practica.titulo}</h2>`))
     assert.deepEqual(titulosH3(practica), [v.practica.direccion, v.practica.horarios, v.practica.contacto])
     // La dirección en renglones.
@@ -768,6 +847,7 @@ describe('Layout, header, menú y pie (sin base)', () => {
     // "Museo accesible": el texto del panel, en lugar de los párrafos del tablero (V4); la foto lazy; las cuatro tarjetas.
     const accesible = seccion(main, 'visitas-accesible')
     assert.ok(accesible.includes(`>${v.accesible.rotulo}</p><h2 id="visitas-accesible" class="`))
+    assert.deepEqual(margenesDelH2(accesible, 'visitas-accesible'), ['mt-4', 'lg:mt-6'])
     assert.ok(accesible.includes(`>${v.accesible.titulo}</h2>`))
     assert.ok(accesible.includes(`<p>${MUSEO_MAXIMO.accesibilidad.content[0].content[0].text}</p>`))
     for (const p of v.accesible.parrafos) assert.equal(cuantas(accesible, p.texto), 0)
@@ -986,13 +1066,66 @@ describe('Layout, header, menú y pie (sin base)', () => {
   /** La sombra de la bajada del hero (A11Y-01): la del tablero y, pegado a las letras, un halo oscuro (ronda 2). */
   const SOMBRA_BAJADA =
     '[text-shadow:0_0_1rem_rgb(0_0_0/0.25),0_0_0.125em_rgb(1_1_1/0.9),0_0_0.25em_rgb(1_1_1/0.8),0_0_0.5em_rgb(1_1_1/0.5)]'
-  /** La del h1 de los hero (TITULO_HERO): la del tablero y un halo más corto. */
+  /** La del h1 de los hero de antes del cuadro de celular, con el halo en em: ya no la lleva ninguno. */
   const SOMBRA_H1 = '[text-shadow:0_0_1rem_rgb(0_0_0/0.25),0_0_0.0625em_rgb(1_1_1/0.9),0_0_0.125em_rgb(1_1_1/0.7)]'
+  /**
+   * La del h1 de los hero (el de la Home, TITULO_HERO, y el de las páginas internas, TITULO_HERO_PAGINA; desde el
+   * cuadro de celular, 10/11/2026): la del tablero y un halo corto en rem (donde el h1 mide 4rem es el mismo de
+   * SOMBRA_H1; debajo no se achica con la letra). Y, debajo de 32rem, la de la bajada de HeroPagina.jsx, más cerrada y
+   * en rem (desde 32rem lleva SOMBRA_BAJADA; la de la Home lleva SOMBRA_BAJADA en todos los anchos).
+   */
+  const SOMBRA_H1_PAGINA = '[text-shadow:0_0_1rem_rgb(0_0_0/0.25),0_0_0.25rem_rgb(1_1_1/0.9),0_0_0.5rem_rgb(1_1_1/0.7)]'
+  const SOMBRA_BAJADA_CELULAR =
+    '[text-shadow:0_0_1rem_rgb(0_0_0/0.25),0_0_0.125rem_rgb(1_1_1),0_0_0.25rem_rgb(1_1_1/0.9),0_0_0.5rem_rgb(1_1_1/0.8),0_0_0.75rem_rgb(1_1_1/0.6)]'
+  /**
+   * La caja, el degradé y el bloque del texto del hero de una página interna. Debajo de lg, los del cuadro de celular:
+   * 350 como mínimo en una columna flex, con el texto abajo SOLO debajo de 32rem (los teléfonos; desde ahí, arriba,
+   * como antes del celular: en tablets el título abajo pisaba el cartel de la foto de Contacto) y el degradé que llega
+   * a 0 en el 142,86 % del alto; desde lg, el bloque de 480 y el degradé del tablero (109,92 %). El texto: el ancho
+   * entero, la reserva del marco y 64 abajo.
+   */
+  const CAJA_HERO_PAGINA = 'relative flex min-h-[21.875rem] flex-col justify-end overflow-hidden min-[32rem]:justify-start lg:block lg:min-h-[30rem]'
+  const DEGRADE_HERO_PAGINA =
+    'absolute inset-0 bg-[linear-gradient(to_bottom,rgb(14_16_13/0.75),rgb(14_16_13/0)_142.86%)] ' +
+    'lg:bg-[linear-gradient(to_bottom,rgb(14_16_13/0.75),rgb(14_16_13/0)_109.92%)] forced-color-adjust-none'
+  const TEXTO_HERO_PAGINA = 'relative mx-auto w-full max-w-tablero px-6 pt-[10.0625rem] pb-16 md:px-10 lg:px-20'
+  /** Los márgenes de arriba (con o sin variante) de una lista de clases, en su orden. */
+  const margenesDeArriba = (clases) => clases.filter((c) => /(^|:)mt-/.test(c))
+  /** Los del h2 de una sección, buscado por su id. */
+  const margenesDelH2 = (html, id) => margenesDeArriba(clasesDe(html, new RegExp(`<h2 id="${id}" class="([^"]*)"`)))
   /** Una tarjeta como las arma cargarHome (server/paginas.js). */
   const novedad = (n, extra = {}) => ({ titulo: `Novedad ${n}`, url: `/novedades/novedad-${n}`, resumen: `Resumen ${n}`, portada: fotoDelPanel(n), ...extra })
   const home = (novedades = [], museo = MUSEO_VACIO) => pagina({ pagina: 'home', museo, datos: { novedades } })
   const delMain = (html) => parte(html, '<main', '</main>')
   const seccion = (html, id) => parte(html, `<section aria-labelledby="${id}"`, '</section>')
+  /**
+   * Las tarjetas del carrusel de Novedades (CarruselNovedades.jsx: la Home y Divulgación), todas con portada y resumen:
+   * - debajo de lg, la del cuadro de celular: una por pantalla (el ancho del contenido, 384 como mucho), la portada en
+   *   354/300 y el título y el resumen a todo el ancho de la tarjeta; 24 entre el enlace de arriba y la fila (8 de
+   *   margen: el enlace mide 44 y la fila tiene 8 por dentro);
+   * - desde lg, la del tablero: el 37,89 % del contenido (485 a 1440), la portada en 485/355 y el texto en una columna
+   *   del 86,4 %;
+   * - el título, 24/32 en todos los anchos (hasta el cuadro de celular, 20/28 debajo de 32rem);
+   * - el sizes de la portada declara 320 px como mucho debajo de lg (un teléfono de densidad 3 pide la variante de 960).
+   */
+  function comprobarTarjetasDelCarrusel(html, n) {
+    const lis = [...html.matchAll(/<li class="([^"]*)"><article /g)].map((m) => m[1])
+    assert.equal(lis.length, n)
+    for (const li of lis) assert.equal(li, 'w-[min(100%,24rem)] shrink-0 snap-start lg:w-[min(30.3125rem,calc((100vw-10rem)*0.3789))]')
+    const h3 = clasesDe(html, /<h3 class="([^"]*)"/)
+    assert.deepEqual(h3.filter((c) => /(^|:)(text-(xl|2xl)|leading-\d+|max-w-)/.test(c)), ['text-2xl', 'leading-8', 'lg:max-w-[86.4%]'])
+    assert.ok(!h3.some((c) => c.startsWith('min-[')), h3.join(' '))
+    assert.deepEqual(clasesDe(html, /<p class="(order-3 [^"]*)"/).filter((c) => /(^|:)max-w-/.test(c)), ['lg:max-w-[86.4%]'])
+    const fotos = html.match(/<img [^>]*>/g) ?? []
+    assert.equal(fotos.length, n)
+    for (const img of fotos) {
+      assert.deepEqual(clasesDe(img, / class="([^"]*)"/), ['order-1', 'aspect-[354/300]', 'w-full', 'rounded-xl', 'object-cover', 'lg:aspect-[485/355]'])
+      assert.ok(img.includes('sizes="(min-width: 90rem) 485px, (min-width: 64rem) calc((100vw - 10rem) * 0.3789), min(calc(100vw - 3rem), 20rem)"'), img)
+    }
+    const fila = clasesDe(html, /<ul id="[^"]+" aria-label="[^"]+" data-lenis-prevent-horizontal="" class="([^"]*)"/)
+    assert.deepEqual(margenesDeArriba(fila), ['mt-2', 'lg:mt-4'])
+    assert.deepEqual(fila.filter((c) => /(^|:)gap-/.test(c)), ['gap-6', 'lg:gap-[min(3rem,calc((100vw-10rem)*0.0375))]', 'noscript:gap-y-10'])
+  }
 
   test('la Home: un solo h1 ("Un viaje a nuestros orígenes") con la bajada, la foto del hero con prioridad y nada de la landing', () => {
     const html = home()
@@ -1001,44 +1134,113 @@ describe('Layout, header, menú y pie (sin base)', () => {
     assert.match(html, new RegExp(`<h1 id="home-titulo" class="[^"]*font-\\[weight:755\\][^"]*">${hero.titulo}</h1>`))
     assert.match(html, /<section aria-labelledby="home-titulo"/)
     assert.ok(html.includes(`>${hero.bajada}</p>`))
-    // La foto: sin lazy y con prioridad alta (es el LCP), con su srcset hasta el original de 2394 y su alt.
-    const img = new RegExp(`<img [^>]*alt="${hero.imagen.alt}"[^>]*>`).exec(html)?.[0]
+    // La foto: sin lazy y con prioridad alta (es el LCP), con su srcset hasta el original de 2394 y su alt. Va en un
+    // <picture> que no arma caja, después del <source> de la foto de celular (el recorte vertical, debajo de 32rem, en
+    // sus dos anchos y con sus medidas: hasta el 11/11/2026, 30rem, VHOM-01); la <img>, con el encuadre del tablero y,
+    // debajo de 32rem, apoyada abajo.
+    const heroHtml = seccion(html, 'home-titulo')
+    const { movil } = hero.imagen
+    assert.equal(cuantas(heroHtml, '<picture'), 1)
+    assert.ok(
+      heroHtml.includes(
+        `<picture class="contents"><source media="(width &lt; 32rem)" srcSet="${movil.srcSet}" sizes="100vw" width="963" height="1198"/><img `,
+      ),
+      'el <picture> con el <source> de celular',
+    )
+    assert.equal(movil.media, '(width < 32rem)')
+    assert.equal(hero.imagen.mediaResto, '(width >= 32rem)')
+    assert.deepEqual([...movil.srcSet.matchAll(/ (\d+)w/g)].map((m) => Number(m[1])), [720, 963])
+    assert.ok(movil.srcSet.includes(`${movil.src} 963w`) && movil.srcSet.includes('hero-esqueletos-movil-720'), movil.srcSet)
+    assert.equal(cuantas(heroHtml, '<img '), 1)
+    const img = new RegExp(`<img [^>]*alt="${hero.imagen.alt}"[^>]*>`).exec(heroHtml)?.[0]
     assert.ok(img, 'la foto del hero')
+    assert.ok(heroHtml.includes(`${img}</picture>`), 'la <img>, dentro del <picture>')
     assert.match(img, /fetchPriority="high"/)
     assert.doesNotMatch(img, /loading="lazy"/)
     assert.match(img, /srcSet="[^"]*2394w"/)
+    assert.doesNotMatch(img, /movil/)
     assert.match(img, /sizes="\(min-width: 64rem\) max\(100vw, 1165px\), max\(100vw, 50rem\)"/)
-    // El hero mide 655 como mínimo (crece con el texto: A11Y-02) y la franja va en el flujo, después de la foto, subida
-    // con un margen negativo de su alto (nunca absolute: si no, tapaba la bajada con el espaciado de texto de WCAG).
-    const heroHtml = seccion(html, 'home-titulo')
-    assert.match(heroHtml, /<div class="relative min-h-\[28rem\] overflow-hidden lg:min-h-\[40\.9375rem\]">/)
-    assert.doesNotMatch(heroHtml, /lg:h-\[40\.9375rem\]/)
+    assert.deepEqual(clasesDe(img, / class="([^"]*)"/), ['absolute', 'inset-0', 'size-full', 'object-cover', 'object-[50%_67.3%]', 'max-[32rem]:object-[50%_100%]'])
+    // React no precarga sola una <img> que está dentro de un <picture>: el componente pide las dos precargas, con
+    // prioridad y cada una con el media de su foto (así el navegador baja solo la que va a dibujar), y salen antes del
+    // header, al principio de lo dibujado (el servidor las lleva al <head>: ssr.test.js). Ninguna otra con prioridad.
+    const precargas = html.match(/<link rel="preload" as="image"[^>]*fetchPriority="high"[^>]*\/>/g) ?? []
+    assert.deepEqual(precargas, [
+      `<link rel="preload" as="image" fetchPriority="high" imageSrcSet="${movil.srcSet}" imageSizes="100vw" media="(width &lt; 32rem)"/>`,
+      `<link rel="preload" as="image" fetchPriority="high" imageSrcSet="${hero.imagen.srcSet}" imageSizes="${hero.imagen.sizes}" media="(width &gt;= 32rem)"/>`,
+    ])
+    assert.ok(html.indexOf(precargas[1]) < html.indexOf('<header'), 'las precargas, antes del header')
+    assert.equal(cuantas(html, 'fetchPriority="high"'), 3, 'las dos precargas y la <img> del hero')
+    // La caja: debajo de lg, la del cuadro de celular (500 como mínimo, en una columna con el texto apoyado abajo); desde
+    // lg, el bloque de 655 como mínimo (crece con el texto: A11Y-02). Nunca un alto fijo ni en vh.
+    assert.ok(
+      heroHtml.includes('<div class="relative flex min-h-[31.25rem] flex-col justify-end overflow-hidden lg:block lg:min-h-[40.9375rem]"><picture '),
+      'la caja del hero',
+    )
+    for (const fuera of ['min-h-[28rem]', 'lg:h-[40.9375rem]', 'min-[32rem]:justify-start']) assert.equal(cuantas(heroHtml, fuera), 0, fuera)
+    // La franja va en el flujo, después de la foto, y desde lg sube con un margen negativo de su alto (nunca absolute: si
+    // no, tapaba la bajada con el espaciado de texto de WCAG).
     const nav = /<nav aria-label="[^"]*" class="([^"]*)"/.exec(heroHtml)?.[1]
     assert.ok(nav, 'la franja')
-    assert.ok(nav.split(' ').includes('lg:-mt-[5rem]'), nav)
-    assert.doesNotMatch(nav, /absolute/)
-    assert.ok(clasesDe(heroHtml, /<div class="(relative mx-auto max-w-tablero [^"]*)"/).includes('lg:pb-[6.5rem]'))
+    assert.deepEqual(nav.split(' '), ['relative', 'lg:-mt-[5rem]'])
+    // El bloque del texto: el ancho entero (en la columna flex se encogería), 24 a los costados, la reserva del marco de
+    // celular arriba y 48 abajo; desde lg, el h1 a 208 y abajo el aire de la franja (o 64 sin ella).
+    const TEXTO_HERO_HOME = 'relative mx-auto w-full max-w-tablero px-6 pt-[10.0625rem] pb-12 md:px-10 lg:px-20 lg:pt-52'
+    const textoDe = (h) => clasesDe(h, /<\/div><div class="(relative mx-auto [^"]*)"><div class="mx-auto lg:max-w-/).join(' ')
+    assert.equal(textoDe(heroHtml), `${TEXTO_HERO_HOME} lg:pb-[6.5rem]`)
+    {
+      const { visitas, educacion } = tabla.PAGINAS
+      try {
+        delete tabla.PAGINAS.visitas
+        delete tabla.PAGINAS.educacion
+        assert.equal(textoDe(seccion(home(), 'home-titulo')), `${TEXTO_HERO_HOME} lg:pb-16`, 'sin franja')
+      } finally {
+        tabla.PAGINAS.visitas = visitas
+        tabla.PAGINAS.educacion = educacion
+      }
+    }
     // Los tamaños en rem y sin vw (A11Y-04, ronda 2): crecen con el zoom y con la letra del navegador como el resto del
-    // texto, y son los del tablero desde 32rem, así con el zoom al 200 % un escritorio (que ya es el diseño de debajo de
-    // lg) los ve al doble. Desde lg la franja nunca baja de 24 px (A11Y-08). La caja, 52,5rem (840).
+    // texto. Desde 32rem, los del tablero (así, con el zoom al 200 %, un escritorio, que ya es el diseño de debajo de
+    // lg, los ve al doble); debajo, los del cuadro de celular: el h1 en 28/32, la bajada en 16/24 en una columna de 320 a
+    // 16 del h1. La franja, 32/56 desde 22,5rem y nunca menos de 24 px (el blanco sobre el naranja alcanza solo como
+    // texto grande: A11Y-08), en cajas de 64 debajo de lg y de 80 desde lg. La caja del texto, 52,5rem (840) desde lg.
     const h1 = clasesDe(heroHtml, /<h1 id="home-titulo" class="([^"]*)"/)
     const bajada = clasesDe(heroHtml, /<p class="([^"]*)">[^<]*<\/p>/)
     const visita = clasesDe(heroHtml, /<a href="\/visitas" class="([^"]*)"/)
-    for (const [nombre, clases, chico, grande] of [
-      ['h1', h1, 'text-[2rem]', 'min-[32rem]:text-[4rem]'],
-      ['bajada', bajada, 'text-[1.25rem]', 'min-[32rem]:text-[2rem]'],
-      ['franja', visita, 'text-2xl', 'min-[32rem]:text-[2rem]'],
-    ]) {
-      assert.ok(clases.includes(chico) && clases.includes(grande), `${nombre}: ${clases.join(' ')}`)
-      assert.ok(!clases.some((c) => /vw|clamp/.test(c)), `${nombre} sin vw: ${clases.join(' ')}`)
+    const tamanos = (clases) => clases.filter((c) => /(^|:)text-(\[|base$|xl$|2xl$)/.test(c))
+    const interlineados = (clases) => clases.filter((c) => /(^|:)leading-/.test(c))
+    assert.deepEqual(tamanos(h1), ['text-[1.75rem]', 'min-[32rem]:text-[4rem]'])
+    assert.deepEqual(interlineados(h1), ['leading-8', 'min-[32rem]:leading-[1.125]'])
+    assert.deepEqual(tamanos(bajada), ['text-base', 'min-[32rem]:text-[2rem]'])
+    assert.deepEqual(interlineados(bajada), ['leading-normal', 'lg:leading-[1.75]'])
+    assert.deepEqual(margenesDeArriba(bajada), ['mt-4', 'min-[32rem]:mt-6', 'lg:mt-[1em]'])
+    assert.deepEqual(bajada.filter((c) => /(^|:)max-w-/.test(c)), ['max-w-[20rem]', 'min-[32rem]:max-w-none'])
+    assert.deepEqual(tamanos(visita), ['text-2xl', 'min-[22.5rem]:text-[2rem]'])
+    assert.deepEqual(interlineados(visita), ['leading-[1.75]'])
+    assert.deepEqual(visita.filter((c) => /(^|:)(min-h|p[xy])-/.test(c)), ['min-h-16', 'px-6', 'py-1', 'lg:min-h-20', 'lg:px-[1em]', 'lg:py-[0.375em]'])
+    for (const [nombre, clases] of [['h1', h1], ['bajada', bajada], ['franja', visita]]) {
+      assert.ok(!clases.some((c) => /vw|vh|clamp/.test(c)), `${nombre} sin vw: ${clases.join(' ')}`)
     }
+    // El corte fijo del título y el renglón sin balancear, solo desde lg: debajo, balanceado, como el cuadro de celular.
+    for (const clase of ['lg:whitespace-pre-line', 'lg:text-wrap']) assert.ok(h1.includes(clase), `${clase} en ${h1.join(' ')}`)
+    for (const clase of ['whitespace-pre-line', 'text-wrap']) assert.ok(!h1.includes(clase), `sobra ${clase} en ${h1.join(' ')}`)
     assert.ok(clasesDe(heroHtml, /<div class="(mx-auto lg:max-w-[^"]*)"/).includes('lg:max-w-[52.5rem]'))
-    assert.ok(!/vw/.test(parte(heroHtml, '<div class="relative mx-auto max-w-tablero', '</h1>')), 'sin vw en la caja ni en el h1')
+    assert.ok(!/vw/.test(parte(heroHtml, '<div class="relative mx-auto w-full max-w-tablero', '</h1>')), 'sin vw en la caja ni en el h1')
     // El halo de la bajada y el del h1 (A11Y-01, ronda 2: con la sombra de la ronda 1, del 14 al 16 % del fondo que se
-    // ve al lado de las letras de «Argentina» quedaba por debajo de 3:1) y el degradé que no se va con colores forzados
-    // (A11Y-05).
-    assert.ok(bajada.includes(SOMBRA_BAJADA), bajada.join(' '))
-    assert.ok(h1.includes(SOMBRA_H1), h1.join(' '))
+    // ve al lado de las letras de «Argentina» quedaba por debajo de 3:1); el del h1, en rem (no se achica con la letra
+    // del celular). Y el degradé, que no se va con colores forzados (A11Y-05).
+    // De 32rem a lg (las tablets: el texto va abajo, sobre la parte clara de la foto), un halo más fuerte en los dos
+    // (VHOM-02); debajo de 32rem y desde lg, los de siempre.
+    assert.deepEqual(bajada.filter((c) => c.includes('text-shadow')), [
+      SOMBRA_BAJADA,
+      'min-[32rem]:max-lg:[text-shadow:0_0_1rem_rgb(0_0_0/0.25),0_0_0.125em_rgb(1_1_1),0_0_0.25em_rgb(1_1_1/0.9),0_0_0.5em_rgb(1_1_1/0.7),0_0_0.75em_rgb(1_1_1/0.5)]',
+    ])
+    assert.deepEqual(h1.filter((c) => c.includes('text-shadow')), [
+      SOMBRA_H1_PAGINA,
+      'min-[32rem]:max-lg:[text-shadow:0_0_1rem_rgb(0_0_0/0.25),0_0_0.25rem_rgb(1_1_1/0.95),0_0_0.5rem_rgb(1_1_1/0.8),0_0_0.75rem_rgb(1_1_1/0.5)]',
+    ])
+    // Debajo de lg, con los respaldos medidos contra «nuestros orígenes» (la familia de la portada: VHOM-04).
+    assert.deepEqual(h1.filter((c) => /(^|:)font-hero/.test(c)), ['font-hero', 'max-lg:font-hero-portada'])
     assert.match(heroHtml, /<div aria-hidden="true" class="absolute inset-0 bg-\[linear-gradient[^"]* forced-color-adjust-none"><\/div>/)
     // Las secciones de la landing ya no están (D1: los componentes quedan, sin importarse).
     for (const texto of ['id="identidad"', 'id="obra"', 'id="areas"', 'sanjuaninos', 'Identidad', 'Gestión de una']) {
@@ -1057,27 +1259,58 @@ describe('Layout, header, menú y pie (sin base)', () => {
     const franja = (html) => parte(html, `<nav aria-label="${accesos.etiqueta}"`, '</nav>')
     // El texto de cada enlace, con los espacios juntos (con la compra, "Recursos educativos" lleva un salto de línea).
     const enlaces = (html) => [...franja(html).matchAll(/<a href="([^"]*)"([^>]*)>([^<]*)<\/a>/g)].map((m) => [m[1], m[3].replace(/\s+/g, ' ')])
+    // Los fondos de cada caja (toda clase de fondo, con o sin variante, en su orden) y la clase de su <li>: los del
+    // tablero desde lg y, debajo, los del cuadro de celular (O3), que tiene cruzados los de "Tickets" y "Recursos
+    // educativos" y pone "Tickets" primero. Se comparan enteros: buscar "bg-naranja" a secas lo encontraría también
+    // dentro de la clase de lg.
+    const cajas = (html) =>
+      [...franja(html).matchAll(/<li class="([^"]*)"><a href="([^"]*)"[^>]*class="([^"]*)"/g)].map((m) => ({
+        href: m[2],
+        li: m[1],
+        fondos: m[3].split(' ').filter((c) => /(^|:)bg-/.test(c)),
+        clases: m[3].split(' '),
+      }))
+    const CAJA = 'flex min-w-0 lg:flex-1'
+    const CAJA_ENTRADAS = 'flex min-w-0 max-lg:order-first lg:w-[12.5rem] lg:shrink-0'
     // Sin compra: Visitas, en celeste, y "Recursos educativos" (desde el 06/11/2026, la página de Educación existe), en
-    // naranja, con la dirección del menú (D11).
+    // bordó debajo de lg y en naranja desde lg, con la dirección del menú (D11).
     let html = home()
     assert.deepEqual(enlaces(html), [['/visitas', accesos.visita], ['/educacion', accesos.recursos]])
-    assert.match(franja(html), /class="[^"]*bg-celeste/)
-    assert.match(franja(html), /<a href="\/educacion" class="[^"]*bg-naranja[^"]*">Recursos educativos<\/a>/)
-    // Con la compra activa: "Tickets" (el texto del botón del header, no el que cargó el museo), en bordó, medido por la
-    // analítica (data-entradas).
+    assert.deepEqual(cajas(html).map(({ href, li, fondos }) => [href, li, fondos]), [
+      ['/visitas', CAJA, ['bg-celeste']],
+      ['/educacion', CAJA, ['bg-bordo', 'lg:bg-naranja']],
+    ])
+    assert.equal(cuantas(franja(html), 'max-lg:order-first'), 0)
+    assert.match(franja(html), /<a href="\/educacion" class="[^"]*">Recursos educativos<\/a>/)
+    // Con la compra activa: "Tickets" (el texto del botón del header, no el que cargó el museo), en naranja debajo de lg
+    // y en bordó desde lg, medido por la analítica (data-entradas). En el HTML va segundo, como en escritorio (el orden
+    // del foco y del lector de pantalla no cambia); debajo de lg sube primero a la vista con su <li>, el único que
+    // cambia de lugar. La lista, apilada debajo de lg y en una fila desde lg.
     html = home([], MUSEO_MAXIMO)
     assert.deepEqual(enlaces(html), [
       ['/visitas', accesos.visita],
       [MUSEO_MAXIMO.compra.url, contenido.navegacion.entradas],
       ['/educacion', accesos.recursos],
     ])
-    assert.match(franja(html), /<a href="https:\/\/example.com\/entradas" data-entradas="" class="[^"]*bg-bordo/)
+    assert.deepEqual(cajas(html).map(({ href, li, fondos }) => [href, li, fondos]), [
+      ['/visitas', CAJA, ['bg-celeste']],
+      [MUSEO_MAXIMO.compra.url, CAJA_ENTRADAS, ['bg-naranja', 'lg:bg-bordo']],
+      ['/educacion', CAJA, ['bg-bordo', 'lg:bg-naranja']],
+    ])
+    assert.equal(cuantas(franja(html), 'max-lg:order-first'), 1)
+    assert.match(franja(html), /<a href="https:\/\/example.com\/entradas" data-entradas="" class="/)
+    assert.equal(cuantas(franja(html), 'data-entradas'), 1)
+    assert.ok(franja(html).includes('<ul class="mx-auto flex max-w-tablero flex-col lg:flex-row lg:px-20"><li '), 'la lista de la franja')
+    // El texto, blanco en las tres (a 24 px o más es texto grande: 3,3:1 sobre el naranja), y nunca el verde de "Tienda
+    // virtual" (M2).
+    for (const { href, clases } of cajas(html)) assert.deepEqual(clases.filter((c) => /(^|:)text-(blanco|ink|paper)$/.test(c)), ['text-blanco'], href)
+    assert.equal(cuantas(franja(html), 'verde'), 0)
     // "Recursos educativos" no se mide (no lleva data-entradas). Con las tres cajas lleva el corte después de la primera
     // palabra (un salto de línea en el texto, que vale solo de lg a 1081 px: ahí va en dos renglones con la fuente y con
     // el respaldo, COD-01 de la verificación de las internas); con dos cajas (sin la compra, arriba) no lo lleva.
     assert.match(
       franja(html),
-      /<a href="\/educacion" class="[^"]*bg-naranja lg:whitespace-pre-line min-\[67\.625rem\]:whitespace-normal">Recursos\neducativos<\/a>/,
+      /<a href="\/educacion" class="[^"]*bg-bordo lg:bg-naranja lg:whitespace-pre-line min-\[67\.625rem\]:whitespace-normal">Recursos\neducativos<\/a>/,
     )
     assert.equal(cuantas(franja(home()), 'whitespace-pre-line'), 0)
     // Las cajas nunca miden menos de lo que sube la franja (80 desde lg): con el espaciado de WCAG 1.4.12 quedaba foto
@@ -1122,16 +1355,15 @@ describe('Layout, header, menú y pie (sin base)', () => {
     assert.deepEqual(titulos.map((m) => m[1]), seis.map((n) => n.url))
     assert.deepEqual(titulos.map((m) => m[2]), seis.map((n) => n.titulo))
     assert.match(html, /<h3 class="[^"]*font-mono[^"]*uppercase/)
-    // El h2 y el título de las tarjetas, en rem y con el tamaño del tablero desde 32rem (no desde lg): con el zoom al
-    // 200 % un escritorio ya es el diseño de debajo de lg (A11Y-04, ronda 2).
+    // El h2, en rem y con el tamaño del tablero desde 32rem (no desde lg): con el zoom al 200 % un escritorio ya es el
+    // diseño de debajo de lg (A11Y-04, ronda 2).
     const h2 = clasesDe(html, /<h2 id="novedades-titulo" class="([^"]*)"/)
     assert.ok(h2.includes('text-[2.25rem]') && h2.includes('min-[32rem]:text-[4rem]'), h2.join(' '))
     assert.ok(!h2.some((c) => /vw|clamp/.test(c)), h2.join(' '))
-    const h3 = clasesDe(html, /<h3 class="([^"]*)"/)
-    assert.ok(h3.includes('min-[32rem]:text-2xl') && h3.includes('min-[32rem]:leading-8'), h3.join(' '))
-    assert.ok(!h3.some((c) => c.startsWith('lg:')), h3.join(' '))
     assert.equal(html.match(new RegExp(`<p aria-hidden="true"[^>]*>${textos.leerMas}</p>`, 'g')).length, 6)
     for (const n of seis) assert.ok(html.includes(`>${n.resumen}</p>`), n.resumen)
+    // Las tarjetas: debajo de lg, la del cuadro de celular; desde lg, la del tablero.
+    comprobarTarjetasDelCarrusel(html, 6)
     // Las portadas: las fotos del panel con su srcset real y su alt, lazy (no son del primer pantallazo).
     const imgs = html.match(/<img [^>]*>/g)
     assert.equal(imgs.length, 6)
@@ -1159,7 +1391,9 @@ describe('Layout, header, menú y pie (sin base)', () => {
     ])
     assert.match(html, /<div class="mt-6 flex items-center justify-end gap-2[^"]* invisible">/)
     // renderToStaticMarkup no separa los textos con <!-- --> (el render del servidor sí).
-    assert.match(html, /<p aria-hidden="true" class="[^"]*">1(<!-- -->)?\/(<!-- -->)?6<\/p>/)
+    // El contador: un <span> debajo de lg y el <p> de siempre desde lg (VA11-03; ControlesCarrusel.jsx).
+    assert.match(html, /<span aria-hidden="true" class="[^"]* lg:hidden">1(<!-- -->)?\/(<!-- -->)?6<\/span>/)
+    assert.match(html, /<p aria-hidden="true" class="hidden [^"]* lg:block">1(<!-- -->)?\/(<!-- -->)?6<\/p>/)
     assert.ok(html.includes('<p aria-live="polite" class="sr-only"></p>'), 'la región viva, vacía')
     assert.equal(cuantas(html, textos.contador(1, 6)), 0)
   })
@@ -1183,19 +1417,81 @@ describe('Layout, header, menú y pie (sin base)', () => {
     const html = home()
     const { galeria, mapa } = contenido.home
     const fotos = seccion(html, 'galeria-titulo')
-    assert.match(fotos, new RegExp(`<h2 id="galeria-titulo" class="[^"]*text-center">${galeria.titulo}</h2>`))
-    assert.match(fotos, /<section aria-labelledby="galeria-titulo" class="[^"]*overflow-x-clip/)
+    assert.match(fotos, new RegExp(`<h2 id="galeria-titulo" class="[^"]*">${galeria.titulo}</h2>`))
+    // La sección: 48 arriba y 40 abajo debajo de md (el cuadro de celular) y 64 y 64 desde md; recorta lo que sale por
+    // los costados (las piedritas) sin armar una caja de scroll.
+    assert.deepEqual(clasesDe(fotos, /<section aria-labelledby="galeria-titulo" class="([^"]*)"/), ['relative', 'overflow-x-clip', 'pt-12', 'pb-10', 'md:py-16'])
     assert.match(fotos, /id="identidad-collage"/)
-    for (const f of contenido.identidad.collage) assert.ok(fotos.includes(`alt="${f.alt}"`), f.alt)
     // Hasta que arranca el efecto (sin hidratar, o si el JavaScript no llega) la caja lleva collage-espera y no
     // data-efecto: se ve solo la foto del fondo y las otras no tapan el título del mapa (A11Y-07, ronda 2). data-efecto
     // lo pone el efecto en el navegador, nunca el servidor.
     const caja = clasesDe(fotos, /<div data-caja="true" class="([^"]*)"/)
     assert.ok(caja.includes('collage-espera'), caja.join(' '))
     assert.equal(cuantas(html, 'data-efecto'), 0)
-    // Los títulos, en rem y con el tamaño del tablero desde 32rem (A11Y-04, ronda 2).
+    // Los títulos, en rem y con el tamaño del tablero desde 32rem (A11Y-04, ronda 2); a la izquierda debajo de md (el
+    // cuadro de celular) y centrados desde md.
+    const alineacion = (clases) => clases.filter((c) => /(^|:)text-(left|center|right|start|end)$/.test(c))
     const h2 = clasesDe(fotos, /<h2 id="galeria-titulo" class="([^"]*)"/)
     assert.ok(h2.includes('min-[32rem]:text-[4rem]') && !h2.some((c) => /vw|clamp/.test(c)), h2.join(' '))
+    assert.deepEqual(alineacion(h2), ['md:text-center'])
+    // Las cinco fotos, en el orden de siempre en el HTML (lamas, dremel, restaurador, pincel y patio: el que usa el
+    // acomodo de escritorio, con la del patio adelante). Debajo de md, la pila del cuadro de celular: cada una a todo el
+    // ancho y de la mitad del alto de la caja, un octavo más abajo que la anterior de la pila, y el orden de la pila
+    // (lamas, restaurador, pincel, patio y, adelante, la del dremel) lo da su z-index, que desde md no va.
+    const capasDeFotos = [...fotos.matchAll(/<div class="(pointer-events-auto [^"]*)"><img [^>]*alt="([^"]*)"/g)]
+    assert.deepEqual(capasDeFotos.map((m) => m[2]), contenido.identidad.collage.map((f) => f.alt))
+    assert.equal(capasDeFotos.length, 5)
+    const PILA = [
+      ['top-0', 'z-[1]'],
+      ['top-1/2', 'z-[5]'],
+      ['top-[12.5%]', 'z-[2]'],
+      ['top-1/4', 'z-[3]'],
+      ['top-[37.5%]', 'z-[4]'],
+    ]
+    const ABANICO = [
+      ['md:left-[7.626%]', 'md:top-[0.03%]', 'md:w-[53.79%]', 'md:h-[57.44%]'],
+      ['md:left-[33.72%]', 'md:top-[29.17%]', 'md:w-[66.31%]', 'md:h-[70.82%]'],
+      ['md:left-[41.05%]', 'md:top-[8.98%]', 'md:w-[53.96%]', 'md:h-[57.6%]'],
+      ['md:left-[-0.028%]', 'md:top-[22.73%]', 'md:w-[66.34%]', 'md:h-[70.85%]'],
+      ['md:left-[23.56%]', 'md:top-[29.67%]', 'md:w-[53.92%]', 'md:h-[57.6%]'],
+    ]
+    capasDeFotos.forEach((m, i) => {
+      const clases = m[1].split(' ')
+      const lugar = (variante) => clases.filter((c) => new RegExp(`^${variante}(left|top|w|h|z)-`).test(c))
+      assert.deepEqual(lugar(''), ['left-0', 'h-1/2', 'w-full', ...PILA[i]], `la foto ${i} en la pila`)
+      const [izquierda, arriba, ancho, alto] = ABANICO[i]
+      assert.deepEqual(lugar('md:'), [izquierda, arriba, 'md:z-auto', ancho, alto], `la foto ${i} en el abanico`)
+      for (const clase of ['pointer-events-auto', 'absolute', 'overflow-hidden', 'rounded-[1.025rem]']) assert.ok(clases.includes(clase), `${i}: ${clase}`)
+    })
+    // La caja: debajo de md, 354:472 del ancho del contenido (480 como mucho, y nunca más alta que la pantalla menos
+    // 9rem), con los z-index de las fotos adentro; desde md, la del tablero. Quieta (apilado), sin el tope de alto.
+    assert.deepEqual(caja.filter((c) => /(^|:)aspect-/.test(c)), ['aspect-[354/472]', 'md:aspect-[1006/628]'])
+    assert.deepEqual(caja.filter((c) => /(^|:)w-/.test(c)), [
+      'w-[min(100%,30rem,calc((100svh-9rem)*0.75))]',
+      'md:w-[min(calc(100%-5rem),calc((100svh-6rem)*1.6019))]',
+      'lg:w-[min(69.86%,calc((100svh-6rem)*1.6019))]',
+      'apilado:w-[min(100%,30rem)]',
+      'apilado:md:w-[calc(100%-5rem)]',
+      'apilado:lg:w-[69.86%]',
+    ])
+    assert.deepEqual(caja.filter((c) => /isolat/.test(c)), ['max-md:isolate'])
+    // Debajo de md, contra el margen izquierdo, como el título y el plano (de 480 a 767 px iba centrada: VHOM-03).
+    assert.deepEqual(caja.filter((c) => /(^|:)m[lrx]-/.test(c)), ['mx-auto', 'max-md:ml-0'])
+    assert.ok(fotos.includes('<div class="mx-auto w-full max-w-[90rem] px-6 md:px-0"><div data-caja="true" '), 'el envoltorio de la caja, con 24 a los costados debajo de md')
+    // El bloque enganchado: debajo de md la caja va a 7,5rem del borde de arriba (el aire de la sección, el título y
+    // 24: se engancha viéndose como el cuadro) y desde md, centrada; quieto (apilado), 24 debajo del título debajo de md
+    // y 80 desde md. Los altos, solo en svh (nunca vh ni dvh: la barra de Safari).
+    const bloque = clasesDe(fotos, /<div id="identidad-collage" class="([^"]*)"/)
+    assert.deepEqual(bloque.filter((c) => /(^|:)pt-/.test(c)), ['apilado:pt-6', 'apilado:md:pt-20'])
+    assert.ok(bloque.includes('collage-cola'), bloque.join(' '))
+    const fijo = clasesDe(fotos, /<div class="(sticky [^"]*)"/)
+    assert.deepEqual(fijo.filter((c) => /(^|:)(pt|items)-/.test(c)), ['items-start', 'pt-[7.5rem]', 'md:items-center', 'md:pt-0', 'apilado:pt-0'])
+    assert.ok(fijo.includes('h-svh') && fijo.includes('apilado:static'), fijo.join(' '))
+    assert.ok(!/\d(d|l)?vh/.test(parte(fotos, '<div id="identidad-collage"', '<img ')), 'ningún alto en vh ni dvh')
+    for (const img of fotos.match(/<img [^>]*alt="[^"]+"[^>]*>/g)) {
+      assert.ok(img.includes('sizes="(min-width: 1440px) 667px, (min-width: 1024px) 46vw, (min-width: 768px) 66vw, min(calc(100vw - 3rem), 350px)"'), img)
+      assert.ok(img.includes('loading="lazy"') && img.includes('fetchPriority="low"'), img)
+    }
     // Las dos piedritas: el mismo SVG, decorativas (sin alt, en un envoltorio aria-hidden), lazy y solo desde lg.
     const piedritas = parte(fotos, '<div aria-hidden="true" class="pointer-events-none absolute', '</div>')
     assert.match(piedritas, /hidden[^"]* lg:block/)
@@ -1215,12 +1511,24 @@ describe('Layout, header, menú y pie (sin base)', () => {
     const conNovedades = parte(seccion(home([novedad(1)]), 'galeria-titulo'), '<div aria-hidden="true" class="pointer-events-none absolute', '</div>')
     assert.match(conNovedades.match(/<img [^>]*>/g)[0], /class="absolute top-\[-5\.4375rem\] left-\[-14\.1875rem\]/)
     // El plano: su alt y, para el lector, los catorce espacios como texto, en orden.
+    // Debajo de md (el cuadro de celular, M5): 48 arriba y 40 abajo, el título a la izquierda y, 24 más abajo, el plano
+    // SIN los nombres de las salas (imagen.movil); desde md, lo de escritorio: el plano con los nombres lo pone el
+    // <source> de un <picture> que no arma caja. Los tres SVG miden lo mismo (un solo width y height).
     const plano = seccion(html, 'mapa-titulo')
-    assert.match(plano, new RegExp(`<h2 id="mapa-titulo" class="[^"]*text-center">${mapa.titulo}</h2>`))
-    assert.match(
-      plano,
-      new RegExp(`<img src="${mapa.imagen.src}" alt="${mapa.imagen.alt}" width="883" height="812" loading="lazy" decoding="async" fetchPriority="low"`),
+    assert.match(plano, new RegExp(`<h2 id="mapa-titulo" class="[^"]*">${mapa.titulo}</h2>`))
+    assert.deepEqual(clasesDe(plano, /<section aria-labelledby="mapa-titulo" class="([^"]*)"/), ['pt-12', 'pb-10', 'md:py-16'])
+    assert.deepEqual(alineacion(clasesDe(plano, /<h2 id="mapa-titulo" class="([^"]*)"/)), ['md:text-center'])
+    assert.equal(new Set([mapa.imagen.src, mapa.imagen.hover, mapa.imagen.movil]).size, 3)
+    assert.match(mapa.imagen.movil, /mapa-museo-movil/)
+    assert.ok(
+      plano.includes(
+        `<div class="relative mx-auto mt-6 w-[min(100%,55.1728rem)] md:mt-10"><picture class="contents"><source media="(min-width: 48rem)" srcSet="${mapa.imagen.src}"/>` +
+          `<img src="${mapa.imagen.movil}" alt="${mapa.imagen.alt}" width="883" height="812" loading="lazy" decoding="async" fetchPriority="low" class="block h-auto w-full"/></picture>`,
+      ),
+      'el plano: el de celular en la <img> y el de escritorio en el <source>',
     )
+    assert.equal(cuantas(plano, '<picture'), 1)
+    assert.equal(cuantas(plano, '<source'), 1)
     const lista = parte(plano, `<ul aria-label="${mapa.etiqueta}" class="sr-only">`, '</ul>')
     assert.deepEqual([...lista.matchAll(/<li>([^<]*)<\/li>/g)].map((m) => m[1]), mapa.espacios)
     assert.equal(mapa.espacios.length, 14)
@@ -1231,7 +1539,7 @@ describe('Layout, header, menú y pie (sin base)', () => {
     assert.notEqual(mapa.imagen.hover, mapa.imagen.src)
     const capas = plano.match(/<img [^>]*>/g)
     assert.equal(capas.length, 15)
-    assert.ok(capas[0].startsWith(`<img src="${mapa.imagen.src}"`), capas[0])
+    assert.ok(capas[0].startsWith(`<img src="${mapa.imagen.movil}"`), capas[0])
     const ids = ['confiteria', 'sala-inmersiva', 'tienda', 'sala-8', 'microcine', 'sala-1', 'sala-educativa', 'sala-2', 'sala-3', 'sala-4', 'sala-5', 'jardin-triasico', 'sala-6', 'sala-7']
     assert.equal(ids.length, mapa.espacios.length)
     assert.deepEqual(SALAS_DEL_PLANO.map((s) => s.id), ids)
@@ -1241,9 +1549,11 @@ describe('Layout, header, menú y pie (sin base)', () => {
         assert.ok(img.includes(atributo), `${ids[i]}: ${atributo}`)
       }
       const clases = clasesDe(img, /class="([^"]*)"/)
-      for (const clase of ['absolute', 'inset-0', 'size-full', 'opacity-0', 'hover:opacity-100', 'transition-opacity', 'duration-200', 'motion-reduce:transition-none', 'print:hidden']) {
+      // Debajo de md no se dibujan (el celular no tiene hover): como son lazy, el teléfono no baja su archivo.
+      for (const clase of ['absolute', 'inset-0', 'size-full', 'opacity-0', 'hover:opacity-100', 'transition-opacity', 'duration-200', 'motion-reduce:transition-none', 'max-md:hidden', 'print:hidden']) {
         assert.ok(clases.includes(clase), `${ids[i]}: ${clase}`)
       }
+      assert.deepEqual(clases.filter((c) => /hidden$/.test(c)), ['max-md:hidden', 'print:hidden'], ids[i])
     })
     const recortes = parte(plano, '<svg aria-hidden="true"', '</svg>')
     assert.match(recortes, /focusable="false"/)
@@ -1252,8 +1562,57 @@ describe('Layout, header, menú y pie (sin base)', () => {
       assert.equal(cuantas(plano, control), 0, control)
     }
     // Ninguna se precarga (React precarga las imágenes que no son lazy).
-    assert.equal(cuantas(html, `<link rel="preload" as="image" href="${mapa.imagen.src}"`), 0)
-    assert.equal(cuantas(html, `<link rel="preload" as="image" href="${mapa.imagen.hover}"`), 0)
+    const precargadas = (html.match(/<link rel="preload"[^>]*>/g) ?? []).join(' ')
+    for (const archivo of [mapa.imagen.src, mapa.imagen.hover, mapa.imagen.movil]) assert.equal(cuantas(precargadas, archivo), 0, archivo)
+  })
+
+  test('el plano de celular (mapa-museo-movil.svg, M5): el de escritorio sin los nombres de las salas, con la misma caja', async () => {
+    const { readFile } = await import('node:fs/promises')
+    const leer = (nombre) => readFile(join(RAIZ, 'src', 'assets', nombre), 'utf8')
+    const [escritorio, celular, hover] = await Promise.all(['mapa-museo.svg', 'mapa-museo-movil.svg', 'mapa-museo-hover.svg'].map(leer))
+    // La misma caja en los tres (un solo width y height en el HTML: nada se corre al cambiar de uno a otro).
+    const raiz = (svg) => /^<svg width="([\d.]+)" height="([\d.]+)" viewBox="([^"]+)"/.exec(svg)?.slice(1).join(' ')
+    assert.equal(raiz(escritorio), '882.765 811.848 0 0 882.765 811.848')
+    assert.equal(raiz(celular), raiz(escritorio))
+    assert.equal(raiz(hover), raiz(escritorio))
+    // Los nombres del dibujo son trazados: las 105 letras, rellenas de #010101 y sin trazo (como los 6 puntos de la
+    // planta, que quedan). El de celular es el de escritorio sin esas 105 y con todo lo demás, en el mismo orden (salvo
+    // el grosor de los trazos).
+    const trazados = (svg) => svg.match(/<path [^>]*\/>/g) ?? []
+    const negroSinTrazo = (p) => /fill="#010101"/.test(p) && !/ stroke="/.test(p)
+    const sinGrosor = (p) => p.replace(/ stroke-width="[^"]*"/, '')
+    assert.equal(trazados(escritorio).length, 292)
+    assert.equal(trazados(escritorio).filter(negroSinTrazo).length, 105 + 6)
+    assert.equal(trazados(celular).length, 292 - 105)
+    const negrosDelCelular = trazados(celular).filter(negroSinTrazo)
+    assert.equal(negrosDelCelular.length, 6)
+    // Los seis que quedan son los puntos de la planta (rombos de menos de una unidad del dibujo), no letras (que miden
+    // varias unidades): todos sus números, de a pares x e y, entran en un cuadrado de 1.
+    for (const p of negrosDelCelular) {
+      const numeros = [.../ d="([^"]+)"/.exec(p)[1].matchAll(/-?\d+(?:\.\d+)?/g)].map(Number)
+      const xs = numeros.filter((_, i) => i % 2 === 0)
+      const ys = numeros.filter((_, i) => i % 2 === 1)
+      assert.ok(Math.max(...xs) - Math.min(...xs) < 1 && Math.max(...ys) - Math.min(...ys) < 1, p)
+    }
+    const delCelular = trazados(celular).map(sinGrosor)
+    const quitados = []
+    let iguales = 0
+    for (const p of trazados(escritorio).map(sinGrosor)) {
+      if (p === delCelular[iguales]) iguales++
+      else quitados.push(p)
+    }
+    assert.equal(iguales, delCelular.length, 'el de celular: los trazados del de escritorio, en el mismo orden')
+    assert.equal(quitados.length, 105)
+    assert.ok(quitados.every(negroSinTrazo), 'lo que no está son letras de los nombres')
+    // Las salas, del mismo naranja (y el Jardín, salmón); ningún texto vivo ni nada que no sea un trazado.
+    for (const color of ['#EB622D', '#CF7349', '#EAE2DF']) assert.ok(celular.includes(`fill="${color}"`), color)
+    assert.equal((celular.match(/<(?!path |svg |\/svg>)[a-zA-Z]/g) ?? []).length, 0)
+    // Los trazos, más gruesos que en el de escritorio (el cuadro de celular achica el plano sin achicarlos).
+    const grosores = (svg) => [...new Set([...svg.matchAll(/ stroke-width="([^"]+)"/g)].map((m) => m[1]))].sort()
+    assert.deepEqual(grosores(escritorio), ['.6'])
+    assert.deepEqual(grosores(celular), ['1.5', '2.5'])
+    // Y pesa menos de la mitad (viaja solo a los teléfonos).
+    assert.ok(celular.length < escritorio.length / 2, `${celular.length} B`)
   })
 
   test('mapaSalas.js: las 14 salas del plano con su trazado, sin crecer sin que se note', () => {
@@ -1291,21 +1650,59 @@ describe('Layout, header, menú y pie (sin base)', () => {
   })
   /** Las fotos del <main>: la del hero (una de src/assets) y las del panel (/fotos/…). */
   const fotosDelPanel = (html) => (html.match(/<img [^>]*>/g) ?? []).filter((img) => img.includes('src="/fotos/'))
-  /** La foto del hero de una página: sin lazy, con prioridad, sus cuatro anchos, su alt y su punto de interés. */
+  /**
+   * El hero de una página interna (HeroPagina.jsx):
+   * - la caja: debajo de lg, la del cuadro de celular (350 como mínimo; el texto abajo solo debajo de 32rem y arriba
+   *   desde ahí); desde lg, el bloque de 480;
+   * - la foto: sin lazy, con prioridad, sus cuatro anchos, su alt y su punto de interés; si trae posicionMovil, además
+   *   la variable en el style y la clase que la usa debajo de 32rem; si no, ni una ni otra (el <img> de siempre);
+   * - el degradé con sus dos fondos (el de celular y, desde lg, el del tablero), también con colores forzados;
+   * - el bloque del texto: el ancho entero, la reserva del marco de celular, 64 abajo y, desde lg, el h1 a 208 o a 168.
+   */
   function comprobarHero(main, id, titulo, imagen) {
     const hero = seccion(main, id)
+    assert.ok(hero.startsWith(`<section aria-labelledby="${id}" class="relative"><div class="${CAJA_HERO_PAGINA}"><img `), `${id}: la caja`)
     assert.ok(hero.includes(`<h1 id="${id}" class="`), id)
     assert.ok(hero.includes(`>${titulo}</h1>`), titulo)
     assert.match(clasesDe(hero, /<h1 id="[^"]*" class="([^"]*)"/).join(' '), /font-hero .*font-\[weight:755\]/)
+    // Debajo de lg, los respaldos medidos contra las frases que ahí deciden los renglones (la familia de las internas:
+    // VREN-01).
+    assert.deepEqual(clasesDe(hero, /<h1 id="[^"]*" class="([^"]*)"/).filter((c) => /(^|:)font-hero/.test(c)), ['font-hero', 'max-lg:font-hero-internas'], id)
     const fotos = hero.match(/<img [^>]*>/g)
     assert.equal(fotos.length, 1)
     assert.match(fotos[0], /fetchPriority="high"/)
     assert.doesNotMatch(fotos[0], /loading=/)
     assert.deepEqual([...fotos[0].matchAll(/ (\d+)w/g)].map((m) => Number(m[1])), [960, 1440, 1920, 2880])
     assert.ok(fotos[0].includes(`alt="${imagen.alt}"`), imagen.alt)
-    assert.ok(fotos[0].includes(`style="object-position:${imagen.posicion}"`), imagen.posicion)
-    // El degradé del tablero, también con colores forzados.
-    assert.match(hero, /<div aria-hidden="true" class="absolute inset-0 bg-\[linear-gradient[^"]*forced-color-adjust-none"><\/div>/)
+    const clasesFoto = clasesDe(fotos[0], / class="([^"]*)"/)
+    if (imagen.posicionMovil) {
+      assert.ok(fotos[0].includes(`style="object-position:${imagen.posicion};--posicion-movil:${imagen.posicionMovil}"`), fotos[0])
+      assert.deepEqual(clasesFoto, ['absolute', 'inset-0', 'size-full', 'object-cover', 'max-[32rem]:object-(--posicion-movil)!'], id)
+    } else {
+      assert.ok(fotos[0].includes(`style="object-position:${imagen.posicion}"`), imagen.posicion)
+      assert.deepEqual(clasesFoto, ['absolute', 'inset-0', 'size-full', 'object-cover'], id)
+      assert.equal(cuantas(hero, 'posicion-movil'), 0, id)
+    }
+    assert.ok(hero.includes(`<div aria-hidden="true" class="${DEGRADE_HERO_PAGINA}"></div>`), `${id}: el degradé`)
+    const texto = clasesDe(hero, /<\/div><div class="(relative mx-auto [^"]*)"><div class="mx-auto lg:max-w-/)
+    assert.equal(texto.slice(0, -1).join(' '), TEXTO_HERO_PAGINA, `${id}: ${texto.join(' ')}`)
+    assert.match(texto.at(-1), /^lg:pt-(52|\[10\.5rem\])$/, id)
+  }
+  /**
+   * La bajada del hero de una página interna: debajo de 32rem, 16/24 con su halo en rem (la de la Home de celular);
+   * desde 32rem, 32 px con el interlineado normal y el halo de la de la Home (A11Y-01); desdeLg, su interlineado ahí;
+   * anchos, sus anchos máximos (la de Divulgación, en una columna de 320 debajo de 32rem: VREN-01).
+   */
+  function comprobarBajadaDeHero(clases, desdeLg, anchos = ['max-w-none', 'lg:max-w-[52.5rem]']) {
+    assert.deepEqual(clases.filter((c) => /(^|:)max-w-/.test(c)), anchos)
+    const esperadas = [
+      'mt-4', 'text-base', 'leading-6', 'min-[32rem]:text-[2rem]',
+      'min-[32rem]:leading-normal', SOMBRA_BAJADA_CELULAR, `min-[32rem]:${SOMBRA_BAJADA}`, desdeLg,
+    ]
+    for (const c of esperadas) assert.ok(clases.includes(c), `${c} en ${clases.join(' ')}`)
+    // Lo de antes del cuadro de celular (20/30 debajo de 32rem y el halo en em en todos los anchos), ya no.
+    for (const c of ['text-[1.25rem]', 'leading-normal', SOMBRA_BAJADA]) assert.ok(!clases.includes(c), `sobra ${c} en ${clases.join(' ')}`)
+    assert.deepEqual(clases.filter((c) => /(^|:)leading-/.test(c)), ['leading-6', 'min-[32rem]:leading-normal', desdeLg])
   }
   /** El header de una página con o sin foto debajo (sobreFoto: los logos no se invierten con colores forzados). */
   const logosDelHeader = (html) => sinDialogo(delHeader(html)).match(/<img [^>]*>/g)
@@ -1342,6 +1739,7 @@ describe('Layout, header, menú y pie (sin base)', () => {
     assert.equal(cuantas(html, '<h1'), 1)
     comprobarHero(main, 'exposiciones-titulo', e.titulo, e.imagen)
     assert.equal(e.imagen.posicion, '40% 45%')
+    assert.equal(e.imagen.posicionMovil, undefined)
     // sobreFoto: el logo y los isotipos del header no llevan data-logo-blanco (A11Y-08).
     assert.equal(paginasCargadas.exposiciones.sobreFoto, true)
     for (const img of logosDelHeader(html)) assert.ok(!img.includes('data-logo-blanco'), img.slice(0, 120))
@@ -1416,13 +1814,18 @@ describe('Layout, header, menú y pie (sin base)', () => {
     assert.equal(tamanoSala({ ancho: 2400, alto: 1600 }), conTope('112.5vh'))
   })
 
-  test('el h1 de las páginas internas: 64 desde md, 48 desde 32rem y 30 debajo, en rem y con guiones (A11Y-01)', () => {
+  test('el h1 de las páginas internas: 64/72 desde md, 48 desde 32rem y 28/32 debajo (el cuadro de celular), en rem y con guiones (A11Y-01)', () => {
     // Con 64 desde 32rem, entre 512 y ~600 px (el zoom de un escritorio) "Exposiciones" y "encontramos" se partían por
-    // la mitad, y "paleontológicos" (el título de una ficha) hasta 767; a 320, con 32, "encontramo / s".
-    const tamanos = ['text-[1.875rem]', 'min-[32rem]:text-[3rem]', 'md:text-[4rem]', 'hyphens-auto']
+    // la mitad, y "paleontológicos" (el título de una ficha) hasta 767; a 320, con 32, "encontramo / s". Debajo de 32rem
+    // va en 28/32, el del cuadro de celular (hasta el 10/11/2026, 30 con el interlineado de 1,125).
+    const tamanos = ['text-[1.75rem]', 'leading-8', 'min-[32rem]:text-[3rem]', 'min-[32rem]:leading-[1.125]', 'md:text-[4rem]', 'hyphens-auto']
+    // Los de antes del cuadro de celular (30 px acá y 32 en la Home) y el paso de la Home a 64 en 32rem, que no van.
+    const sobran = ['text-[1.875rem]', 'leading-[1.125]', 'text-[2rem]', 'min-[32rem]:text-[4rem]']
     const h1De = (html) => clasesDe(delMain(html), /<h1(?: id="[^"]*")? class="([^"]*)"/)
     const casos = {
       hero: h1De(pagina({ pagina: 'exposiciones', ruta: '/exposiciones', museo: MUSEO_VACIO, datos: { muestras: [], salas: [] } })),
+      novedades: h1De(pagina({ pagina: 'novedades', ruta: '/novedades', museo: MUSEO_VACIO, datos: { proximas: [], noticias: [], pagina: 1, paginas: 1 } })),
+      contacto: h1De(pagina({ pagina: 'contacto', ruta: '/contacto', museo: MUSEO_VACIO, datos: { ...SIN_AVISOS, formulario: false } })),
       visitas: h1De(pagina({ pagina: 'visitas', ruta: '/visitas', museo: MUSEO_VACIO, datos: { accesibilidad: null } })),
       divulgacion: h1De(pagina({ pagina: 'divulgacion', ruta: '/divulgacion', museo: MUSEO_VACIO, datos: { novedades: [] } })),
       educacion: h1De(pagina({ pagina: 'educacion', ruta: '/educacion', museo: MUSEO_VACIO, datos: {} })),
@@ -1433,17 +1836,32 @@ describe('Layout, header, menú y pie (sin base)', () => {
     }
     for (const [nombre, clases] of Object.entries(casos)) {
       for (const t of tamanos) assert.ok(clases.includes(t), `${nombre}: ${t} en ${clases.join(' ')}`)
-      assert.ok(!clases.includes('min-[32rem]:text-[4rem]') && !clases.some((c) => /vw|clamp/.test(c)), `${nombre}: ${clases.join(' ')}`)
+      for (const t of sobran) assert.ok(!clases.includes(t), `${nombre}: sobra ${t} en ${clases.join(' ')}`)
+      assert.ok(!clases.some((c) => /vw|clamp/.test(c)), `${nombre}: ${clases.join(' ')}`)
+      // Un solo tamaño y un solo interlineado por tramo.
+      assert.deepEqual(clases.filter((c) => /(^|:)text-\[/.test(c)), ['text-[1.75rem]', 'min-[32rem]:text-[3rem]', 'md:text-[4rem]'], nombre)
+      assert.deepEqual(clases.filter((c) => /(^|:)leading-/.test(c)), ['leading-8', 'min-[32rem]:leading-[1.125]'], nombre)
     }
+    // El halo pegado a las letras de los h1 de los ocho hero, en rem (no se achica con la letra del celular; desde md
+    // es el de antes); las fichas y la 404, sin foto detrás, sin sombra.
+    const conHero = ['hero', 'novedades', 'contacto', 'visitas', 'divulgacion', 'educacion', 'circuitos', 'elMuseo']
+    for (const nombre of conHero) {
+      assert.ok(casos[nombre].includes(SOMBRA_H1_PAGINA) && !casos[nombre].includes(SOMBRA_H1), `${nombre}: ${casos[nombre].join(' ')}`)
+    }
+    for (const nombre of ['ficha', 'noEncontrada']) assert.ok(!casos[nombre].some((c) => c.includes('text-shadow')), nombre)
     // Los guiones con al menos 5 letras a cada lado, en los h1 de los hero (DV4, 06/11/2026: «divulgación científica»
     // en tres renglones no se parte «cien- / tífica»); en el título de una ficha (lo carga el museo) y en el de la 404
     // (TITULO_SIN_FOTO), sin ese límite.
     const limite = '[hyphenate-limit-chars:auto_5_5]'
-    for (const nombre of ['hero', 'visitas', 'divulgacion', 'educacion', 'circuitos', 'elMuseo']) assert.ok(casos[nombre].includes(limite), nombre)
+    for (const nombre of conHero) assert.ok(casos[nombre].includes(limite), nombre)
     for (const nombre of ['ficha', 'noEncontrada']) assert.ok(!casos[nombre].includes(limite), nombre)
-    // El de la Home no cambió (sus palabras entran desde 32rem): 32 y 64 desde 32rem.
+    // El de la Home, sin el paso intermedio (sus palabras entran a 64 desde 32rem): 28/32 debajo de 32rem (el cuadro de
+    // celular de la Home) y 64/72 desde ahí, con el mismo halo en rem y sin guiones.
     const home = clasesDe(pagina({ pagina: 'home', museo: MUSEO_VACIO, datos: { novedades: [] } }), /<h1 id="home-titulo" class="([^"]*)"/)
-    assert.ok(home.includes('text-[2rem]') && home.includes('min-[32rem]:text-[4rem]'), home.join(' '))
+    assert.deepEqual(home.filter((c) => /(^|:)text-\[/.test(c)), ['text-[1.75rem]', 'min-[32rem]:text-[4rem]'])
+    assert.deepEqual(home.filter((c) => /(^|:)leading-/.test(c)), ['leading-8', 'min-[32rem]:leading-[1.125]'])
+    assert.ok(home.includes(SOMBRA_H1_PAGINA) && !home.includes(SOMBRA_H1), home.join(' '))
+    for (const clase of ['hyphens-auto', limite]) assert.ok(!home.includes(clase), clase)
   })
 
   test('Novedades (R1, R4): el hero en todas las páginas; las secciones con su rótulo; la paginación con flechas, solo con más de una página', () => {
@@ -1466,6 +1884,7 @@ describe('Layout, header, menú y pie (sin base)', () => {
     const main = delMain(html)
     assert.equal(cuantas(html, '<h1'), 1)
     comprobarHero(main, 'novedades-titulo', n.titulo, n.imagen)
+    assert.equal(n.imagen.posicionMovil, undefined)
     assert.equal(paginasCargadas.novedades.sobreFoto, true)
     for (const img of logosDelHeader(html)) assert.ok(!img.includes('data-logo-blanco'), img.slice(0, 120))
     assert.ok(main.includes(`>${n.titulo}</p><h2 id="proximas" class="`))
@@ -1532,8 +1951,9 @@ describe('Layout, header, menú y pie (sin base)', () => {
     assert.equal(cuantas(main, 'linear-gradient'), 0)
     assert.equal(cuantas(main, 'hero-'), 0)
     for (const img of logosDelHeader(html)) assert.ok(img.includes('data-logo-blanco=""'), img.slice(0, 120))
-    // El contenedor del tablero con el lugar del header; el enlace a la sección con la flecha; la etiqueta y el h1.
-    assert.match(main, /<article class="mx-auto w-full max-w-tablero px-6 md:px-10 lg:px-20 pt-32 pb-16 md:pt-40 lg:pt-52 lg:pb-20">/)
+    // El contenedor del tablero con el lugar del header (debajo de lg, la reserva del marco de celular); el enlace a
+    // la sección con la flecha; la etiqueta y el h1.
+    assert.match(main, /<article class="mx-auto w-full max-w-tablero px-6 md:px-10 lg:px-20 pt-\[10\.0625rem\] pb-16 lg:pt-52 lg:pb-20">/)
     assert.match(main, new RegExp(`<p><a href="/exposiciones" class="inline-flex min-h-11 [^"]*font-mono[^"]*"><svg [^>]*>[\\s\\S]*?</svg>${e.titulo}</a></p>`))
     assert.match(main, /<p class="font-mono text-sm [^"]*uppercase">Actual<\/p><h1 class="font-hero [^"]*font-\[weight:755\][^"]*wrap-anywhere[^"]* mt-6">Muestra actual<\/h1>/)
     assert.ok(main.includes('>Del 1 de octubre al 30 de noviembre de 2026</p>'))
@@ -1559,7 +1979,7 @@ describe('Layout, header, menú y pie (sin base)', () => {
     // La galería: su sección con el rótulo (la sección del sitio) y el h2; las fotos enteras, lazy y con prioridad baja
     // (no le disputan el ancho de banda a la portada: ajuste del LCP, 05/11/2026).
     const galeria = seccion(main, 'fotos')
-    assert.match(galeria, new RegExp(`<section aria-labelledby="fotos" class="mt-16 lg:mt-20"><p class="font-mono text-sm [^"]*">${e.titulo}</p><h2 id="fotos" class="font-titulo [^"]* mt-6">${contenido.paginas.fotos}</h2><ul class="mt-12 columns-1 gap-10 sm:columns-2 lg:columns-3">`))
+    assert.match(galeria, new RegExp(`<section aria-labelledby="fotos" class="mt-16 lg:mt-20"><p class="font-mono text-sm [^"]*">${e.titulo}</p><h2 id="fotos" class="font-titulo [^"]* mt-4 lg:mt-6">${contenido.paginas.fotos}</h2><ul class="mt-12 columns-1 gap-10 sm:columns-2 lg:columns-3">`))
     for (const img of deLaGaleria) {
       assert.match(img, /loading="lazy" fetchPriority="low"/)
       assert.match(img, /class="h-auto w-full rounded-2xl"/)
@@ -1647,6 +2067,8 @@ describe('Layout, header, menú y pie (sin base)', () => {
     comprobarHero(main, 'contacto-titulo', c.titulo, c.imagen)
     // El punto de interés: el cartel, entero y debajo del h1 también más allá de 1440 (EST-03 de la verificación).
     assert.equal(c.imagen.posicion, '50% 88%')
+    // En el celular el h1 va abajo: la foto se corre a la derecha para que no quede encima de las letras del cartel.
+    assert.equal(c.imagen.posicionMovil, '100% 88%')
     assert.equal(paginasCargadas.contacto.sobreFoto, true)
     for (const img of logosDelHeader(html)) assert.ok(!img.includes('data-logo-blanco'), img.slice(0, 120))
     // Las dos secciones, en este orden: los datos y el formulario.
@@ -1657,6 +2079,7 @@ describe('Layout, header, menú y pie (sin base)', () => {
     // desde lg (no en cuatro: el correo se partía, EST-01 de la verificación), con el padding de las de Visitas.
     const datos = seccion(main, 'datos-contacto')
     assert.ok(datos.includes(`>${c.titulo}</p><h2 id="datos-contacto" class="`))
+    assert.deepEqual(margenesDelH2(datos, 'datos-contacto'), ['mt-4', 'lg:mt-6'])
     assert.ok(datos.includes(`>${c.datos}</h2>`))
     const dl = parte(datos, '<dl', '</dl>')
     assert.match(dl, /^<dl class="mt-12 grid gap-10 lg:grid-cols-2 lg:gap-x-10 lg:gap-y-0">/)
@@ -1688,6 +2111,7 @@ describe('Layout, header, menú y pie (sin base)', () => {
     const form = parte(main, '<section id="formulario"', '</section>')
     assert.match(form, /^<section id="formulario" aria-labelledby="formulario-titulo" class="py-16 lg:py-20">/)
     assert.ok(form.includes(`>${c.titulo}</p><h2 id="formulario-titulo" class="`))
+    assert.deepEqual(margenesDelH2(form, 'formulario-titulo'), ['mt-4', 'lg:mt-6'])
     assert.ok(form.includes(`>${f.titulo}</h2>`))
     assert.equal(avisoDe(form), null)
     assert.match(form, /<form class="mt-12 grid gap-x-10 gap-y-8 lg:grid-cols-2" action="\/contacto#formulario" method="post">/)
@@ -1810,16 +2234,17 @@ describe('Layout, header, menú y pie (sin base)', () => {
     assert.ok(hero.titulo.includes('\n'))
     comprobarHero(main, 'divulgacion-titulo', hero.titulo, hero.imagen)
     const heroHtml = seccion(main, 'divulgacion-titulo')
-    // La bajada: un <p> debajo del h1, a 16 (mt-4), en la caja de 840, con el halo de la de la Home (A11Y-01).
+    // La bajada: un <p> debajo del h1, a 16 (mt-4), en la caja de 840; 16/24 debajo de 32rem y, desde ahí, 32 px con el
+    // halo de la de la Home (A11Y-01), en 32/56 desde lg.
     const bajada = new RegExp(`<p class="([^"]*)">${hero.bajada}</p>`).exec(heroHtml)
     assert.ok(bajada, 'la bajada')
     const clasesBajada = bajada[1].split(' ')
-    for (const c of ['mt-4', 'lg:max-w-[52.5rem]', 'text-[1.25rem]', 'min-[32rem]:text-[2rem]', 'lg:leading-[1.75]', SOMBRA_BAJADA]) {
-      assert.ok(clasesBajada.includes(c), `${c} en ${bajada[1]}`)
-    }
+    comprobarBajadaDeHero(clasesBajada, 'lg:leading-[1.75]', ['max-w-[20rem]', 'min-[32rem]:max-w-none', 'lg:max-w-[52.5rem]'])
     assert.ok(heroHtml.indexOf('</h1>') < heroHtml.indexOf(hero.bajada))
+    // Sin posición de celular: la foto, como en escritorio.
+    assert.equal(hero.imagen.posicionMovil, undefined)
     // El texto arranca a 168 (no a 208) y la caja del h1 mide 932 (no 840).
-    const texto = clasesDe(heroHtml, /<div class="(relative mx-auto max-w-tablero [^"]*)"/)
+    const texto = clasesDe(heroHtml, /<div class="(relative mx-auto w-full max-w-tablero [^"]*)"/)
     assert.ok(texto.includes('lg:pt-[10.5rem]') && !texto.includes('lg:pt-52'), texto.join(' '))
     const caja = clasesDe(heroHtml, /<div class="(mx-auto lg:max-w-[^"]*)"/)
     assert.deepEqual(caja, ['mx-auto', 'lg:max-w-[58.25rem]'])
@@ -1842,12 +2267,13 @@ describe('Layout, header, menú y pie (sin base)', () => {
     assert.equal(cuantas(main, '<h2'), bloques.length + 1)
     for (const b of bloques) {
       const html = seccion(main, b.id)
-      // El rótulo (en mayúsculas por CSS) y, 24 abajo, el h2 Thin 64 con su corte de renglón.
+      // El rótulo (en mayúsculas por CSS) y, 24 abajo (16 debajo de lg), el h2 Thin 64 con su corte de renglón.
       assert.match(html, new RegExp(`<p class="font-mono text-sm leading-5 font-medium text-paper uppercase">${b.rotulo}</p>`), b.id)
       const h2 = new RegExp(`<h2 id="${b.id}" class="([^"]*)">([^<]*)</h2>`).exec(html)
       assert.ok(h2, b.id)
       assert.equal(h2[2], b.titulo)
-      for (const c of ['font-thin', 'min-[32rem]:text-[4rem]', 'mt-6', 'whitespace-pre-line']) assert.ok(h2[1].split(' ').includes(c), `${b.id}: ${c}`)
+      for (const c of ['font-thin', 'min-[32rem]:text-[4rem]', 'whitespace-pre-line']) assert.ok(h2[1].split(' ').includes(c), `${b.id}: ${c}`)
+      assert.deepEqual(margenesDeArriba(h2[1].split(' ')), ['mt-4', 'lg:mt-6'], b.id)
       // Los párrafos, la nota en gris.
       for (const parrafo of b.parrafos) {
         const clase = parrafo.secundario ? 'text-muted' : 'text-paper'
@@ -1931,8 +2357,11 @@ describe('Layout, header, menú y pie (sin base)', () => {
     assert.match(s, new RegExp(`<h2 id="novedades-titulo" class="[^"]*">${noticias.titulo}</h2>`))
     assert.ok(s.includes(`>${textos.bajada}</p>`))
     assert.match(s, new RegExp(`<a href="/novedades" class="[^"]*">${textos.verTodas}<svg`))
-    assert.match(s, /<p aria-hidden="true" class="[^"]*">1(<!-- -->)?\/(<!-- -->)?6<\/p>/)
+    assert.match(s, /<span aria-hidden="true" class="[^"]* lg:hidden">1(<!-- -->)?\/(<!-- -->)?6<\/span>/)
+    assert.match(s, /<p aria-hidden="true" class="hidden [^"]* lg:block">1(<!-- -->)?\/(<!-- -->)?6<\/p>/)
     assert.equal(cuantas(s, '<article'), 6)
+    // Las mismas tarjetas que la Home, también las de celular (el componente es el mismo).
+    comprobarTarjetasDelCarrusel(s, 6)
     const i = (id) => main.indexOf(`aria-labelledby="${id}"`)
     assert.ok(i('divulgacion-titulo') < i('novedades-titulo') && i('novedades-titulo') < i('divulgacion-infraestructura'))
     // Ningún enlace sin destino ni con "#": las seis novedades, "Ver todas las novedades" y "Coordinar visita".
@@ -1944,7 +2373,7 @@ describe('Layout, header, menú y pie (sin base)', () => {
     for (const texto of NUNCA_EN_DIVULGACION) assert.equal(cuantas(html, texto), 0, texto)
   })
 
-  test('HeroPagina sin bajada (Visitas, Exposiciones, Novedades, Contacto, Educación y El Museo): las clases de siempre y ningún <p> en el hero', () => {
+  test('HeroPagina sin bajada (Visitas, Exposiciones, Novedades, Contacto, Educación y El Museo): la caja de celular y la de escritorio, el texto con el lugar del marco, la caja de 840 y ningún <p> en el hero', () => {
     const casos = {
       'visitas-titulo': pagina({ pagina: 'visitas', ruta: '/visitas', museo: MUSEO_VACIO, datos: { accesibilidad: null } }),
       'exposiciones-titulo': pagina({ pagina: 'exposiciones', ruta: '/exposiciones', museo: MUSEO_VACIO, datos: { muestras: [], salas: [] } }),
@@ -1956,8 +2385,21 @@ describe('Layout, header, menú y pie (sin base)', () => {
     for (const [id, html] of Object.entries(casos)) {
       const hero = seccion(delMain(html), id)
       assert.ok(hero.includes(`<h1 id="${id}"`), id)
-      assert.ok(hero.includes('<div class="relative mx-auto max-w-tablero px-6 pt-32 pb-16 md:px-10 md:pt-40 lg:px-20 lg:pt-52"><div class="mx-auto lg:max-w-[52.5rem]"><h1'), id)
+      // La caja: debajo de lg, una columna flex de 350 como mínimo, con el texto al final debajo de 32rem y al principio
+      // desde ahí; desde lg, el bloque de 480.
+      assert.ok(
+        hero.startsWith(
+          `<section aria-labelledby="${id}" class="relative"><div class="relative flex min-h-[21.875rem] flex-col justify-end overflow-hidden min-[32rem]:justify-start lg:block lg:min-h-[30rem]"><img `,
+        ),
+        id,
+      )
+      // El texto: el ancho entero (en la columna flex, centrado con márgenes automáticos, se encogería), la reserva del
+      // marco de celular y, desde lg, el h1 a 208; la caja del h1, de 840.
+      assert.ok(hero.includes('<div class="relative mx-auto w-full max-w-tablero px-6 pt-[10.0625rem] pb-16 md:px-10 lg:px-20 lg:pt-52"><div class="mx-auto lg:max-w-[52.5rem]"><h1'), id)
       assert.equal(cuantas(hero, '<p'), 0, id)
+      // Nada de la caja de antes (320 como mínimo, el texto arriba) ni alturas en vh o dvh.
+      assert.equal(cuantas(hero, 'min-h-[20rem]'), 0, id)
+      assert.doesNotMatch(hero, /\d(vh|dvh)\b/, id)
     }
   })
 
@@ -1975,6 +2417,8 @@ describe('Layout, header, menú y pie (sin base)', () => {
     assert.ok(main.includes('<h1 id="educacion-titulo" class="'))
     assert.equal(hero.titulo, 'Educación')
     comprobarHero(main, 'educacion-titulo', hero.titulo, hero.imagen)
+    // En el celular el h1 va abajo: la foto se corre para que el título vaya sobre la mano con el pincel.
+    assert.equal(hero.imagen.posicionMovil, '25% 90%')
     // Sin bajada: el texto a 208 (lg:pt-52), la caja de 840 y ningún <p> en el hero.
     const heroHtml = seccion(main, 'educacion-titulo')
     assert.ok(heroHtml.includes('lg:pt-52'))
@@ -2003,7 +2447,9 @@ describe('Layout, header, menú y pie (sin base)', () => {
     const h2 = /<h2 id="educacion-visitas" class="([^"]*)">([^<]*)<\/h2>/.exec(html)
     assert.ok(h2)
     assert.equal(h2[2], 'Visitas Escolares')
-    for (const c of ['font-thin', 'min-[32rem]:text-[4rem]', 'mt-6']) assert.ok(h2[1].split(' ').includes(c), c)
+    for (const c of ['font-thin', 'min-[32rem]:text-[4rem]']) assert.ok(h2[1].split(' ').includes(c), c)
+    // A 24 del rótulo desde lg y a 16 debajo.
+    assert.deepEqual(margenesDeArriba(h2[1].split(' ')), ['mt-4', 'lg:mt-6'])
     assert.equal(escolares.parrafos.length, 2)
     for (const parrafo of escolares.parrafos) {
       const clase = parrafo.secundario ? 'text-muted' : 'text-paper'
@@ -2032,10 +2478,12 @@ describe('Layout, header, menú y pie (sin base)', () => {
     const { recursos } = contenido.educacion
     const main = delMain(educacionCon())
     const html = seccion(main, 'educacion-recursos')
-    // El rótulo y, 16 abajo (mt-4, no mt-6), el h2; la bajada en gris a 16.
+    // El rótulo y, 16 abajo en todos los anchos (mt-4 solo, sin el lg:mt-6 de las demás secciones), el h2; la bajada en
+    // gris a 16.
     assert.match(html, /<p class="font-mono text-sm leading-5 font-medium text-paper uppercase">Recursos<\/p><h2 id="educacion-recursos" class="([^"]*)">Recursos educativos<\/h2>/)
     const h2 = clasesDe(html, /<h2 id="educacion-recursos" class="([^"]*)"/)
-    assert.ok(h2.includes('mt-4') && !h2.includes('mt-6') && h2.includes('font-thin'), h2.join(' '))
+    assert.ok(h2.includes('font-thin'), h2.join(' '))
+    assert.deepEqual(margenesDeArriba(h2), ['mt-4'], h2.join(' '))
     assert.ok(html.includes(`<p class="text-lg leading-7 font-normal text-muted text-pretty mt-4 max-w-none">${recursos.bajada}</p>`))
     // Las tarjetas: el ícono en crema (sin text-naranja), el h3, el texto en gris y la acción como texto con la flecha.
     const tarjetas = [...html.matchAll(/<li class="([^"]*)"><span class="flex size-12 [^"]*bg-caja[^"]*text-paper"><svg [^>]*class="shrink-0 size-6"[\s\S]*?<\/svg><\/span><div class="flex flex-col gap-2"><h3 class="font-mono text-xs [^"]*">([^<]*)<\/h3><p class="text-base [^"]*text-muted[^"]*">([^<]*)<\/p><\/div><p class="flex items-center gap-2 font-mono text-sm leading-5 font-normal text-paper">([^<]*)<svg [^>]*aria-hidden="true"/g)]
@@ -2084,18 +2532,19 @@ describe('Layout, header, menú y pie (sin base)', () => {
     assert.equal(hero.titulo, 'Circuitos\npaleontológicos')
     comprobarHero(main, 'circuitos-titulo', hero.titulo, hero.imagen)
     const heroHtml = seccion(main, 'circuitos-titulo')
-    // La bajada: a 16 del h1, en la caja de 840, con el halo, en 32/40 desde lg (no en 32/56, como Divulgación).
+    // La bajada: a 16 del h1, en la caja de 840, con el halo, en 32/40 desde lg (no en 32/56, como Divulgación) y en
+    // 16/24 debajo de 32rem.
     assert.equal(hero.bajada, 'Extendé tu visita al MuPa con otros destinos paleontológicos y urbanos de San Juan.')
     const bajada = new RegExp(`<p class="([^"]*)">${hero.bajada}</p>`).exec(heroHtml)
     assert.ok(bajada, 'la bajada')
     const clasesBajada = bajada[1].split(' ')
-    for (const c of ['mt-4', 'lg:max-w-[52.5rem]', 'text-[1.25rem]', 'min-[32rem]:text-[2rem]', 'lg:leading-[1.25]', SOMBRA_BAJADA]) {
-      assert.ok(clasesBajada.includes(c), `${c} en ${bajada[1]}`)
-    }
+    comprobarBajadaDeHero(clasesBajada, 'lg:leading-[1.25]')
     assert.ok(!clasesBajada.includes('lg:leading-[1.75]'), bajada[1])
     assert.ok(heroHtml.indexOf('</h1>') < heroHtml.indexOf(hero.bajada))
+    // Sin posición de celular: la foto, como en escritorio.
+    assert.equal(hero.imagen.posicionMovil, undefined)
     // Con bajada: el texto a 168 y la caja del h1 de 932.
-    const texto = clasesDe(heroHtml, /<div class="(relative mx-auto max-w-tablero [^"]*)"/)
+    const texto = clasesDe(heroHtml, /<div class="(relative mx-auto w-full max-w-tablero [^"]*)"/)
     assert.ok(texto.includes('lg:pt-[10.5rem]') && !texto.includes('lg:pt-52'), texto.join(' '))
     assert.deepEqual(clasesDe(heroHtml, /<div class="(mx-auto lg:max-w-[^"]*)"/), ['mx-auto', 'lg:max-w-[58.25rem]'])
     // sobreFoto: los logos del header no se invierten con colores forzados (A11Y-08).
@@ -2121,12 +2570,13 @@ describe('Layout, header, menú y pie (sin base)', () => {
     for (const d of destinos) {
       const id = `circuito-${d.slug}`
       const html = seccion(main, id)
-      // El rótulo (en mayúsculas por CSS) y, 24 abajo, el h2 Thin 64.
+      // El rótulo (en mayúsculas por CSS) y, 24 abajo (16 debajo de lg), el h2 Thin 64.
       assert.match(html, new RegExp(`<p class="font-mono text-sm leading-5 font-medium text-paper uppercase">${rotulo}</p><h2 id="${id}"`), id)
       const h2 = new RegExp(`<h2 id="${id}" class="([^"]*)">([^<]*)</h2>`).exec(html)
       assert.ok(h2, id)
       assert.equal(h2[2], d.nombre)
-      for (const c of ['font-thin', 'min-[32rem]:text-[4rem]', 'mt-6']) assert.ok(h2[1].split(' ').includes(c), `${id}: ${c}`)
+      for (const c of ['font-thin', 'min-[32rem]:text-[4rem]']) assert.ok(h2[1].split(' ').includes(c), `${id}: ${c}`)
+      assert.deepEqual(margenesDeArriba(h2[1].split(' ')), ['mt-4', 'lg:mt-6'], id)
       for (const parrafo of d.parrafos) {
         assert.match(html, new RegExp(`<p class="text-lg leading-\\[1\\.875rem\\] font-normal text-paper [^"]*">${parrafo.texto}</p>`), parrafo.texto)
       }
@@ -2191,13 +2641,27 @@ describe('Layout, header, menú y pie (sin base)', () => {
   const elMuseoCon = (museo = MUSEO_VACIO) => pagina({ pagina: 'el-museo', ruta: '/el-museo', museo, datos: {} })
   /**
    * Lo que nunca va en el <main>: el selector de idioma, las erratas del tablero ("Tikets", "Áreas de extensión",
-   * "Director Científico"), "Producción" (D3), la cifra de ejemplo "200" (IN1), el "1/3" del carrusel y el subtítulo de
-   * la nota que el tablero no dibuja, "pendiente" del plan 6.1 y controles sin destino (IN2).
+   * "Director Científico"), "Producción" (D3), la cifra de ejemplo "200" (IN1), el subtítulo de la nota que el tablero
+   * no dibuja, "pendiente" del plan 6.1 y controles sin destino (IN2). Los únicos botones son los dos del carrusel de
+   * documentales del celular (se prueban aparte).
    */
   const NUNCA_EN_EL_MUSEO = [
     'Contenido pendiente', 'Es (Arg)', 'Tikets', 'Producción', '>200<', 'Áreas de extensión', 'Director Científico',
-    '1/3', 'Conocé quiénes están detrás', 'href="#"', '<button', '<form', '<input',
+    'Conocé quiénes están detrás', 'href="#"', '<form', '<input',
   ]
+  /**
+   * El aire de cada sección (el cuadro de celular, 3123:19747): 120 desde lg, 48 de md a lg y, debajo de md, 64 entre
+   * una y otra, 48 arriba de la primera y 40 debajo de la última. Las dos con piedritas, posicionadas y con overflow-x-clip.
+   */
+  const AIRE_EL_MUSEO = {
+    'el-museo-presentacion': ['relative', 'overflow-x-clip', 'pt-12', 'pb-8', 'md:py-12', 'lg:py-30'],
+    'el-museo-cogestion': ['relative', 'overflow-x-clip', 'py-8', 'md:py-12', 'lg:py-30'],
+    'el-museo-mision': ['py-8', 'md:py-12', 'lg:py-30'],
+    'el-museo-documentales': ['py-8', 'md:py-12', 'lg:py-30'],
+    'el-museo-numeros': ['py-8', 'md:py-12', 'lg:py-30'],
+    'el-museo-autoridades': ['py-8', 'md:py-12', 'lg:py-30'],
+    'el-museo-equipo': ['pt-8', 'pb-10', 'md:py-12', 'lg:py-30'],
+  }
   const ID_SECCIONES_EL_MUSEO = [
     'el-museo-presentacion', 'el-museo-cogestion', 'el-museo-mision', 'el-museo-documentales', 'el-museo-numeros',
     'el-museo-autoridades', 'el-museo-equipo',
@@ -2210,7 +2674,7 @@ describe('Layout, header, menú y pie (sin base)', () => {
   /** Los recuadros neutros en lugar de un retrato (IN5). */
   const RECUADRO_EL_MUSEO = '<span aria-hidden="true" class="block size-30 shrink-0 rounded-[1.25rem] bg-caja"></span>'
 
-  test('El Museo (IN1, IN6, IN7): el hero sin bajada, sobreFoto, y las siete secciones en el orden del tablero, con 120 de aire', () => {
+  test('El Museo (IN1, IN6, IN7): el hero sin bajada, sobreFoto, y las siete secciones en el orden del tablero, con 120 de aire desde lg y el del cuadro de celular debajo', () => {
     const m = contenido.elMuseo
     for (const museo of [MUSEO_VACIO, MUSEO_MAXIMO]) {
       const html = elMuseoCon(museo)
@@ -2220,6 +2684,8 @@ describe('Layout, header, menú y pie (sin base)', () => {
       // El h1 del tablero ("Acerca del MuPa", aunque el menú diga "El Museo"), sin bajada: a 208 y en la caja de 840.
       assert.equal(m.hero.titulo, 'Acerca del MuPa')
       comprobarHero(main, 'el-museo-titulo', m.hero.titulo, m.hero.imagen)
+      // En el celular el h1 va abajo: la foto se corre para que el título quede sobre el cielo y no sobre la torre.
+      assert.equal(m.hero.imagen.posicionMovil, '62% 60%')
       const heroHtml = seccion(main, 'el-museo-titulo')
       assert.ok(heroHtml.includes('lg:pt-52'))
       assert.deepEqual(clasesDe(heroHtml, /<div class="(mx-auto lg:max-w-[^"]*)"/), ['mx-auto', 'lg:max-w-[52.5rem]'])
@@ -2240,25 +2706,28 @@ describe('Layout, header, menú y pie (sin base)', () => {
         'El MuPa', 'Cómo nos organizamos', 'Misión y visión', 'Haciendo el MuPa', 'El MuPa en números', 'Autoridades',
         'Nuestro equipo',
       ])
-      // 120 de aire arriba y abajo desde lg en todas (el tablero de esta página; las demás, 80).
-      for (const id of ID_SECCIONES_EL_MUSEO) {
-        const clases = clasesDe(main, new RegExp(`<section aria-labelledby="${id}" class="([^"]*)"`))
-        assert.ok(clases.includes('lg:py-30') && clases.includes('py-16') && !clases.includes('lg:py-20'), `${id}: ${clases.join(' ')}`)
+      // 120 de aire arriba y abajo desde lg en todas (el tablero de esta página; las demás, 80); 48 de md a lg; debajo de
+      // md, el del cuadro de celular (64 entre secciones, 48 arriba de la primera y 40 debajo de la última).
+      assert.deepEqual(Object.keys(AIRE_EL_MUSEO), ID_SECCIONES_EL_MUSEO)
+      for (const [id, aire] of Object.entries(AIRE_EL_MUSEO)) {
+        assert.deepEqual(clasesDe(main, new RegExp(`<section aria-labelledby="${id}" class="([^"]*)"`)), aire, id)
       }
-      // El rótulo antes del h2: a 16 (mt-4) en Cogestión, Haciendo el MuPa, Autoridades y Nuestro equipo; a 24 (mt-6) en
-      // El MuPa; Misión y visión y los números, sin rótulo.
+      // El rótulo antes del h2: a 16 en todos los anchos (mt-4) en Cogestión, Haciendo el MuPa, Autoridades y Nuestro
+      // equipo; en El MuPa, a 24 desde lg y a 16 debajo, como las demás secciones del sitio; Misión y visión y los
+      // números, sin rótulo. El del equipo, centrado debajo de md (el cuadro de celular).
       const rotulos = {
-        'el-museo-presentacion': [m.presentacion.rotulo, 'mt-6'],
-        'el-museo-cogestion': [m.cogestion.rotulo, 'mt-4'],
-        'el-museo-documentales': [m.documentales.rotulo, 'mt-4'],
-        'el-museo-autoridades': [m.autoridades.rotulo, 'mt-4'],
-        'el-museo-equipo': [m.equipo.rotulo, 'mt-4'],
+        'el-museo-presentacion': [m.presentacion.rotulo, ['mt-4', 'lg:mt-6']],
+        'el-museo-cogestion': [m.cogestion.rotulo, ['mt-4']],
+        'el-museo-documentales': [m.documentales.rotulo, ['mt-4']],
+        'el-museo-autoridades': [m.autoridades.rotulo, ['mt-4']],
+        'el-museo-equipo': [m.equipo.rotulo, ['mt-4']],
       }
-      for (const [id, [rotulo, margen]] of Object.entries(rotulos)) {
-        assert.ok(seccion(main, id).includes(`<p class="font-mono text-sm leading-5 font-medium text-paper uppercase">${rotulo}</p><h2 id="${id}"`), id)
+      for (const [id, [rotulo, margenes]] of Object.entries(rotulos)) {
+        const centro = id === 'el-museo-equipo' ? ' max-md:text-center' : ''
+        assert.ok(seccion(main, id).includes(`<p class="font-mono text-sm leading-5 font-medium text-paper uppercase${centro}">${rotulo}</p><h2 id="${id}"`), id)
         const { clases } = h2De(main, id)
-        assert.ok(clases.includes(margen) && clases.includes('font-thin'), `${id}: ${clases.join(' ')}`)
-        assert.ok(!clases.includes(margen === 'mt-4' ? 'mt-6' : 'mt-4'), id)
+        assert.ok(clases.includes('font-thin'), `${id}: ${clases.join(' ')}`)
+        assert.deepEqual(margenesDeArriba(clases), margenes, `${id}: ${clases.join(' ')}`)
       }
       for (const id of ['el-museo-mision', 'el-museo-numeros']) {
         assert.equal(cuantas(seccion(main, id).split(`<h2 id="${id}"`)[0], '<p'), 0, id)
@@ -2270,25 +2739,41 @@ describe('Layout, header, menú y pie (sin base)', () => {
     }
   })
 
-  test('El Museo: "El MuPa" con los dos párrafos, la foto del patio y las piedritas; "Cómo nos organizamos" con las dos partes, sus logos y las piedritas de la Identidad', () => {
+  test('El Museo: "El MuPa" con los dos párrafos, la foto del patio (con el recorte del cuadro de celular debajo de md) y las piedritas; "Cómo nos organizamos" con las dos partes, sus logos y las piedritas de la Identidad', () => {
     const { presentacion, cogestion } = contenido.elMuseo
     const main = delMain(elMuseoCon())
     // El MuPa: la sección posicionada y sin scroll horizontal (por las piedritas); los párrafos de la nota.
     const p = seccion(main, 'el-museo-presentacion')
-    assert.deepEqual(clasesDe(main, /<section aria-labelledby="el-museo-presentacion" class="([^"]*)"/), ['relative', 'overflow-x-clip', 'py-16', 'lg:py-30'])
+    assert.deepEqual(clasesDe(main, /<section aria-labelledby="el-museo-presentacion" class="([^"]*)"/), AIRE_EL_MUSEO['el-museo-presentacion'])
     assert.equal(presentacion.parrafos.length, 2)
     for (const texto of presentacion.parrafos) {
       assert.ok(p.includes(`<p class="text-lg leading-[1.875rem] font-normal text-paper wrap-break-word text-pretty">${texto}</p>`), texto)
     }
-    assert.ok(p.includes('<div class="mt-12 grid gap-8 lg:grid-cols-2 lg:gap-x-20">'))
-    // La foto del patio (la del Collage de la Home), en 5:3 con esquinas de 16, lazy y con prioridad baja.
+    // Dos columnas desde md (de md a lg con 32; desde lg con 80); debajo, una, a 24 del h2.
+    assert.ok(p.includes('<div class="mt-6 grid gap-6 md:grid-cols-2 md:gap-8 lg:mt-12 lg:gap-x-20">'))
+    // La foto del patio (la del Collage de la Home), lazy y con prioridad baja: desde 32rem, entera en 5:3 con esquinas de
+    // 16 (la foto misma, como antes del celular: el envoltorio va sin caja, con display contents); debajo de 32rem (los
+    // teléfonos), en un envoltorio de 354/230 que la recorta, agrandada 1,515 veces desde abajo (el recorte del cuadro
+    // de celular, sin un archivo nuevo). De 32rem a md, entera: agrandada perdía resolución en un iPad mini (VMUS-01).
     const fotos = p.match(/<img [^>]*>/g)
     assert.equal(fotos.length, 2)
     const patio = fotos.find((f) => f.includes('carrusel-patio'))
-    for (const a of ['loading="lazy"', 'decoding="async"', 'fetchPriority="low"', `alt="${presentacion.imagen.alt}"`, 'aspect-[5/3]', 'rounded-2xl', 'object-cover']) {
+    for (const a of ['loading="lazy"', 'decoding="async"', 'fetchPriority="low"', `alt="${presentacion.imagen.alt}"`]) {
       assert.ok(patio.includes(a), a)
     }
+    assert.deepEqual(/ class="([^"]*)"/.exec(patio)[1].split(' '), [
+      'block', 'aspect-[5/3]', 'h-auto', 'w-full', 'rounded-2xl', 'object-cover', 'max-[32rem]:aspect-auto',
+      'max-[32rem]:size-full', 'max-[32rem]:rounded-none', 'max-[32rem]:origin-bottom', 'max-[32rem]:scale-[1.515]',
+    ])
+    assert.ok(p.includes(`<div class="contents max-[32rem]:isolate max-[32rem]:block max-[32rem]:aspect-[354/230] max-[32rem]:overflow-hidden max-[32rem]:rounded-2xl">${patio}</div>`))
+    assert.equal(cuantas(p, 'max-md:'), 0)
     assert.deepEqual([...patio.matchAll(/ (\d+)w/g)].map((x) => Number(x[1])), [700, 1400])
+    // El sizes: el de siempre desde lg; de md a lg, la mitad del contenido; de 32rem a md, el contenido; debajo, el
+    // contenido por 1,52 (la foto se ve agrandada).
+    assert.match(
+      patio,
+      /sizes="\(min-width: 90rem\) 600px, \(min-width: 64rem\) calc\(\(100vw - 15rem\) \/ 2\), \(min-width: 48rem\) calc\(\(100vw - 7rem\) \/ 2\), \(min-width: 32rem\) calc\(100vw - 3rem\), calc\(\(100vw - 3rem\) \* 1\.52\)"/,
+    )
     // Las piedritas: decorativas (alt vacío dentro de un aria-hidden), solo desde lg, lazy; 96 px sobre la sección.
     assert.match(
       p,
@@ -2297,9 +2782,10 @@ describe('Layout, header, menú y pie (sin base)', () => {
     // Cómo nos organizamos: las dos partes (una lista), cada una con su rótulo en h3, el logo de la institución (el
     // blanco del pie, con data-logo-blanco y su nombre de alt), la introducción en gris y su lista.
     const c = seccion(main, 'el-museo-cogestion')
-    assert.deepEqual(clasesDe(main, /<section aria-labelledby="el-museo-cogestion" class="([^"]*)"/), ['relative', 'overflow-x-clip', 'py-16', 'lg:py-30'])
-    // La lista de las partes va posicionada: una piedra que la cruce pasa por detrás de las letras (MUS-01).
-    assert.ok(c.includes('<ul class="relative mt-12 grid gap-10 lg:grid-cols-[502fr_738fr]">'))
+    assert.deepEqual(clasesDe(main, /<section aria-labelledby="el-museo-cogestion" class="([^"]*)"/), AIRE_EL_MUSEO['el-museo-cogestion'])
+    // La lista de las partes va posicionada: una piedra que la cruce pasa por detrás de las letras (MUS-01). Desde lg, de
+    // 502 y 738 con 40 entre sí; de md a lg, dos iguales con 32; debajo de md, una debajo de la otra con 48, a 24 del h2.
+    assert.ok(c.includes('<ul class="relative mt-6 grid gap-12 md:grid-cols-2 md:gap-8 lg:mt-12 lg:grid-cols-[502fr_738fr] lg:gap-10">'))
     assert.deepEqual([...c.matchAll(/<h3 class="([^"]*)">([^<]*)<\/h3>/g)].map((x) => x[2]), ['Co-gestión académica', 'Gestión provincial'])
     assert.match(c, /<h3 class="font-mono text-xs leading-4 font-medium text-paper uppercase">Co-gestión académica<\/h3>/)
     const logos = c.match(/<img [^>]*data-logo-blanco[^>]*>/g)
@@ -2319,12 +2805,15 @@ describe('Layout, header, menú y pie (sin base)', () => {
     for (const parte of cogestion.partes) assert.deepEqual(Object.keys(parte), ['rotulo', 'institucion', 'intro', 'items'])
   })
 
-  test('El Museo (IN1, IN2): Misión y visión con siete Valores que no son controles; los documentales sin flechas ni contador y el "play" decorado; los números con "[—]"', () => {
+  test('El Museo (IN1, IN2): Misión y visión con siete Valores que no son controles; los documentales en una fila desde md y, debajo, un carrusel de a uno con sus controles; el "play" decorado; los números con "[—]"', () => {
     const { mision, documentales, numeros } = contenido.elMuseo
     const main = delMain(elMuseoCon())
     // Misión y visión: el rótulo de cada una en h3 y su texto en 20/32; "Valores" en h3 Thin 40/52 y las siete píldoras,
     // una lista sin enlaces ni botones.
     const mv = seccion(main, 'el-museo-mision')
+    // Misión y Visión en dos columnas desde md; debajo, una debajo de la otra, a 32 del h2 y entre sí; Valores, a 32.
+    assert.ok(mv.includes('<div class="mt-8 grid gap-8 md:grid-cols-2 lg:mt-16 lg:gap-x-20">'))
+    assert.match(mv, /<div class="mt-8 lg:mt-16"><h3 class="font-titulo [^"]*">Valores<\/h3>/)
     for (const item of mision.items) {
       assert.ok(mv.includes(`<h3 class="font-mono text-sm leading-5 font-medium text-paper uppercase">${item.rotulo}</h3><p class="text-xl leading-8 font-normal text-paper wrap-anywhere text-pretty">${item.texto}</p>`), item.rotulo)
     }
@@ -2334,20 +2823,67 @@ describe('Layout, header, menú y pie (sin base)', () => {
     assert.equal(pildoras.length, 7)
     for (const [, clases] of pildoras) for (const cl of ['rounded-full', 'border', 'border-paper', 'font-mono', 'text-sm']) assert.ok(clases.split(' ').includes(cl), cl)
     assert.equal(cuantas(mv, '<a'), 0)
-    // Haciendo el MuPa: la bajada (de la nota), tres tarjetas en una fila desde lg, sin flechas ni "1/3" (IN2).
+    // Haciendo el MuPa: la bajada (de la nota) y la lista de los tres documentales, UNA vez en el HTML: desde md, la fila
+    // de tres de escritorio (sin controles: entran los tres, IN2); debajo de md, un carrusel de a uno, como el cuadro de
+    // celular, con scroll horizontal nativo (Lenis no toma los gestos horizontales), sin snap antes de hidratar (lo pone
+    // el efecto, solo debajo de md) y, sin JavaScript o al imprimir, las tres en renglones.
     const d = seccion(main, 'el-museo-documentales')
     assert.ok(d.includes(`<p class="text-lg leading-7 font-normal text-muted text-pretty mt-4">${documentales.bajada}</p>`))
-    assert.ok(d.includes('<ul class="mt-12 grid gap-8 lg:grid-cols-3">'))
+    // La fila se llama como su sección (aria-labelledby al h2): enfocada, el lector dice cuál es (VREG-01 y VA11-02).
+    const fila = /<ul id="([^"]+)" aria-labelledby="el-museo-documentales" data-lenis-prevent-horizontal="" class="([^"]*)">/.exec(d)
+    assert.ok(fila, 'la fila de los documentales')
+    assert.equal(cuantas(d, '<ul'), 1)
+    // (el & de la clase de la barra va escapado en el atributo)
+    assert.deepEqual(fila[2].replaceAll('&amp;', '&').split(' '), [
+      'relative', 'mt-4', '-mr-2', '-mb-2', '-ml-2', 'flex', 'scroll-pl-2', 'gap-8', 'overflow-x-auto', 'overscroll-x-contain',
+      'py-2', 'pr-2', 'pl-2', '[scrollbar-width:none]', '[&::-webkit-scrollbar]:hidden', 'noscript:flex-wrap', 'noscript:overflow-visible',
+      'print:flex-wrap', 'print:overflow-visible', 'focus-visible:outline-2', 'focus-visible:outline-blanco', 'md:m-0',
+      'md:mt-8', 'md:grid', 'md:grid-cols-3', 'md:gap-6',
+      'md:overflow-visible', 'md:p-0', 'lg:mt-12', 'lg:gap-8',
+    ])
+    for (const clase of ['snap-x', 'snap-mandatory', 'max-md:snap-x', 'max-md:snap-mandatory']) assert.ok(!fila[2].split(' ').includes(clase), clase)
+    // La fila toma el foco (para deslizarla con el teclado) recién cuando el efecto mide que desborda: el HTML del
+    // servidor no lo lleva.
+    assert.equal(cuantas(d, 'tabindex'), 0)
+    // Cada documental una vez, del ancho del contenido debajo de md (con el snap a su borde izquierdo) y de su columna
+    // desde md.
     assert.deepEqual([...d.matchAll(/<h3 class="[^"]*">([^<]*)<\/h3>/g)].map((x) => x[1]), documentales.lista.map((x) => x.titulo))
+    for (const doc of documentales.lista) assert.equal(cuantas(main, `>${doc.titulo}<`), 1, doc.titulo)
+    assert.equal(cuantas(d, '<li class="group relative w-full min-w-0 shrink-0 snap-start md:w-auto">'), 3)
+    assert.equal(cuantas(d, '<li'), 3)
     for (const n of [1, 2, 3]) assert.ok(d.includes(`<p class="font-mono text-xs leading-4 font-medium text-paper uppercase">Documental · ${n}</p>`), n)
     assert.equal(cuantas(d, '>[Título pendiente]</p>'), 3)
+    // Las fotos: 354/280 en el celular (el cuadro) y 405/280 desde md, lazy y con prioridad baja.
     const fotos = d.match(/<img [^>]*>/g)
     assert.equal(fotos.length, 3)
-    for (const f of fotos) for (const a of ['loading="lazy"', 'fetchPriority="low"', 'aspect-[405/280]', 'rounded-xl']) assert.ok(f.includes(a), a)
+    for (const f of fotos) {
+      const clases = / class="([^"]*)"/.exec(f)[1].split(' ')
+      assert.deepEqual(clases, ['block', 'aspect-[354/280]', 'h-auto', 'w-full', 'rounded-xl', 'object-cover', 'md:aspect-[405/280]'])
+      for (const a of ['loading="lazy"', 'fetchPriority="low"']) assert.ok(f.includes(a), a)
+      assert.match(f, /sizes="\(min-width: 90rem\) 405px, \(min-width: 64rem\) calc\(\(100vw - 14rem\) \/ 3\), \(min-width: 48rem\) calc\(\(100vw - 8rem\) \/ 3\), calc\(100vw - 3rem\)"/)
+    }
     // El "play": un círculo decorado (aria-hidden), con el ícono; no es un enlace ni un botón.
     assert.equal(cuantas(d, '<span aria-hidden="true" class="absolute top-1/2 left-1/2 flex size-16'), 3)
     assert.equal(cuantas(d, '<polygon points="5 3 19 12 5 21 5 3"'), 3)
-    for (const texto of ['<a', '<button', '1/3', 'Anterior', 'Siguiente']) assert.equal(cuantas(d, texto), 0, texto)
+    // Los controles del carrusel (los de Novedades: ControlesCarrusel.jsx), a la izquierda y solo debajo de md, con
+    // JavaScript y en la pantalla; invisibles hasta que la página hidrata. Anterior y Siguiente con su nombre y
+    // aria-controls a la fila (IN2: en el celular hacen algo), el "1/3" de dibujo y la región viva vacía (dice
+    // "Documental 2 de 3" después de un botón).
+    assert.equal(cuantas(d, '<a'), 0)
+    assert.equal(cuantas(d, '<button'), 2)
+    const botones = [...d.matchAll(/<button type="button" aria-controls="([^"]+)" aria-disabled="(true|false)"[^>]*>[\s\S]*?<span class="sr-only">([^<]*)<\/span><\/button>/g)]
+    assert.deepEqual(botones.map((b) => [b[1], b[2], b[3]]), [
+      [fila[1], 'true', documentales.anterior],
+      [fila[1], 'false', documentales.siguiente],
+    ])
+    assert.deepEqual([documentales.anterior, documentales.siguiente], ['Anterior', 'Siguiente'])
+    assert.ok(d.includes('<div class="mt-6 flex items-center justify-start gap-2 md:hidden noscript:hidden print:hidden invisible"><button'))
+    assert.match(d, /<span aria-hidden="true" class="[^"]*">1(<!-- -->)?\/(<!-- -->)?3<\/span>/)
+    assert.ok(d.includes('<p aria-live="polite" class="sr-only"></p>'), 'la región viva, vacía')
+    assert.equal(documentales.contador(2, 3), 'Documental 2 de 3')
+    assert.equal(cuantas(d, 'Documental 1 de 3'), 0)
+    // Los controles van después de la fila, dentro de la sección.
+    assert.ok(d.indexOf('</ul>') < d.indexOf('<button'))
     // IN3: cada documental, una fila sin enlace.
     for (const doc of documentales.lista) {
       assert.deepEqual(Object.keys(doc), ['titulo', 'subtitulo', 'url', 'imagen'])
@@ -2360,20 +2896,32 @@ describe('Layout, header, menú y pie (sin base)', () => {
     assert.deepEqual([...n.matchAll(/<dt class="[^"]*">([^<]*)<\/dt>/g)].map((x) => x[1]), ['Área de extensión', 'Piezas fósiles', 'Dispositivos interactivos', 'Científicos e investigadores'])
     const cifras = [...n.matchAll(/<dd class="([^"]*)">([^<]*)<\/dd>/g)]
     assert.deepEqual(cifras.map((x) => x[2]), ['[—]', '[—]', '[—]', '[—]'])
-    for (const [, clases] of cifras) for (const cl of ['order-first', 'font-hero', 'font-[weight:755]', 'min-[32rem]:text-[4rem]']) assert.ok(clases.split(' ').includes(cl), cl)
-    // Debajo de lg, dos columnas y una debajo de 20rem: con la letra agrandada los rótulos no entraban (VDIS-01); la
-    // palabra que igual no entre se parte.
-    assert.ok(n.includes('<dl class="mt-16 grid grid-cols-2 max-[20rem]:grid-cols-1 lg:grid-cols-4">'))
+    // La cifra a 64/72 en todos los anchos (el cuadro de celular también; era 36 debajo de 32rem).
+    for (const [, clases] of cifras) {
+      const lista = clases.split(' ')
+      for (const cl of ['order-first', 'font-hero', 'font-[weight:755]', 'text-[4rem]', 'leading-[1.125]']) assert.ok(lista.includes(cl), cl)
+      for (const cl of ['text-[2.25rem]', 'min-[32rem]:text-[4rem]']) assert.ok(!lista.includes(cl), cl)
+    }
+    // Cuatro columnas desde lg, dos de md a lg y una debajo de md (el cuadro de celular; con una, los rótulos entran con
+    // la letra agrandada, VDIS-01); 24 debajo del h2 en el celular. La palabra que igual no entre se parte.
+    assert.ok(n.includes('<dl class="mt-6 grid grid-cols-1 md:grid-cols-2 lg:mt-16 lg:grid-cols-4">'))
+    // Cada cifra: 40 arriba y abajo en todos los anchos (180 de alto en el celular), 8 a los costados debajo de lg y 24
+    // desde lg, con la línea entre columnas solo desde lg.
+    for (const [, clases] of n.matchAll(/<div class="([^"]*)"><dt/g)) {
+      assert.deepEqual(clases.split(' '), ['flex', 'min-w-0', 'flex-col', 'gap-2', 'px-2', 'py-10', 'text-center', 'lg:px-6', 'lg:not-last:border-r', 'lg:border-line'])
+    }
     for (const [, clases] of n.matchAll(/<dt class="([^"]*)">/g)) assert.ok(clases.split(' ').includes('wrap-break-word'))
     assert.equal(cuantas(n, 'lg:not-last:border-r'), 4)
     for (const c of numeros.cifras) assert.deepEqual(Object.keys(c), ['cifra', 'rotulo'])
   })
 
-  test('El Museo (IN2, IN3, IN5): las autoridades y el equipo sin retrato (el recuadro neutro); con foto en la fila, la foto con su nombre; ningún control en la página', () => {
+  test('El Museo (IN2, IN3, IN5): las autoridades y el equipo sin retrato (el recuadro neutro); con foto en la fila, la foto con su nombre; el equipo centrado debajo de md; ningún enlace y solo los dos botones del carrusel', () => {
     const { autoridades, equipo, documentales } = contenido.elMuseo
     const main = delMain(elMuseoCon())
     // Autoridades: el recuadro (aria-hidden, en el color de la caja), el cargo, el nombre en h3 y la biografía; ninguna foto.
     const a = seccion(main, 'el-museo-autoridades')
+    // En dos columnas desde md; debajo, una debajo de la otra, a 32 del h2 y con 32 entre sí (el cuadro de celular).
+    assert.ok(a.includes('<ul class="mt-8 grid gap-8 md:grid-cols-2 lg:mt-16 lg:gap-12 lg:gap-x-20">'))
     assert.equal(cuantas(a, '<img'), 0)
     assert.equal(cuantas(a, RECUADRO_EL_MUSEO), 2)
     for (const persona of autoridades.personas) {
@@ -2383,20 +2931,25 @@ describe('Layout, header, menú y pie (sin base)', () => {
       assert.equal(persona.foto, null)
     }
     assert.deepEqual(autoridades.personas.map((x) => [x.cargo, x.nombre]), [['Director', 'Oscar Alcober'], ['Director científico', 'Ricardo Martínez']])
-    // Nuestro equipo: el párrafo en gris (en su caja de 700) y cuatro integrantes de relleno, sin foto.
+    // Nuestro equipo: el párrafo en gris (en su caja de 700) y cuatro integrantes de relleno, sin foto. Debajo de md, el
+    // rótulo, el h2 y el párrafo centrados (el cuadro de celular; el título y el párrafo, los de escritorio: O7) y los
+    // integrantes de a uno, con 32 entre sí; de md a lg, de a dos; desde lg, de a cuatro, a la izquierda.
     const e = seccion(main, 'el-museo-equipo')
-    assert.ok(e.includes(`<p class="text-lg leading-[1.875rem] font-normal text-muted wrap-break-word text-pretty mt-4 max-w-[43.75rem]">${equipo.parrafo}</p>`))
-    // Una columna debajo de 20rem: con la letra agrandada los recuadros se pisaban (encontrado al corregir VDIS-01).
-    assert.ok(e.includes('<ul class="mt-12 grid grid-cols-2 max-[20rem]:grid-cols-1 gap-6 lg:grid-cols-4">'))
+    assert.ok(e.includes(`<p class="text-lg leading-[1.875rem] font-normal text-muted wrap-break-word text-pretty mt-4 max-w-[43.75rem] max-md:mx-auto max-md:text-center">${equipo.parrafo}</p>`))
+    assert.ok(h2De(e, 'el-museo-equipo').clases.includes('max-md:text-center'))
+    assert.deepEqual(margenesDeArriba(h2De(e, 'el-museo-equipo').clases), ['mt-4'])
+    assert.ok(e.includes('<ul class="mt-8 grid grid-cols-1 gap-8 md:grid-cols-2 lg:mt-12 lg:grid-cols-4 lg:gap-6">'))
     assert.equal(cuantas(e, '<img'), 0)
     assert.equal(cuantas(e, RECUADRO_EL_MUSEO), 4)
     assert.equal(cuantas(e, '>[Nombre del integrante]</p>'), 4)
     assert.equal(cuantas(e, '>[Rol]</p>'), 4)
     assert.equal(cuantas(e, '<h3'), 0)
     for (const persona of equipo.personas) assert.deepEqual(Object.keys(persona), ['nombre', 'rol', 'foto'])
-    // IN2: en todo el <main>, ningún enlace, botón ni formulario; solo la foto del hero sin loading (las demás, lazy).
+    // IN2: en todo el <main>, ningún enlace ni formulario y exactamente dos botones (Anterior y Siguiente del carrusel de
+    // documentales del celular, que sí hacen algo); solo la foto del hero sin loading (las demás, lazy).
     assert.deepEqual(anclas(main), [])
-    assert.equal(cuantas(main, '<button'), 0)
+    assert.equal(cuantas(main, '<button'), 2)
+    assert.equal(cuantas(seccion(main, 'el-museo-documentales'), '<button'), 2)
     const imgs = main.match(/<img [^>]*>/g)
     assert.equal(imgs.filter((i) => !i.includes('loading="lazy"')).length, 1)
     assert.ok(imgs.find((i) => !i.includes('loading="lazy"')).includes('hero-el-museo'))
@@ -2421,18 +2974,33 @@ describe('Layout, header, menú y pie (sin base)', () => {
     }
   })
 
-  test('HeroPagina y BloqueTextoFoto: sin bajadaJusta ni apartado, lo de antes (la bajada de Divulgación en 1,75, sin h3 en sus bloques)', async () => {
+  test('HeroPagina y BloqueTextoFoto: sin bajadaJusta ni apartado, la bajada de Divulgación en 1,75 desde lg y sus bloques sin h3', async () => {
     const tablero = await vite.ssrLoadModule('/src/components/tablero.js')
-    // La bajada de Divulgación, carácter por carácter la de antes de Circuitos; la de Circuitos, la misma con 1,25.
-    const antes =
-      'mx-auto mt-4 max-w-none text-center text-[1.25rem] leading-normal font-normal text-paper ' +
-      '[text-shadow:0_0_1rem_rgb(0_0_0/0.25),0_0_0.125em_rgb(1_1_1/0.9),0_0_0.25em_rgb(1_1_1/0.8),0_0_0.5em_rgb(1_1_1/0.5)] ' +
-      'min-[32rem]:text-[2rem] lg:max-w-[52.5rem] lg:leading-[1.75]'
-    assert.equal(tablero.BAJADA_HERO_PAGINA, antes)
-    assert.equal(tablero.BAJADA_HERO_PAGINA_JUSTA, antes.replace('lg:leading-[1.75]', 'lg:leading-[1.25]'))
+    // La bajada de Divulgación, carácter por carácter: debajo de 32rem, 16/24 con su halo en rem en una columna de 320
+    // (la de la Home de celular: así va siempre en dos renglones, VREN-01) y balanceada (sin «Juan» sola en el segundo
+    // renglón, RV-01); desde 32rem, 32 px a todo el ancho con el interlineado normal y el halo en em, como antes; desde
+    // lg, 840 de ancho y 1,75. La de Circuitos, la misma a todo el ancho también debajo de 32rem, sin el balance, y con
+    // 1,25 desde lg.
+    const bajada =
+      'mx-auto mt-4 max-w-[20rem] min-[32rem]:max-w-none max-[32rem]:text-balance text-center text-base leading-6 font-normal text-paper ' +
+      '[text-shadow:0_0_1rem_rgb(0_0_0/0.25),0_0_0.125rem_rgb(1_1_1),0_0_0.25rem_rgb(1_1_1/0.9),0_0_0.5rem_rgb(1_1_1/0.8),0_0_0.75rem_rgb(1_1_1/0.6)] ' +
+      'min-[32rem]:text-[2rem] min-[32rem]:leading-normal ' +
+      'min-[32rem]:[text-shadow:0_0_1rem_rgb(0_0_0/0.25),0_0_0.125em_rgb(1_1_1/0.9),0_0_0.25em_rgb(1_1_1/0.8),0_0_0.5em_rgb(1_1_1/0.5)] ' +
+      'lg:max-w-[52.5rem] lg:leading-[1.75]'
+    assert.equal(tablero.BAJADA_HERO_PAGINA, bajada)
+    assert.equal(
+      tablero.BAJADA_HERO_PAGINA_JUSTA,
+      bajada
+        .replace('lg:leading-[1.75]', 'lg:leading-[1.25]')
+        .replace('max-w-[20rem] min-[32rem]:max-w-none max-[32rem]:text-balance', 'max-w-none'),
+    )
+    // El balance va solo debajo de 32rem y solo en la de Divulgación.
+    assert.equal(tablero.BAJADA_HERO_PAGINA.split(' ').filter((c) => c.endsWith('text-balance')).join(' '), 'max-[32rem]:text-balance')
+    assert.ok(!tablero.BAJADA_HERO_PAGINA_JUSTA.includes('text-balance'))
+    assert.ok(tablero.BAJADA_HERO_PAGINA_JUSTA.endsWith(' lg:max-w-[52.5rem] lg:leading-[1.25]'))
     // En Divulgación, la bajada sigue en 1,75 y sus cuatro bloques sin h3 (los 3 h3 son las tarjetas del newsletter).
     const main = delMain(pagina({ pagina: 'divulgacion', ruta: '/divulgacion', museo: MUSEO_VACIO, datos: { novedades: [] } }))
-    assert.ok(seccion(main, 'divulgacion-titulo').includes(`<p class="${antes}">`))
+    assert.ok(seccion(main, 'divulgacion-titulo').includes(`<p class="${bajada}">`))
     for (const b of contenido.divulgacion.bloques) assert.equal(cuantas(seccion(main, b.id), '<h3'), 0, b.id)
   })
 
@@ -2452,6 +3020,81 @@ describe('Layout, header, menú y pie (sin base)', () => {
     // Sin rótulo, el h2 sin mt-4 (el newsletter de Divulgación) y ningún <p> antes del h2.
     assert.match(naranja, /<div class="[^"]*"><h2 id="p" class="[^"]*font-thin[^"]*">T<\/h2>/)
     assert.ok(!clasesDe(naranja, /<h2 id="p" class="([^"]*)"/).includes('mt-4'))
+  })
+
+  test('los respaldos del h1 de los hero debajo de lg (VHOM-04 y VREN-01): cada familia con sus caras, y cada cara con su size-adjust y sus métricas', async () => {
+    const { readFileSync } = await import('node:fs')
+    const css = readFileSync(fileURLToPath(new URL('../../src/index.css', import.meta.url)), 'utf8')
+    const familia = (nombre) => {
+      const m = new RegExp(`--${nombre}: ([^;]*);`).exec(css)
+      assert.ok(m, nombre)
+      return [...m[1].matchAll(/"([^"]+)"/g)].map((x) => x[1])
+    }
+    // La de siempre (desde lg, y las fichas y la 404), y las dos de debajo de lg: cambian solo las caras medidas.
+    assert.deepEqual(familia('font-hero'), ['Google Sans Flex', 'GSF Hero Fallback', 'GSF Hero Fallback Roboto', 'GSF Hero Fallback Arial'])
+    assert.deepEqual(familia('font-hero-portada'), ['Google Sans Flex', 'GSF Hero Portada Fallback', 'GSF Hero Fallback Roboto', 'GSF Hero Portada Fallback Arial'])
+    assert.deepEqual(familia('font-hero-internas'), ['Google Sans Flex', 'GSF Hero Fallback', 'GSF Hero Fallback Roboto', 'GSF Hero Internas Fallback Arial'])
+    // Cada cara: la local de siempre, con el size-adjust medido y las métricas de Google Sans Flex (0,966 y 0,286 em)
+    // divididas por él, como las demás (si no, el renglón se corre al llegar la fuente).
+    const caras = Object.fromEntries(
+      [...css.matchAll(/@font-face \{([^}]*)\}/g)].map((m) => [/font-family: "([^"]+)"/.exec(m[1])?.[1], m[1]]),
+    )
+    for (const [nombre, local, ajuste] of [
+      ['GSF Hero Portada Fallback', 'local("Segoe UI Bold")', 138.15],
+      ['GSF Hero Portada Fallback Arial', 'local("Arial Bold")', 132.94],
+      ['GSF Hero Internas Fallback Arial', 'local("Arial Bold")', 133.79],
+    ]) {
+      const cara = caras[nombre]
+      assert.ok(cara, nombre)
+      assert.ok(cara.includes(local), nombre)
+      assert.ok(cara.includes('font-weight: 100 1000;'), nombre)
+      const valor = (prop) => Number(new RegExp(`${prop}: ([\\d.]+)%`).exec(cara)[1])
+      assert.equal(valor('size-adjust'), ajuste, nombre)
+      assert.ok(Math.abs(valor('ascent-override') - 9660 / ajuste) < 0.01, nombre)
+      assert.ok(Math.abs(valor('descent-override') - 2860 / ajuste) < 0.01, nombre)
+    }
+  })
+
+  test('ControlesCarrusel (los de Novedades y de los documentales de El Museo): las clases de su fila, invisible hasta medir; con una tarjeta, nada', async () => {
+    const ControlesCarrusel = (await vite.ssrLoadModule('/src/components/ControlesCarrusel.jsx')).default
+    // Lo que da useCarrusel antes de medir (el estado inicial, el mismo en el servidor y en el navegador) y después.
+    const sinMedir = { idFila: 'fila-x', aviso: '', anterior: () => {}, siguiente: () => {}, estado: { listo: false, desborda: false, actual: 1, alInicio: true, alFinal: false } }
+    const textos = { anterior: 'Atrás', siguiente: 'Adelante' }
+    const dibujar = (props) => renderToStaticMarkup(createElement(ControlesCarrusel, { textos, className: 'mt-6 flex justify-start', ...props }))
+    const html = dibujar({ carrusel: sinMedir, total: 4 })
+    assert.match(html, /^<div class="mt-6 flex justify-start invisible"><button type="button" aria-controls="fila-x" aria-disabled="true"[^>]*>[\s\S]*?<span class="sr-only">Atrás<\/span><\/button>/)
+    assert.match(html, /<button type="button" aria-controls="fila-x" aria-disabled="false"[^>]*>[\s\S]*?<span class="sr-only">Adelante<\/span><\/button>/)
+    // El contador: debajo de lg en un <span> (el espaciado de WCAG 1.4.12 suma margen a los párrafos y en un <p> el número
+    // se subía 24 px: VA11-03); desde lg, el <p> de siempre (O1: desde lg no cambia nada), con las mismas clases. Los
+    // dos con el mismo número, y el CSS muestra uno.
+    const CONTADOR = 'min-w-11 text-center font-mono text-2xl leading-[1.2] font-medium text-blanco'
+    assert.ok(html.includes(`<span aria-hidden="true" class="${CONTADOR} lg:hidden">1/4</span>`), html)
+    assert.ok(html.includes(`<p aria-hidden="true" class="hidden ${CONTADOR} lg:block">1/4</p>`), html)
+    assert.equal(cuantas(html, '<p aria-hidden'), 1)
+    assert.equal(cuantas(html, '<span aria-hidden'), 1)
+    // En el principio o en el final: debajo de lg solo la flecha queda tenue (el contorno del foco se ve entero:
+    // VA11-04); desde lg, el botón entero, como siempre. Las mismas clases en los dos botones.
+    const sinEntidades = html.replaceAll('&amp;', '&').replaceAll('&gt;', '>')
+    const clasesBoton = clasesDe(sinEntidades, /<button type="button" aria-controls="fila-x" aria-disabled="true" class="([^"]*)"/)
+    assert.deepEqual(clasesBoton.filter((c) => /opacity/.test(c)), [
+      'max-lg:[&>svg]:transition-opacity',
+      'lg:transition-opacity',
+      'max-lg:aria-disabled:[&>svg]:opacity-35',
+      'lg:aria-disabled:opacity-35',
+    ])
+    assert.deepEqual(clasesDe(sinEntidades, /<button type="button" aria-controls="fila-x" aria-disabled="false" class="([^"]*)"/), clasesBoton)
+    assert.ok(html.includes('<p aria-live="polite" class="sr-only"></p>'))
+    // Medido y con tarjetas que no entran: a la vista, con el contador y el aviso del hook.
+    const medido = { ...sinMedir, aviso: 'Documental 2 de 4', estado: { listo: true, desborda: true, actual: 2, alInicio: false, alFinal: false } }
+    const visible = dibujar({ carrusel: medido, total: 4 })
+    assert.match(visible, /^<div class="mt-6 flex justify-start">/)
+    assert.match(visible, />2\/4<\/span>/)
+    assert.match(visible, />2\/4<\/p>/)
+    assert.ok(visible.includes('<p aria-live="polite" class="sr-only">Documental 2 de 4</p>'))
+    assert.equal(cuantas(visible, 'aria-disabled="true"'), 0)
+    // Medido, pero entran todas: invisible (ocupa su lugar); con una sola tarjeta, nada.
+    assert.match(dibujar({ carrusel: { ...medido, estado: { ...medido.estado, desborda: false } }, total: 4 }), /^<div class="mt-6 flex justify-start invisible">/)
+    assert.equal(dibujar({ carrusel: sinMedir, total: 1 }), '')
   })
 
   test('toda imagen lazy del sitio lleva fetchPriority="low" (la convención del 05/11/2026; BCOD-02 del cierre)', () => {
@@ -2483,16 +3126,387 @@ describe('Layout, header, menú y pie (sin base)', () => {
     }
   })
 
-  test('el pie: las secciones y las redes en una fila si entran; si no, las redes enteras al renglón de abajo, a la derecha (BDIS-01)', () => {
+  test('el pie: desde lg, las secciones y las redes en una fila si entran y, si no, las redes enteras abajo, a la derecha (BDIS-01); debajo de md, cada lista en dos columnas; 16 entre bloques debajo de lg', () => {
     const html = delPie(pagina({ pagina: 'home', museo: MUSEO_MAXIMO, datos: { novedades: [] } }))
     assert.match(html, /<div class="mt-8 flex flex-col gap-x-12 gap-y-2 lg:flex-row lg:flex-wrap lg:items-start lg:justify-between">/)
-    assert.match(html, /<ul aria-label="[^"]*" class="flex min-w-0 flex-wrap gap-x-6 lg:ml-auto">/)
+    // Las dos listas: una grilla de dos columnas debajo de md (el pie de celular), cada una de 6,5rem como mínimo (si
+    // dos no entran, con la letra del navegador agrandada, una: VMAR-03); desde md, envueltas en renglones como
+    // siempre, y desde lg las redes contra el borde derecho.
+    const LISTA_PIE = 'grid grid-cols-[repeat(auto-fit,minmax(max(6.5rem,calc(50%_-_0.8rem)),1fr))] gap-x-6 md:flex md:flex-wrap'
+    assert.ok(html.includes(`<nav aria-label="${contenido.pie.secciones}" class="min-w-0"><ul class="${LISTA_PIE}"><li>`))
+    assert.ok(html.includes(`<ul aria-label="${contenido.pie.redes}" class="min-w-0 ${LISTA_PIE} lg:ml-auto"><li>`))
+    assert.equal(cuantas(html, 'grid-cols-2'), 0)
+    assert.equal(cuantas(html, 'class="flex flex-wrap gap-x-6"') + cuantas(html, 'class="flex min-w-0 flex-wrap gap-x-6 lg:ml-auto"'), 0)
+    // El pie del cuadro de celular: 16 entre el bloque de la marca con el © y los logos (desde lg, en una fila con 32),
+    // y el © sin una palabra sola en el último renglón.
+    assert.match(html, /<div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between lg:gap-8"><div class="flex flex-col items-start gap-4"><img /)
+    assert.match(html, /<p class="text-xs leading-4 text-muted text-pretty">© 2026 MUPA - Museo Paleontológico de San Juan<\/p>/)
+    // Sin redes (el museo vacío), la lista de las secciones sola, igual.
+    const sinRedes = delPie(pagina({ pagina: 'home', museo: MUSEO_VACIO, datos: { novedades: [] } }))
+    assert.equal(cuantas(sinRedes, LISTA_PIE), 1)
+    assert.equal(cuantas(html, LISTA_PIE), 2)
   })
 
-  test('el header: con la letra agrandada (menos de 19,5rem de ancho) no van la línea ni los isotipos (CIR-02); siguen en el pie', () => {
+  test('el logo del header: en el celular, la marca de 80, la línea de 41 y los isotipos de 32, con 24 entre piezas; desde sm, lo del tablero; con menos de 20rem de ancho, solo la marca (CIR-02)', () => {
     const html = sinDialogo(delHeader(pagina({ pagina: 'home', museo: MUSEO_VACIO, datos: { novedades: [] } })))
-    assert.match(html, /<span aria-hidden="true" class="-mr-px h-8 shrink-0 border-l border-blanco sm:h-\[2\.5625rem\] max-\[19\.5rem\]:hidden"><\/span>/)
-    assert.match(html, /<ul aria-label="[^"]*" class="flex shrink-0 items-center gap-3 sm:gap-6 max-\[19\.5rem\]:hidden">/)
+    // El bloque: 24 entre piezas en todos los anchos.
+    assert.match(html, /<div class="flex min-w-0 items-center gap-6"><a href="\/"/)
+    // La marca: 80 de ancho con su alto (26,5) en el celular y 120x40 desde sm.
+    assert.match(html, /<img [^>]*alt="MuPa - Museo Paleontológico de San Juan" width="120" height="40" class="block h-auto w-20 sm:h-10 sm:w-30"/)
+    // La línea (41 de alto en todos los anchos) y los isotipos (32; 40 desde sm). Con la letra del navegador agrandada,
+    // debajo de 20rem de ancho no entran con el ícono del menú y no van: siguen en el pie.
+    assert.match(html, /<span aria-hidden="true" class="-mr-px h-\[2\.5625rem\] shrink-0 border-l border-blanco max-\[20rem\]:hidden"><\/span>/)
+    assert.match(html, /<ul aria-label="[^"]*" class="flex shrink-0 items-center gap-6 max-\[20rem\]:hidden">/)
+    assert.equal(cuantas(html, 'class="block size-8 sm:size-10"'), contenido.site.logo.isotipos.length)
+    // Nada de las medidas de antes: la marca de 96x32, la línea de 32, 12 entre piezas, el corte de 19,5rem.
+    for (const no of ['h-8', 'w-24', 'gap-3', '19.5rem', 'sm:h-[2.5625rem]', 'sm:gap-6']) assert.equal(cuantas(html, no), 0, no)
+    // El del menú abierto, el mismo (sobre el fondo del sitio: con data-logo-blanco).
+    const dialogo = /<dialog[\s\S]*?<\/dialog>/.exec(pagina({ pagina: 'home', museo: MUSEO_VACIO, datos: { novedades: [] } }))[0]
+    assert.match(dialogo, /<img [^>]*alt="MuPa - Museo Paleontológico de San Juan" width="120" height="40" data-logo-blanco="" class="block h-auto w-20 sm:h-10 sm:w-30"/)
+    assert.match(dialogo, /<ul aria-label="[^"]*" class="flex shrink-0 items-center gap-6 max-\[20rem\]:hidden">/)
+    // En el pie siguen los logos de las instituciones, enteros.
+    const pie = delPie(pagina({ pagina: 'home', museo: MUSEO_VACIO, datos: { novedades: [] } }))
+    assert.equal(cuantas(pie, 'class="h-[2.625rem] w-auto"'), contenido.pie.instituciones.length)
+  })
+
+  // --- El marco de celular (Figma "Web Mobile", 10/11/2026; decisiones M1 a M5 y O2 del desarrollador): la barra de
+  // hoy, el header con el ícono del menú, el menú abierto y el lugar que le deja cada página. ---
+
+  /** La Home con el museo máximo y el dato de la barra de hoy, que resuelve el servidor (server/ssr.js); acá, a mano. */
+  const conBarra = (abiertoHoy) => pagina({ pagina: 'home', museo: MUSEO_MAXIMO, datos: { novedades: [] }, abiertoHoy })
+  /** Las barras de hoy de un pedazo de HTML, cada una entera (no tienen otro <div> adentro). */
+  const barras = (html) => html.match(/<div data-hoy="[^"]*"[^>]*>.*?<\/div>/g) ?? []
+  /** El <dialog> del menú de debajo de xl. */
+  const dialogoDe = (html) => /<dialog[\s\S]*?<\/dialog>/.exec(html)[0]
+
+  test('la barra de hoy (M3): "abierto" o "cerrado" según estado.abiertoHoy, con "Horarios" a la tarjeta de Visitas; sin el dato, no está', () => {
+    const { barraHoy } = contenido
+    for (const [abiertoHoy, palabra, texto, punto] of [
+      [true, 'abierto', barraHoy.abierto, 'text-verde-claro'],
+      [false, 'cerrado', barraHoy.cerrado, 'text-bordo'],
+    ]) {
+      const html = conBarra(abiertoHoy)
+      // Dos veces e iguales: en el header y adentro del menú (que, abierto, tapa la del header). En ningún otro lado.
+      const todas = barras(html)
+      assert.equal(todas.length, 2, palabra)
+      assert.equal(todas[0], todas[1])
+      assert.equal(barras(sinDialogo(delHeader(html))).length, 1)
+      assert.equal(barras(dialogoDe(html)).length, 1)
+      assert.equal(cuantas(delMain(html), 'data-hoy') + cuantas(delPie(html), 'data-hoy'), 0)
+      const barra = todas[0]
+      assert.ok(barra.startsWith(`<div data-hoy="${palabra}" class="`), barra.slice(0, 80))
+      // Va en el HTML en todos los anchos: solo se ve debajo de lg, y nunca al imprimir. Negra, de 40 como mínimo.
+      const clases = clasesDe(barra, /^<div data-hoy="[^"]*" class="([^"]*)"/)
+      for (const c of ['lg:hidden', 'print:hidden', 'bg-ink', 'min-h-10', 'max-[22rem]:min-h-12', 'px-6', 'md:px-10']) assert.ok(clases.includes(c), `${c} en ${clases.join(' ')}`)
+      // El estado: texto común (no una región viva: no cambia con la página abierta), con el punto decorado. En un
+      // <span>, no en un párrafo: el espaciado de texto de WCAG 1.4.12 les suma margen a los párrafos y la barra crecía.
+      assert.match(
+        barra,
+        new RegExp(
+          `<span class="[^"]*text-xs[^"]*text-paper[^"]*"><svg viewBox="0 0 12 12" aria-hidden="true" focusable="false" class="[^"]*${punto}"><circle [^>]*></circle><circle [^>]*></circle></svg>${texto}</span>`,
+        ),
+      )
+      assert.doesNotMatch(barra, /<p[ >]/)
+      // Sin ids (va dos veces) ni roles.
+      for (const no of ['role=', 'aria-live', ' id=']) assert.equal(cuantas(barra, no), 0, no)
+      // "Horarios": a la tarjeta Horarios de Visitas, de 44 de alto para el dedo, con la flecha de 12 decorada.
+      assert.match(
+        barra,
+        new RegExp(
+          `<a href="/visitas#visitas-horarios" class="[^"]*min-h-11[^"]*font-mono[^"]*">${barraHoy.horarios}<svg [^>]*aria-hidden="true"[^>]*class="shrink-0 size-3"><path [^>]*></path></svg></a></div>$`,
+        ),
+      )
+      // Sus 44 arrancan en el borde de arriba de la barra y sobresalen 4 px abajo, encima de la fila del logo (z-10), con
+      // el texto centrado en los 40 de la barra (pb-1); 6 de aire a los costados que no corren el texto, así el
+      // contorno del foco no pisa la «H» ni la flecha (VMAR-02, VMAR-01 y VA11-01).
+      const enlace = clasesDe(barra, /<a href="\/visitas#visitas-horarios" class="([^"]*)"/)
+      for (const c of ['relative', 'z-10', '-mx-1.5', 'px-1.5', '-mb-1', 'pb-1', 'min-h-11', 'focus-visible:-outline-offset-2']) assert.ok(enlace.includes(c), `${c} en ${enlace.join(' ')}`)
+      assert.ok(!enlace.some((c) => /^-?my-/.test(c)), enlace.join(' '))
+      assert.equal(cuantas(html, texto), 2)
+      assert.equal(cuantas(html, 'href="/visitas#visitas-horarios"'), 2)
+    }
+    assert.equal(cuantas(conBarra(true), barraHoy.cerrado) + cuantas(conBarra(false), barraHoy.abierto), 0)
+    // Entre "abierto" y "cerrado" cambian solo la palabra y el color del punto.
+    const igualado = (html) => html.replaceAll('abierto', 'cerrado').replaceAll('text-verde-claro', 'text-bordo')
+    assert.equal(igualado(conBarra(true)), igualado(conBarra(false)))
+    // Sin el dato (null: el horario sin cargar; o un estado sin la clave), sin barra ni enlace; lo que no es true ni
+    // false tampoco la dibuja (el componente no calcula ni adivina nada).
+    for (const nada of [null, undefined, 'abierto', 'true', 1, 0]) {
+      const html = conBarra(nada)
+      assert.equal(cuantas(html, 'data-hoy'), 0, String(nada))
+      assert.equal(cuantas(html, 'visitas-horarios'), 0, String(nada))
+      assert.equal(cuantas(html, barraHoy.abierto) + cuantas(html, barraHoy.cerrado), 0, String(nada))
+    }
+    // Sin barra, el resto de la página es el mismo.
+    assert.equal(conBarra(false).replace(/<div data-hoy="[^"]*"[^>]*>.*?<\/div>/g, ''), conBarra(null))
+    // "Ir al contenido" sigue siendo lo primero del header; después la barra, la marca y el botón del menú.
+    const header = sinDialogo(delHeader(conBarra(false)))
+    const orden = ['href="#main"', 'data-hoy="cerrado"', 'alt="MuPa - Museo Paleontológico de San Juan"', 'aria-controls="menu-movil"'].map((t) => header.indexOf(t))
+    assert.ok(orden.every((i, n) => i >= 0 && (n === 0 || i > orden[n - 1])), orden.join(', '))
+    assert.match(delHeader(conBarra(false)), /^<header class="absolute inset-x-0 top-0 z-40"><a href="#main"/)
+    // En todas las páginas (también en la 404 y en una interna), con el mismo enlace.
+    const visitas = pagina({ pagina: 'visitas', ruta: '/visitas', museo: MUSEO_MAXIMO, datos: { accesibilidad: null }, abiertoHoy: true })
+    const noEncontrada = pagina({ pagina: 'no-encontrada', ruta: '/no-existe', museo: MUSEO_MAXIMO, abiertoHoy: false })
+    for (const html of [visitas, noEncontrada]) {
+      assert.equal(barras(html).length, 2)
+      assert.equal(cuantas(html, 'href="/visitas#visitas-horarios"'), 2)
+    }
+    // En Visitas, la tarjeta Horarios lleva el id adonde apunta el enlace de la barra (los dos lo escriben a mano:
+    // acá se atan), una sola vez, con aire arriba al llegar.
+    const ancla = /<a href="\/visitas#([^"]+)"/.exec(barras(visitas)[0])[1]
+    assert.equal(cuantas(visitas, `id="${ancla}"`), 1)
+    assert.ok(delMain(visitas).includes(`<li id="${ancla}" class="flex min-w-0 scroll-mt-6 `))
+    assert.match(delMain(visitas), /<li id="visitas-horarios" class="flex min-w-0 scroll-mt-6 flex-col gap-5 [^"]*"><div class="flex items-center gap-4"><span [^>]*><svg [\s\S]*?<\/svg><\/span><h3 [^>]*>Horarios<\/h3>/)
+    // Las otras tarjetas, sin id; sin horario cargado no hay tarjeta Horarios (ni barra que lleve a ella).
+    assert.equal(cuantas(delMain(visitas), '<li id='), 1)
+    assert.equal(cuantas(pagina({ pagina: 'visitas', ruta: '/visitas', museo: MUSEO_VACIO, datos: { accesibilidad: null } }), 'visitas-horarios'), 0)
+    // Sin la página de Visitas, la barra va sin el enlace.
+    const paginaDeVisitas = tabla.PAGINAS.visitas
+    try {
+      delete tabla.PAGINAS.visitas
+      const sinVisitas = barras(conBarra(false))
+      assert.equal(sinVisitas.length, 2)
+      for (const barra of sinVisitas) {
+        assert.equal(cuantas(barra, '<a '), 0)
+        assert.ok(barra.includes(`${barraHoy.cerrado}</span></div>`))
+      }
+    } finally {
+      tabla.PAGINAS.visitas = paginaDeVisitas
+    }
+  })
+
+  test('el header de celular: la fila de 73 (16 de padding debajo de lg) y los botones del menú como íconos con su nombre; sin JavaScript, el botón no se ve', () => {
+    const html = conBarra(false)
+    const header = sinDialogo(delHeader(html))
+    // La fila: 16 arriba y abajo en todo el tramo de debajo de lg (con el logo de 41 mide 73: con la barra de 40, los
+    // 113 del marco); desde lg, lo de siempre (128 de alto, sin padding vertical).
+    const fila = clasesDe(header, /<div class="(mx-auto flex max-w-tablero [^"]*)"/)
+    for (const c of ['py-4', 'px-6', 'md:px-10', 'lg:h-32', 'lg:px-16', 'lg:py-0']) assert.ok(fila.includes(c), `${c} en ${fila.join(' ')}`)
+    for (const c of ['py-6', 'md:py-8']) assert.ok(!fila.includes(c), `${c} en ${fila.join(' ')}`)
+    // El botón: solo el ícono, con "Menú" como nombre accesible; un bloque flexible de 44x44 (en línea, apoyado en la
+    // línea de base del renglón, la fila medía 79 y no 73).
+    const boton = /<button type="button" aria-label="([^"]*)" aria-haspopup="dialog" aria-expanded="false" aria-controls="menu-movil" class="([^"]*)">(.*?)<\/button>/.exec(header)
+    assert.ok(boton, 'el botón del menú')
+    assert.equal(boton[1], contenido.navegacion.abrir)
+    const clasesBoton = boton[2].split(' ')
+    for (const c of ['flex', 'size-11', '-m-0.5', 'text-blanco', 'focus-visible:outline-2']) assert.ok(clasesBoton.includes(c), `${c} en ${boton[2]}`)
+    assert.ok(!clasesBoton.includes('inline-flex'), boton[2])
+    // Con colores forzados, el fondo de botón del sistema: sin él, con un tema claro el ícono (del color del texto del
+    // sistema) quedaba negro sobre la foto oscura de un hero y casi no se veía. Es el único fondo del botón: en el
+    // modo normal va sin fondo, sobre la foto; con el puntero encima, un fondo blanco tenue (el hover sutil de D8:
+    // VMAR-04), con su transición, que no corre con reduced-motion.
+    assert.deepEqual(clasesBoton.filter((c) => c.split(':').at(-1).startsWith('bg-')), ['hover:bg-blanco/10', 'forced-colors:bg-[ButtonFace]'], boton[2])
+    for (const c of ['transition-colors', 'motion-reduce:transition-none']) assert.ok(clasesBoton.includes(c), `${c} en ${boton[2]}`)
+    assert.match(boton[3], /^<svg viewBox="0 0 40 40" [^>]*aria-hidden="true"[^>]*class="shrink-0 size-10"><path d="M5 10h30M5 20h30M5 30h30"><\/path><\/svg>$/)
+    // Sin JavaScript no se ve (no abriría nada); desde xl tampoco (ahí está el menú ancho).
+    assert.ok(header.includes('<div class="xl:hidden noscript:hidden"><button '))
+    // La cruz del menú abierto: igual, con "Cerrar" como nombre.
+    const dialogo = dialogoDe(html)
+    const cruz = /<button type="button" aria-label="([^"]*)" class="([^"]*)">(.*?)<\/button>/.exec(dialogo)
+    assert.ok(cruz, 'la cruz')
+    assert.equal(cruz[1], contenido.navegacion.cerrar)
+    assert.equal(cruz[2], boton[2])
+    assert.match(cruz[3], /^<svg viewBox="0 0 40 40" [^>]*aria-hidden="true"[^>]*class="shrink-0 size-10"><path d="M30 10 10 30M10 10l20 20"><\/path><\/svg>$/)
+    // Son los dos únicos botones del header, y ninguno tiene texto a la vista (ni "Menú" ni "Cerrar").
+    const botones = delHeader(html).match(/<button [^>]*>.*?<\/button>/g)
+    assert.equal(botones.length, 2)
+    for (const b of botones) assert.match(b, /^<button [^>]*aria-label="[^"]+"[^>]*><svg [^>]*>.*?<\/svg><\/button>$/)
+    for (const texto of [contenido.navegacion.abrir, contenido.navegacion.cerrar]) assert.equal(cuantas(delHeader(html), `>${texto}<`), 0, texto)
+    // La fila de arriba del menú abierto es la del header: la cruz queda donde estaban las tres líneas.
+    assert.deepEqual(
+      clasesDe(dialogo, /<div class="(flex items-center justify-between [^"]*)"/),
+      fila.filter((c) => !['mx-auto', 'max-w-tablero'].includes(c)),
+    )
+  })
+
+  test('el menú abierto (O2): la barra y la fila arriba; los renglones del cuadro, con la línea desde el segundo; la sección actual; "Tickets" a todo el ancho, solo con la compra', () => {
+    const { navegacion } = contenido
+    const d = dialogoDe(pagina({ pagina: 'visitas', ruta: '/visitas', museo: MUSEO_MAXIMO, datos: { accesibilidad: null }, abiertoHoy: true }))
+    // Arriba, la barra de hoy; después la fila con el logo y la cruz; después la lista.
+    const orden = ['data-hoy="abierto"', `aria-label="${navegacion.cerrar}"`, `<nav aria-label="${navegacion.etiqueta}"`].map((t) => d.indexOf(t))
+    assert.ok(orden.every((i, n) => i >= 0 && (n === 0 || i > orden[n - 1])), orden.join(', '))
+    // 48 arriba y abajo de la lista, que desde md tiene el tope de 354 del cuadro.
+    assert.match(d, /<nav aria-label="[^"]*" class="px-6 py-12 md:px-10 lg:px-16"><div class="md:max-w-\[22\.125rem\]"><ul><li>/)
+    // Los renglones: las cinco secciones en orden; el primero sin línea y los demás con la línea arriba.
+    const renglones = [...d.matchAll(/<li( class="([^"]*)")?><a href="([^"]*)"( aria-current="([^"]*)")? class="([^"]*)">(.*?)<\/a><\/li>/g)]
+    assert.deepEqual(renglones.map((m) => m[3]), navegacion.menu.map((s) => s.ruta))
+    assert.equal(renglones[0][2], undefined)
+    for (const m of renglones.slice(1)) assert.deepEqual(m[2].split(' '), ['mt-1', 'border-t', 'border-blanco', 'pt-[0.1875rem]'], m[3])
+    // Cada enlace: el renglón entero, de 65, en Roboto Mono Regular 16/28,8 blanca, con el foco por dentro y 8 de aire a
+    // cada lado que no corren el texto (el margen negativo): así el contorno no pisa la primera letra (VMAR-01).
+    for (const m of renglones) {
+      const clases = m[6].split(' ')
+      assert.ok(!clases.includes('w-full'), m[6])
+      for (const c of ['flex', '-mx-2', 'w-[calc(100%+1rem)]', 'px-2', 'min-h-[4.0625rem]', 'font-mono', 'text-base', 'leading-[1.8]', 'font-normal', 'text-blanco', 'wrap-anywhere', 'focus-visible:-outline-offset-2']) {
+        assert.ok(clases.includes(c), `${c} en ${m[6]}`)
+      }
+      assert.ok(!clases.some((c) => /clamp|vw|inline/.test(c)), m[6])
+    }
+    // La sección de la página: aria-current en el enlace y el subrayado naranja en el texto; las demás, el texto solo.
+    const actual = renglones.find((m) => m[3] === '/visitas')
+    assert.equal(actual[5], 'page')
+    assert.equal(actual[7], '<span class="underline decoration-naranja decoration-2 underline-offset-[0.4em]">Visitas</span>')
+    for (const m of renglones.filter((x) => x !== actual)) {
+      assert.equal(m[5], undefined, m[3])
+      assert.equal(m[7], navegacion.menu.find((s) => s.ruta === m[3]).texto)
+    }
+    // "Tickets": 4 debajo del último renglón y a todo el ancho, con el texto oscuro (D4) y data-entradas.
+    const tickets = /<\/li><\/ul><a href="https:\/\/example\.com\/entradas" data-entradas="" class="([^"]*)">([^<]*)<\/a><\/div><\/nav>/.exec(d)
+    assert.ok(tickets, 'el botón de entradas')
+    assert.equal(tickets[2], navegacion.entradas)
+    const clasesTickets = tickets[1].split(' ')
+    for (const c of ['mt-1', 'w-full', 'min-h-11', 'bg-naranja', 'text-ink']) assert.ok(clasesTickets.includes(c), `${c} en ${tickets[1]}`)
+    for (const c of ['mt-10', 'text-blanco']) assert.ok(!clasesTickets.includes(c), `${c} en ${tickets[1]}`)
+    // Sin la compra, sin el botón (la lista cierra el bloque); sin horario, sin barra.
+    const sinNada = dialogoDe(pagina({ pagina: 'visitas', ruta: '/visitas', museo: MUSEO_VACIO, datos: { accesibilidad: null } }))
+    assert.equal(cuantas(sinNada, 'data-entradas'), 0)
+    assert.match(sinNada, /<\/li><\/ul><\/div><\/nav>/)
+    assert.equal(cuantas(sinNada, 'data-hoy'), 0)
+    // Nunca el selector de idioma ni los textos con errata del cuadro.
+    for (const no of ['Es (Arg)', 'Tikets', 'Producción']) assert.equal(cuantas(d, no) + cuantas(sinNada, no), 0, no)
+    // Dentro de una sección ("true"), el mismo subrayado.
+    const dentro = dialogoDe(renderToStaticMarkup(createElement(Header, { ruta: '/visitas/algo', compra: null })))
+    assert.match(dentro, /<a href="\/visitas" aria-current="true" class="[^"]*"><span class="underline decoration-naranja [^"]*">Visitas<\/span><\/a>/)
+  })
+
+  test('el lugar del marco de celular: debajo de lg, 10,0625rem (los 113 del marco y 48 de aire) en la Home, los hero, las fichas y la 404; desde lg, lo de siempre', () => {
+    const ficha = { titulo: 'Muestra', slug: 'muestra', resumen: null, situacion: 'Actual', fechas: null, sala: null, portada: null, descripcion: null, galeria: [] }
+    const delHero = /<div class="(relative mx-auto [^"]*max-w-tablero [^"]*)"/
+    // Cada caso: el HTML, dónde está el bloque que deja el lugar y su padding de arriba desde lg.
+    const casos = {
+      'la Home': [home(), delHero, 'lg:pt-52'],
+      'un hero sin bajada (Visitas)': [pagina({ pagina: 'visitas', ruta: '/visitas', museo: MUSEO_VACIO, datos: { accesibilidad: null } }), delHero, 'lg:pt-52'],
+      'un hero con bajada (Divulgación)': [divulgacionCon(), delHero, 'lg:pt-[10.5rem]'],
+      'un hero con la bajada justa (Circuitos)': [circuitosCon(), delHero, 'lg:pt-[10.5rem]'],
+      'una ficha': [pagina({ pagina: 'muestra', ruta: '/exposiciones/muestra', museo: MUSEO_VACIO, datos: ficha }), /<article class="(mx-auto w-full max-w-tablero [^"]*)"/, 'lg:pt-52'],
+      'la 404': [pagina({ pagina: 'no-encontrada', ruta: '/no-existe', museo: MUSEO_VACIO }), /<main id="main" tabindex="-1" class="grow"><div class="(mx-auto w-full max-w-tablero [^"]*)"/, 'lg:pt-52'],
+    }
+    for (const [nombre, [html, expresion, desdeLg]] of Object.entries(casos)) {
+      const clases = clasesDe(delMain(html), expresion)
+      // Todo lo que pone padding arriba: la reserva de celular de base y la de escritorio con su lg:. Nada en md.
+      const arriba = clases.filter((c) => c.split(':').at(-1).startsWith('pt-'))
+      assert.deepEqual(arriba, ['pt-[10.0625rem]', desdeLg], `${nombre}: ${clases.join(' ')}`)
+    }
+  })
+
+  test('el hero de las ocho páginas internas en el celular (O8): la caja de 350 con el texto abajo debajo de 32rem y arriba desde ahí, el degradé del cuadro y la posición de celular de la foto solo donde hace falta', () => {
+    const c = contenido
+    const casos = [
+      ['el-museo-titulo', elMuseoCon(), c.elMuseo.hero, '62% 60%'],
+      ['visitas-titulo', pagina({ pagina: 'visitas', ruta: '/visitas', museo: MUSEO_VACIO, datos: { accesibilidad: null } }), c.visitas.hero, undefined],
+      ['divulgacion-titulo', divulgacionCon(), c.divulgacion.hero, undefined],
+      ['educacion-titulo', educacionCon(), c.educacion.hero, '25% 90%'],
+      ['circuitos-titulo', circuitosCon(), c.circuitos.hero, undefined],
+      ['exposiciones-titulo', pagina({ pagina: 'exposiciones', ruta: '/exposiciones', museo: MUSEO_VACIO, datos: { muestras: [], salas: [] } }), c.paginas.exposiciones, undefined],
+      ['novedades-titulo', pagina({ pagina: 'novedades', ruta: '/novedades', museo: MUSEO_VACIO, datos: { proximas: [], noticias: [], pagina: 1, paginas: 1 } }), c.paginas.novedades, undefined],
+      ['contacto-titulo', pagina({ pagina: 'contacto', ruta: '/contacto', museo: MUSEO_VACIO, datos: { ...SIN_AVISOS, formulario: false } }), c.contacto, '100% 88%'],
+    ]
+    assert.equal(casos.length, 8)
+    for (const [id, html, hero, posicionMovil] of casos) {
+      const main = delMain(html)
+      comprobarHero(main, id, hero.titulo, hero.imagen)
+      assert.equal(hero.imagen.posicionMovil, posicionMovil, id)
+      // La foto y su precarga no cambian con el celular: la misma, 3:1, con el sizes de siempre.
+      assert.equal(hero.imagen.sizes, '(min-width: 64rem) max(100vw, 1440px), max(100vw, 960px)', id)
+      assert.equal(hero.imagen.ancho / hero.imagen.alto, 3, id)
+      // Un solo hero por página, y es lo primero del <main>.
+      assert.equal(cuantas(main, CAJA_HERO_PAGINA), 1, id)
+      assert.ok(main.replace(/^<main[^>]*>/, '').startsWith(`<section aria-labelledby="${id}" class="relative">`), id)
+    }
+    // Las fichas y la 404 van sin hero (R2): ni la caja ni el degradé.
+    const ficha = { titulo: 'Muestra', slug: 'muestra', resumen: null, situacion: 'Actual', fechas: null, sala: null, portada: null, descripcion: null, galeria: [] }
+    const sinHero = [
+      pagina({ pagina: 'muestra', ruta: '/exposiciones/muestra', museo: MUSEO_VACIO, datos: ficha }),
+      pagina({ pagina: 'no-encontrada', ruta: '/no-existe', museo: MUSEO_VACIO }),
+    ]
+    for (const html of sinHero) {
+      assert.equal(cuantas(delMain(html), 'min-h-[21.875rem]'), 0)
+      assert.equal(cuantas(delMain(html), 'linear-gradient'), 0)
+    }
+  })
+
+  test('HeroPagina: la posición de celular de la foto va como variable en el style y una clase la usa debajo de 32rem; sin ella, el <img> de siempre', async () => {
+    const { default: HeroPagina } = await vite.ssrLoadModule('/src/components/HeroPagina.jsx')
+    const imagen = { src: '/a-1440.webp', srcSet: '/a-960.webp 960w, /a-1440.webp 1440w', sizes: '100vw', ancho: 2880, alto: 960, alt: 'Una foto' }
+    const img = (extra, props = {}) =>
+      /<img [^>]*>/.exec(renderToStaticMarkup(createElement(HeroPagina, { id: 'x', titulo: 'Título', imagen: { ...imagen, ...extra }, ...props })))[0]
+    const FOTO = 'class="absolute inset-0 size-full object-cover"'
+    // Sin ninguna posición: sin style (centrada). Con el punto de interés solo: el object-position en línea.
+    assert.ok(img({}).endsWith(`fetchPriority="high" ${FOTO}/>`), img({}))
+    assert.ok(img({ posicion: '50% 80%' }).endsWith(`fetchPriority="high" ${FOTO} style="object-position:50% 80%"/>`), img({ posicion: '50% 80%' }))
+    // Con la de celular: la variable después del object-position y la clase que la usa debajo de 32rem, con el ! final
+    // (important: le tiene que ganar al estilo en línea).
+    const conMovil = img({ posicion: '50% 60%', posicionMovil: '62% 60%' })
+    assert.ok(
+      conMovil.endsWith(
+        'fetchPriority="high" class="absolute inset-0 size-full object-cover max-[32rem]:object-(--posicion-movil)!" style="object-position:50% 60%;--posicion-movil:62% 60%"/>',
+      ),
+      conMovil,
+    )
+    // Solo la de celular (sin punto de interés de escritorio): la variable sola.
+    const soloMovil = img({ posicionMovil: '62% 60%' })
+    assert.ok(soloMovil.endsWith('max-[32rem]:object-(--posicion-movil)!" style="--posicion-movil:62% 60%"/>'), soloMovil)
+    // La foto no depende del texto: con bajada, el mismo <img>.
+    assert.equal(img({ posicion: '50% 60%', posicionMovil: '62% 60%' }, { bajada: 'Una bajada' }), conMovil)
+    assert.equal(img({ posicion: '50% 80%' }, { bajada: 'Una bajada', bajadaJusta: true }), img({ posicion: '50% 80%' }))
+  })
+
+  test('el rótulo a 16 del h2 debajo de lg y a 24 desde lg (el cuadro de celular): Seccion y los h2 con rótulo escritos a mano; con cerca, a 16 en todos los anchos', async () => {
+    const { default: Seccion } = await vite.ssrLoadModule('/src/components/Seccion.jsx')
+    const h2 = (props) =>
+      clasesDe(renderToStaticMarkup(createElement(Seccion, { id: 'x', titulo: 'X', ...props }, 'adentro')), /<h2 id="x" class="([^"]*)"/)
+    assert.deepEqual(margenesDeArriba(h2({ rotulo: 'Rótulo' })), ['mt-4', 'lg:mt-6'])
+    assert.deepEqual(margenesDeArriba(h2({ rotulo: 'Rótulo', cerca: true })), ['mt-4'])
+    // Sin rótulo no hay nada arriba del h2: sin margen, con cerca o sin ella.
+    assert.deepEqual(margenesDeArriba(h2({})), [])
+    assert.deepEqual(margenesDeArriba(h2({ cerca: true })), [])
+    // Los que no pasan por Seccion.jsx: los dos de Visitas, los dos de Contacto y el del bloque de texto y foto
+    // (Divulgación, Educación y Circuitos).
+    const visitas = delMain(pagina({ pagina: 'visitas', ruta: '/visitas', museo: museoComun(MUSEO_MAXIMO), datos: { accesibilidad: null } }))
+    const contacto = delMain(pagina({ pagina: 'contacto', ruta: '/contacto', museo: MUSEO_MAXIMO, datos: SIN_AVISOS }))
+    const aMano = {
+      'visitas-practica': visitas,
+      'visitas-accesible': visitas,
+      'datos-contacto': contacto,
+      'formulario-titulo': contacto,
+      [contenido.divulgacion.bloques[0].id]: delMain(divulgacionCon()),
+      'educacion-visitas': delMain(educacionCon()),
+      [`circuito-${contenido.circuitos.destinos[0].slug}`]: delMain(circuitosCon()),
+    }
+    assert.equal(Object.keys(aMano).length, 7)
+    for (const [id, main] of Object.entries(aMano)) {
+      const clases = clasesDe(main, new RegExp(`<p class="font-mono text-sm leading-5 font-medium text-paper uppercase">[^<]*</p><h2 id="${id}" class="([^"]*)"`))
+      assert.deepEqual(margenesDeArriba(clases), ['mt-4', 'lg:mt-6'], id)
+    }
+  })
+
+  test('el h2 de las secciones (TITULO_SECCION): 36/48 debajo de 32rem (el cuadro de celular) y 64 con el interlineado de 1,24 desde ahí', async () => {
+    const tablero = await vite.ssrLoadModule('/src/components/tablero.js')
+    assert.equal(
+      tablero.TITULO_SECCION,
+      'font-titulo text-[2.25rem] leading-12 font-thin text-paper hyphens-auto wrap-break-word min-[32rem]:text-[4rem] min-[32rem]:leading-[1.24]',
+    )
+    // En las páginas: cada h2 de sección con un solo tamaño y un solo interlineado por tramo (el de 1,24 ya no va de
+    // base: debajo de 32rem pisaría los 48 px del cuadro).
+    const paginas = {
+      home: home([novedad(1)]),
+      visitas: pagina({ pagina: 'visitas', ruta: '/visitas', museo: museoComun(MUSEO_MAXIMO), datos: { accesibilidad: null } }),
+      divulgacion: divulgacionCon(),
+      educacion: educacionCon(),
+      circuitos: circuitosCon(),
+      elMuseo: elMuseoCon(),
+      contacto: pagina({ pagina: 'contacto', ruta: '/contacto', museo: MUSEO_MAXIMO, datos: SIN_AVISOS }),
+    }
+    let vistos = 0
+    for (const [nombre, html] of Object.entries(paginas)) {
+      for (const [, clase] of delMain(html).matchAll(/<h2 id="[^"]*" class="(font-titulo [^"]*)"/g)) {
+        const clases = clase.split(' ')
+        assert.deepEqual(clases.filter((c) => /(^|:)leading-/.test(c)), ['leading-12', 'min-[32rem]:leading-[1.24]'], `${nombre}: ${clase}`)
+        assert.deepEqual(clases.filter((c) => /(^|:)text-\[/.test(c)), ['text-[2.25rem]', 'min-[32rem]:text-[4rem]'], `${nombre}: ${clase}`)
+        vistos++
+      }
+    }
+    assert.ok(vistos >= 20, `h2 de sección vistos: ${vistos}`)
   })
 
   test('las viñetas de las listas del tablero se ven con colores forzados (EDU-01, CIR-01 y MUS-03)', () => {

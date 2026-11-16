@@ -2,7 +2,9 @@
 // V1 y V2 del desarrollador) la pantalla pide solo lo que el sitio muestra, en tres partes, cada una con su botón y su
 // "Guardado":
 // - Horario semanal (visitas/Horario.jsx): GET y PUT /horarios, los días y sus franjas. En el sitio, resumido en la
-//   tarjeta "Horarios" de la página de Visitas.
+//   tarjeta "Horarios" de la página de Visitas y, desde la versión de celular (10/11/2026), en la barra de hoy de
+//   arriba de todas las páginas («abierto/cerrado hoy», src/components/BarraHoy.jsx); su ayuda lo dice, con el
+//   consejo para los feriados (pedido del desarrollador del 11/11/2026).
 // - Museo accesible (visitas/Textos.jsx): el texto con formato "Accesibilidad" del museo (PUT /museo), con el editor de
 //   texto (su código se carga aparte, EditorTexto: el loader lo pide junto con los datos). En el sitio, junto a la foto
 //   de "Museo accesible"; vacío, los párrafos del diseño.
@@ -74,8 +76,10 @@ export default function Visitas() {
         <Seccion id="visitas-horario" titulo="Horario semanal">
           <p className="text-tenue">
             En la página de Visitas se muestra resumido: los días con el mismo horario van juntos, por ejemplo «Martes a
-            viernes: 9:00 a 13:00 y 16:00 a 20:00», y los cerrados al final. Si ningún día está marcado como abierto,
-            la página no muestra el horario.
+            viernes: 9:00 a 13:00 y 16:00 a 20:00», y los cerrados al final. El horario decide también el cartel que se
+            ve arriba de todas las páginas en el celular: «El museo se encuentra abierto hoy» o «cerrado hoy». Si ningún
+            día está marcado como abierto, no se muestran ni el horario ni el cartel. El sitio no sabe de feriados: para
+            que un feriado diga «cerrado», desmarcá ese día y volvé a marcarlo después.
           </p>
           <Horario dias={dias} alCambiarSucio={marcar} />
         </Seccion>

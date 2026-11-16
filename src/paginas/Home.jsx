@@ -6,8 +6,11 @@ import { home } from '../content.js'
 import { seccionDe } from '../components/navegacion.js'
 
 // La Home: desde el 02/11/2026, la portada del tablero "Web" de la diseñadora (Figma 2627:1165; decisión D1 del
-// desarrollador: reemplaza a la landing en master, y la landing publicada sigue en la rama landing). Solo escritorio
-// (D2): fiel a 1440, fluida entre lg y 1440 y centrada más allá; debajo de lg, en una columna y sin pulir.
+// desarrollador: reemplaza a la landing en master, y la landing publicada sigue en la rama landing): fiel a 1440,
+// fluida entre lg y 1440 y centrada más allá. Desde el 10/11/2026, debajo de lg, la Home de celular (Figma "Web Mobile",
+// 3106:17307, a 402 px; decisiones M1 a M5 del desarrollador): el hero, la franja apilada y Novedades, debajo de lg; la
+// pila de fotos y el plano sin nombres, debajo de md (de md a lg, una tablet, van como en escritorio). Un solo HTML
+// para todos los anchos: lo de cada uno lo elige el CSS de cada componente.
 // Va dentro de Layout (src/Raiz.jsx: el header, el <main id="main">, el pie y Lenis); acá, sus secciones:
 // - HeroHome: la foto, el h1 (el único de la página), la bajada y la franja de accesos (Visitas, la compra externa y
 //   Educación).
