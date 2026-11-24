@@ -18,6 +18,7 @@
     "crear-admin": "node --env-file-if-exists=.env server/scripts/admin.js crear",
     "restablecer-admin": "node --env-file-if-exists=.env server/scripts/admin.js restablecer",
     "probar-correo": "node --env-file-if-exists=.env server/scripts/probar-correo.js",
+    "audioguia-urls": "node --env-file-if-exists=.env server/scripts/audioguia-urls.js",
     "test": "node --env-file-if-exists=.env --test --test-concurrency=1 \"server/pruebas/**/*.test.js\""
   },
   "dependencies": {
@@ -47,6 +48,7 @@
     "@tiptap/starter-kit": "^3.32.0",
     "@vitejs/plugin-react": "^6.0.1",
     "pdfjs-dist": "^5.7.284",
+    "qrcode": "1.5.4",
     "react-router": "^7.18.4",
     "subset-font": "^2.9.0",
     "tailwindcss": "^4.2.4",

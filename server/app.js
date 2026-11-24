@@ -13,12 +13,17 @@
 //     el .html de Search Console) un día, por nombre exacto: ni la plantilla del SSR ni los dotfiles (los .htaccess
 //     de public/ nunca salen)
 //  8. /robots.txt, /sitemap.xml (con lo publicado, desde E4.6), POST /contacto (el formulario, desde E4.5:
-//     server/contacto.js) y las páginas (SSR) o la 404; no hay API fuera de /administracion/api
+//     server/contacto.js) y las páginas (SSR) o la 404; no hay API fuera de /administracion/api. Antes de las páginas,
+//     la audioguía (server/audioguia/rutas.js), solo si está prendida: AUDIOGUIA_CLAVE y una carpeta (DIR_AUDIOGUIAS)
+//     con un pistas.json que deja alguna estación válida. Las pistas se leen una vez, al armar la app (cargarPistas,
+//     sincrónica); apagada, nada cambia: ni rutas, ni cabeceras, ni cookies (especificación de las audioguías, 2.2)
 //  9. errores (server/errores.js)
-import { readdirSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { existsSync, readdirSync } from 'node:fs'
+import { join, resolve } from 'node:path'
 import express from 'express'
 import { RUTA_PANEL } from '../compartido/panel.js'
+import { cargarPistas, MANIFIESTO } from './audioguia/pistas.js'
+import { crearRutasDeAudioguia } from './audioguia/rutas.js'
 import { esBaseNoDisponible } from './contenido-publico.js'
 import { probarBase } from './db/conexion.js'
 import { manejadorDeErrores } from './errores.js'
@@ -75,6 +80,41 @@ export function estaticosDelBuild(dirBuild) {
 }
 
 /**
+ * La audioguía de esta app (especificación de las audioguías, 1.4 y 2.2): sin AUDIOGUIA_CLAVE, null (y, en producción,
+ * un aviso si hay pistas en la carpeta: quedaron sin clave); con ella, lo que leyó cargarPistas, que loguea por su
+ * cuenta lo que se salteó (audioguia_pista_invalida, audioguia_sin_pistas). Prendida (con alguna estación), una línea
+ * con cuántas quedaron y, en Render con TRUST_PROXY=0, un error (audioguia_limite_global). El sitio nunca deja de
+ * arrancar por la audioguía.
+ * @param {ReturnType<import('./config.js').leerConfig>} config
+ */
+export function audioguiaDeLaApp(config) {
+  if (!config.AUDIOGUIA_CLAVE) {
+    if (config.produccion && existsSync(join(config.dirAudioguias, MANIFIESTO))) {
+      log('aviso', 'audioguia_apagada', { detalle: 'hay pistas y falta AUDIOGUIA_CLAVE' })
+    }
+    return null
+  }
+  const audioguia = cargarPistas(config.dirAudioguias)
+  if (audioguia.estaciones.size) {
+    log('info', 'audioguia_prendida', {
+      version: audioguia.version,
+      espacios: audioguia.espacios.size,
+      estaciones: audioguia.estaciones.size / 2,
+      salteadas: audioguia.problemas.length,
+    })
+    // Detrás del proxy de Render con TRUST_PROXY=0, req.ip es la del proxy para todos: el límite del audio (3.000 cada
+    // 15 minutos) sería uno solo para todo el museo, y un grupo escolar lo gasta (AG-SEG-01). Más fuerte que el
+    // trust_proxy_cero de avisosDeConfig: acá se queda sin audio todo el mundo. Se comprueba con DEPURAR_IP (E5.1).
+    if (config.produccion && (config.RENDER || config.RENDER_EXTERNAL_URL) && config.TRUST_PROXY === 0) {
+      log('error', 'audioguia_limite_global', {
+        detalle: 'TRUST_PROXY=0 detrás del proxy de Render: el límite del audio sería uno solo para todos los visitantes',
+      })
+    }
+  }
+  return audioguia
+}
+
+/**
  * @param {object} opciones
  * @param {ReturnType<import('./config.js').leerConfig>} opciones.config
  * @param {ReturnType<import('./ssr.js').crearSsr>} opciones.ssr
@@ -105,6 +145,7 @@ export function crearApp({
 }) {
   const fotos = almacen ?? (sequelize ? crearAlmacen(sequelize) : null)
   const { contacto } = ssr
+  const audioguia = audioguiaDeLaApp(config)
   const app = express()
   app.disable('x-powered-by')
   app.set('trust proxy', config.TRUST_PROXY)
@@ -185,6 +226,8 @@ export function crearApp({
   })
   // El formulario de contacto (plan 8): sin JavaScript, CSRF por origen, límites y la página otra vez con lo escrito.
   if (contacto) app.post('/contacto', ...crearRecepcion({ config, contacto, ssr }))
+  // La audioguía (server/audioguia/rutas.js), solo prendida: apagada, /audioguia/… da la 404 del sitio.
+  if (audioguia?.estaciones.size) app.use(crearRutasDeAudioguia({ config, ssr, audioguia }))
   app.use(crearRutasPublicas({ ssr }))
 
   // 9.

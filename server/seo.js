@@ -328,6 +328,10 @@ export function seoDe(estado) {
       indexable: true,
     }
   }
+  // La audioguía (server/audioguia/rutas.js; especificación de las audioguías, 4.2): fuera de FIJAS y del sitemap, sin
+  // canonical, Open Graph ni JSON-LD, y nunca indexable. El mismo título en las dos versiones (la común y la de
+  // audiodescripción) y con acceso o sin él: la versión va solo en el h1, que GA4 no lee (6).
+  if (pagina === 'audioguia') return { titulo: 'Audioguía · MuPa', ruta: null, indexable: false }
   // NoEncontrada (estado 404): sin canonical ni tarjeta, y nunca indexable.
   return { titulo: 'Página no encontrada · MuPa', ruta: null, indexable: false }
 }

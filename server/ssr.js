@@ -274,5 +274,7 @@ export function crearSsr({
     })
   }
 
-  return { responder, noEncontrada, sitemap, dibujarPagina, contacto }
+  // reloj: el mismo de cada pedido, para la audioguía (server/audioguia/rutas.js: el token de día y la cookie salen de
+  // la misma hora que el "hoy" de la página; especificación de las audioguías, 2.3).
+  return { responder, noEncontrada, sitemap, dibujarPagina, contacto, reloj }
 }

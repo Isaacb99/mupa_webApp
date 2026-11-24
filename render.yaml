@@ -30,6 +30,7 @@ services:
       - { key: TRUST_PROXY, sync: false }                 # se ajusta con DEPURAR_IP=1 y /salud/ip (plan 10.1, paso 4)
       - { key: USERWAY_ID, sync: false }                  # vacía: UserWay apagado
       - { key: INDEXNOW_CLAVE, sync: false }              # opcional; vacía: IndexNow apagado
+      - { key: AUDIOGUIA_CLAVE, sync: false }             # se genera en el Shell de Render; vacía: audioguía apagada
 databases:
   - name: mupa-db
     region: virginia                    # la misma que el servicio web

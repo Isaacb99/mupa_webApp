@@ -7,7 +7,19 @@
 // de envío) no hay formulario; con ella, en modo smtp, también SMTP_HOST y SMTP_CLAVE (y SMTP_PUERTO, 465 por defecto).
 // Las fotos van en la base (decisión del 15/10/2026, plan 16.1): no hay DIR_FOTOS. ESPACIO_BASE_MB (E3.1) es el
 // tamaño contratado de la base, para el aviso de espacio del Inicio del panel.
+// La audioguía (especificación de las audioguías, versión 2, sección 2.1): AUDIOGUIA_CLAVE, el secreto de las firmas de
+// los QR y del token de día (vacía: el módulo apagado y sus rutas dan la 404 del sitio), y DIR_AUDIOGUIAS, la carpeta de
+// los audios y del manifiesto (por defecto, audioguias/ en la raíz del repo; las pruebas usan una temporal). No hay
+// AUDIOGUIA_VERSION: la versión de los códigos va en audioguias/pistas.json, en git (A9: un Manual Sync de Render la
+// volvería al valor del Blueprint y deshacería una revocación).
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { z } from 'zod'
+import { FORMA_DE_LA_CLAVE } from './audioguia/firma.js'
+
+// La raíz del repo (server/..): de ahí sale la carpeta de la audioguía por defecto, y contra ella se resuelve una
+// DIR_AUDIOGUIAS relativa (así no depende de la carpeta desde donde se arrancó el proceso).
+const RAIZ = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
 // 0/1 como en Render; vacía cuenta como no definida (ver sinVacias).
 const bandera = z
@@ -83,6 +95,13 @@ const esquema = z.object({
     .string()
     .regex(/^[A-Za-z0-9-]{8,128}$/, { error: 'de 8 a 128 letras, números o guiones' })
     .optional(),
+  // La audioguía (2.1). La clave se genera en el Shell de Render (randomBytes(32) en base64url, 43 caracteres) y no sale
+  // de ahí; el mensaje de error nunca muestra el valor.
+  AUDIOGUIA_CLAVE: z
+    .string()
+    .regex(FORMA_DE_LA_CLAVE, { error: 'de 32 a 128 letras, números, - o _ (base64url)' })
+    .optional(),
+  DIR_AUDIOGUIAS: z.string().min(1).optional(),
 })
 
 // Una variable definida vacía (USERWAY_ID= en el .env) cuenta como no definida.
@@ -152,6 +171,8 @@ export function leerConfig(env = process.env) {
     hostPublico: hostDe(urlPublica),
     hostRender: hostDe(v.RENDER_EXTERNAL_URL),
     hayBase: Boolean(v.DATABASE_URL) && !sinBase,
+    // La carpeta de la audioguía, absoluta (server/app.js la lee solo con AUDIOGUIA_CLAVE).
+    dirAudioguias: resolve(RAIZ, v.DIR_AUDIOGUIAS ?? 'audioguias'),
   })
 }
 

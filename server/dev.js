@@ -45,19 +45,20 @@ const { crearCorreo } = await import('./correo.js')
 const { crearMuseoPublico } = await import('./museo.js')
 const { crearSsr, partir } = await import('./ssr.js')
 const { crearRegistroDeTareas, programarTareas } = await import('./tareas.js')
+const { DENEGADOS_EN_DESARROLLO } = await import('./denegados-dev.js')
 
 const servidor = createServer()
 const vite = await crearVite({
   root: raiz,
   appType: 'custom',
   // El websocket de HMR va por el mismo servidor y el mismo puerto.
-  server: { middlewareMode: true, hmr: { server: servidor } },
+  server: { middlewareMode: true, hmr: { server: servidor }, fs: { deny: DENEGADOS_EN_DESARROLLO } },
 })
 
 const vitePanel = await crearVite({
   configFile: resolve(raiz, 'vite.panel.config.js'),
   appType: 'custom',
-  server: { middlewareMode: true, hmr: { server: servidor } },
+  server: { middlewareMode: true, hmr: { server: servidor }, fs: { deny: DENEGADOS_EN_DESARROLLO } },
 })
 
 // El CSS del sitio como hoja de estilos en el HTML (solo en desarrollo). En desarrollo Vite no lo pone en el HTML: lo
