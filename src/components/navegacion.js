@@ -14,7 +14,10 @@ export const seccionesDelSitio = () => [...navegacion.menu, ...navegacion.otras]
 
 /**
  * La sección de una página ({ pagina, ruta, texto }), solo si la página existe; si no, null. La usan los accesos de la
- * Home (HeroHome.jsx): "Recursos educativos" va porque existe Educación (desde el 06/11/2026), con su dirección del menú.
+ * Home (HeroHome.jsx): "Recursos educativos" va porque existe Educación (desde el 06/11/2026), con su dirección del
+ * menú y, desde el 16/11/2026 (T6 de la tanda 1), el ancla de su sección, que le suma HeroHome.jsx
+ * (/educacion#educacion-recursos). El ancla no llega al servidor: allá estado.ruta es /educacion y el menú marca
+ * Educación como la página actual (marcaActual).
  */
 export const seccionDe = (pagina) => seccionesDelSitio().find((s) => s.pagina === pagina) ?? null
 

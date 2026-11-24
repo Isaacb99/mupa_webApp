@@ -10,7 +10,8 @@
 // Desde la Home del tablero "Web" (02/11/2026, etapa 3): el h1 nuevo y la foto del hero con prioridad, la franja de
 // accesos (Visitas, "Tickets" solo con la compra, "Recursos educativos" con la página de Educación, nunca "Tienda
 // virtual"), el carrusel de Novedades con 0, 1 y 6 tarjetas (el orden, sin portada sin foto, los botones y el contador
-// listos para hidratar), "El MuPa en imágenes" con sus piedritas decorativas, el plano con los nombres como texto y el
+// listos para hidratar; desde el 17/11/2026, sin el contador: Q, abajo), "El MuPa en imágenes" con sus piedritas
+// decorativas, el plano con los nombres como texto y el
 // origen de clic_entradas (D14). Ronda 1 de su corrección: el hero con alto mínimo y la franja en el flujo (A11Y-02),
 // los tamaños con rem (A11Y-04 y A11Y-08), la sombra de la bajada (A11Y-01), el degradé con colores forzados (A11Y-05),
 // la fila de Novedades sin snap antes de hidratar y en renglones sin JavaScript (A11Y-06), la región viva vacía antes
@@ -68,6 +69,25 @@
 // el orden y los colores del cuadro (los fondos y el <li> de "Tickets", comparados enteros); la tarjeta del carrusel de
 // a una por pantalla (también en Divulgación); la pila de fotos con su z-index debajo de md y el abanico desde md; y el
 // plano sin nombres en un <picture>, con las capas del hover fuera del celular, y su SVG contra el de escritorio.
+// Y la tanda 1 de detalles (16/11/2026, T4, T6 y T7): la tarjeta de los documentales de El Museo con el tope de la de
+// Novedades debajo de md (y el ancho entero sin JavaScript y al imprimir) y el sizes de sus fotos; "Recursos
+// educativos" de la franja de la Home a su sección (/educacion#educacion-recursos, con el id de content.js), que existe
+// en la página de Educación, y el h2 de SeccionRecursos con su margen de scroll; y el alt de las fotos de relleno
+// repetidas de Divulgación y de Circuitos, vacío (solo la primera de cada página lo conserva).
+// Y la tanda 1b (16/11/2026, G): el recorrido de "El MuPa en imágenes", uno solo para todos los anchos (16rem por foto
+// que sale y una cola del 30 % de la pantalla, sin variantes lg:), y que no vuelvan los 24,2rem y el 45 % del celular.
+// Y las flechas a los costados del carrusel de Novedades (16/11/2026, F; FlechasCarrusel.jsx), en la Home y en
+// Divulgación: «Anterior» y «Siguiente» una sola vez, después de la lista, con su nombre y aria-controls, en la capa
+// sobre la fila (con la guía, que mide lo que la foto de la tarjeta) y ocultos hasta medir; abajo, el contador solo, en
+// un <span>, sin botones (hasta el 17/11/2026: ver Q, abajo); con una tarjeta sin portada, los controles de siempre
+// abajo (ControlesCarrusel.jsx); los estados de FlechasCarrusel y de la región viva (AvisoCarrusel; hasta el 17/11,
+// ContadorCarrusel), sueltos; y El Museo, igual que antes. Y su corrección (17/11/2026, VFU-02, VFU-05, VFC-04 y VFC-05
+// de la verificación): las clases de cada botón y de la guía, comparadas enteras (con la flecha tenue al 45 % y el
+// cursor), y el gesto del dedo sobre una flecha (gestoDelDedo), que solo cuenta el dedo. Y el contador de abajo, que se
+// fue (17/11/2026, decisión Q del desarrollador): con las flechas a los costados, abajo de la fila no queda nada (ni el
+// contador ni ninguna fila: la sección termina con el envoltorio de la fila) y la región viva, la misma, va en ese
+// envoltorio, después de las flechas, vacía y una sola vez; con una tarjeta sin portada, los controles de abajo, como
+// antes.
 import assert from 'node:assert/strict'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -365,10 +385,13 @@ describe('Layout, header, menú y pie (sin base)', () => {
     // Divulgación (desde el 06/11/2026), en el menú ancho, en el del celular y en el pie.
     assert.equal(cuantas(html, 'href="/divulgacion"'), 3)
     assert.equal(cuantas(delHeader(html), 'href="/divulgacion"'), 2)
-    // Educación (desde el 06/11/2026), en el menú ancho, en el del celular, en el pie y en la franja de accesos de la Home
-    // ("Recursos educativos", D11).
-    assert.equal(cuantas(html, 'href="/educacion"'), 4)
+    // Educación (desde el 06/11/2026), en el menú ancho, en el del celular y en el pie; la franja de accesos de la Home
+    // ("Recursos educativos", D11) lleva a su sección, con el ancla (desde el 16/11/2026: T6 de la tanda 1).
+    assert.equal(cuantas(html, 'href="/educacion"'), 3)
     assert.equal(cuantas(delHeader(html), 'href="/educacion"'), 2)
+    assert.equal(cuantas(html, 'href="/educacion#educacion-recursos"'), 1)
+    assert.equal(cuantas(delHeader(html), 'href="/educacion#'), 0)
+    assert.equal(cuantas(delPie(html), 'href="/educacion#'), 0)
     // Circuitos (desde el 06/11/2026), en el menú ancho, en el del celular y en el pie.
     assert.equal(cuantas(html, 'href="/circuitos"'), 3)
     assert.equal(cuantas(delHeader(html), 'href="/circuitos"'), 2)
@@ -1106,13 +1129,29 @@ describe('Layout, header, menú y pie (sin base)', () => {
    * - desde lg, la del tablero: el 37,89 % del contenido (485 a 1440), la portada en 485/355 y el texto en una columna
    *   del 86,4 %;
    * - el título, 24/32 en todos los anchos (hasta el cuadro de celular, 20/28 debajo de 32rem);
-   * - el sizes de la portada declara 320 px como mucho debajo de lg (un teléfono de densidad 3 pide la variante de 960).
+   * - el sizes de la portada declara 320 px como mucho debajo de lg (un teléfono de densidad 3 pide la variante de 960);
+   * - el título, tres renglones como mucho (RF-01, 19/11/2026): el enlace de cada tarjeta, con la lista de clases
+   *   ENTERA (ENLACE_TITULO_CARRUSEL), y la fila con el lugar para el anillo del foco debajo de lg.
    */
   function comprobarTarjetasDelCarrusel(html, n) {
     const lis = [...html.matchAll(/<li class="([^"]*)"><article /g)].map((m) => m[1])
     assert.equal(lis.length, n)
     for (const li of lis) assert.equal(li, 'w-[min(100%,24rem)] shrink-0 snap-start lg:w-[min(30.3125rem,calc((100vw-10rem)*0.3789))]')
+    // El enlace del título de cada tarjeta, con todas sus clases y en su orden (no clase por clase: una de más, como un
+    // overflow-hidden en el h3, o una de menos, como el recorte, tienen que fallar).
+    const enlaces = [...html.matchAll(/<h3 class="[^"]*"><a href="[^"]*" class="([^"]*)">/g)].map((m) => m[1].split(' '))
+    assert.equal(enlaces.length, n)
+    for (const clases of enlaces) assert.deepEqual(clases, ENLACE_TITULO_CARRUSEL)
+    // Y el recorte, SOLO en el enlace del título (RC-01 de la verificación de RF-01, 19/11/2026): en la sección, un
+    // atributo class con un line-clamp- por tarjeta, el del enlace. Sin esto pasaban un line-clamp-3 de más en el
+    // resumen, en la tarjeta o en el <li> (los dos de arriba miran solo el enlace y el h3).
+    const conRecorte = [...html.matchAll(/class="([^"]*)"/g)].filter((m) => /(^|[\s:])line-clamp-/.test(m[1]))
+    assert.equal(conRecorte.length, n, conRecorte.map((m) => m[1]).join('\n'))
     const h3 = clasesDe(html, /<h3 class="([^"]*)"/)
+    // Y el h3, sin recorte ni overflow (cortaría el anillo del foco del enlace: RF-01).
+    for (const [, clases] of html.matchAll(/<h3 class="([^"]*)"><a /g)) {
+      assert.deepEqual(clases.split(' ').filter((c) => /(^|:)(line-clamp|overflow|truncate)/.test(c)), [], clases)
+    }
     assert.deepEqual(h3.filter((c) => /(^|:)(text-(xl|2xl)|leading-\d+|max-w-)/.test(c)), ['text-2xl', 'leading-8', 'lg:max-w-[86.4%]'])
     assert.ok(!h3.some((c) => c.startsWith('min-[')), h3.join(' '))
     assert.deepEqual(clasesDe(html, /<p class="(order-3 [^"]*)"/).filter((c) => /(^|:)max-w-/.test(c)), ['lg:max-w-[86.4%]'])
@@ -1122,9 +1161,119 @@ describe('Layout, header, menú y pie (sin base)', () => {
       assert.deepEqual(clasesDe(img, / class="([^"]*)"/), ['order-1', 'aspect-[354/300]', 'w-full', 'rounded-xl', 'object-cover', 'lg:aspect-[485/355]'])
       assert.ok(img.includes('sizes="(min-width: 90rem) 485px, (min-width: 64rem) calc((100vw - 10rem) * 0.3789), min(calc(100vw - 3rem), 20rem)"'), img)
     }
+    // Los márgenes de arriba y de abajo los lleva el envoltorio de la fila (desde las flechas a los costados,
+    // 16/11/2026: la capa de las flechas se posiciona contra él, que así mide lo que la fila); la fila, ninguno.
     const fila = clasesDe(html, /<ul id="[^"]+" aria-label="[^"]+" data-lenis-prevent-horizontal="" class="([^"]*)"/)
-    assert.deepEqual(margenesDeArriba(fila), ['mt-2', 'lg:mt-4'])
+    assert.equal(cuantas(html, '<div class="relative mt-2 -mb-2 lg:mt-4"><ul id="'), 1)
+    assert.deepEqual(fila.filter((c) => /(^|:)-?m[tb]-/.test(c)), [])
+    assert.ok(fila.includes('-ml-2') && fila.includes('pl-2') && fila.includes('py-2'), fila.join(' '))
     assert.deepEqual(fila.filter((c) => /(^|:)gap-/.test(c)), ['gap-6', 'lg:gap-[min(3rem,calc((100vw-10rem)*0.0375))]', 'noscript:gap-y-10'])
+    // El lugar para el anillo del foco de un título recortado (RF-01, 19/11/2026): con el foco del teclado en un
+    // título, debajo de lg, la fila gana 8 px a la derecha (sin eso, el anillo de un título de dos o tres renglones
+    // quedaba cortado a la derecha en el celular); sin el foco, y desde lg, nada a la derecha.
+    assert.deepEqual(fila.filter((c) => /(^|:)-?[mp][rx]-|has-\[/.test(c)), [
+      'max-lg:has-[a:focus-visible]:-mr-2',
+      'max-lg:has-[a:focus-visible]:pr-2',
+    ])
+    // La guía de las flechas (FlechasCarrusel.jsx): el ancho de la tarjeta y la proporción de su foto, las MISMAS
+    // clases (si cambia la tarjeta y no la guía, las flechas dejan de quedar centradas en la foto). Y la lista entera:
+    // una clase de más (un alto fijo) también las descentra (VFC-05).
+    if (n > 1) {
+      const guia = clasesDe(html, /<\/ul><div class="pointer-events-none absolute [^"]*"><div class="([^"]*)"><\/div>/)
+      const medidas = (clases) => clases.filter((c) => /(^|:)(w|aspect)-\[/.test(c)).sort()
+      const img = clasesDe(fotos[0], / class="([^"]*)"/)
+      assert.deepEqual(medidas(guia), medidas([...lis[0].split(' '), ...img]))
+      assert.deepEqual(guia, GUIA_FLECHAS)
+    }
+  }
+  /**
+   * Las clases de las flechas a los costados (FlechasCarrusel.jsx y, la guía, CarruselNovedades.jsx), escritas acá
+   * ENTERAS y en su orden: las pruebas comparan la lista completa de cada botón y de la guía, no clase por clase
+   * (VFC-05 de la verificación de las flechas, 16/11/2026: mirando de a una, pasaban un max-lg:hidden o un lg:hidden
+   * de más en los botones —las flechas fuera del celular o del escritorio—, un hidden de más en «Siguiente» y un alto
+   * fijo de más en la guía, que las descentra). Si cambia una clase del componente, cambia acá.
+   * - El botón: 44x44, toma el puntero (la capa no), centrado en el alto de la guía, redondo, el fondo del sitio al
+   *   75 % (al 90 % con el puntero encima) y la flecha blanca; el cursor, la mano, y el común si está deshabilitado
+   *   (VFU-05); el fundido de 200 ms, que no se apaga con reduced-motion (index.css lo deja en 0,01 ms: se perdería
+   *   el retardo de visibility); el contorno y el aro del foco; los colores forzados; y, deshabilitado, la flecha (no
+   *   el botón) al 45 % (VFU-02: al 35 % no llegaba a 3:1 sobre una portada clara).
+   * - Su borde: «Anterior» contra el izquierdo y «Siguiente» contra el derecho, a 8 px debajo de lg y a 16 desde lg.
+   * - Oculta: transparente y, 0,8 s después (el retardo de visibility: el clic de más de una ráfaga no cae en la
+   *   tarjeta de abajo), visibility: hidden; salvo con el foco visible.
+   * - La guía: en la celda de los botones, arriba y a la izquierda, con el ancho de la tarjeta y la proporción de su
+   *   foto.
+   */
+  const FLECHA_COSTADO = [
+    'pointer-events-auto', 'col-start-1', 'row-start-1', 'grid', 'size-11', 'place-items-center', 'self-center', 'rounded-full', 'border',
+    'border-transparent', 'bg-ink/75', 'text-blanco', 'cursor-pointer', '[touch-action:pan-y_pinch-zoom]',
+    'transition-[opacity,visibility,background-color]', 'duration-200', 'hover:bg-ink/90', 'focus-visible:outline-2',
+    'focus-visible:outline-blanco', 'focus-visible:[box-shadow:0_0_0_4px_var(--color-ink)]',
+    'forced-colors:bg-[ButtonFace]', 'aria-disabled:cursor-default', 'aria-disabled:[&>svg]:opacity-45',
+  ]
+  const BORDE_FLECHA = [['ml-2', 'justify-self-start', 'lg:ml-4'], ['mr-2', 'justify-self-end', 'lg:mr-4']]
+  const FLECHA_OCULTA = ['invisible', 'opacity-0', '[transition-delay:0s,800ms,0s]', 'focus-visible:visible', 'focus-visible:opacity-100']
+  const GUIA_FLECHAS = [
+    'col-start-1', 'row-start-1', 'self-start', 'justify-self-start',
+    'aspect-[354/300]', 'w-[min(100%,24rem)]', 'lg:aspect-[485/355]', 'lg:w-[min(30.3125rem,calc((100vw-10rem)*0.3789))]',
+  ]
+  /**
+   * El enlace del título de una tarjeta del carrusel de Novedades (TarjetaNovedad de CarruselNovedades.jsx), con sus
+   * clases ENTERAS y en su orden. Desde el 19/11/2026 (RF-01), el título va recortado a tres renglones con «…»
+   * (line-clamp-3), en el enlace y no en el h3 (el overflow del h3 cortaba el anillo del foco), ceñido al texto (w-fit:
+   * un título de un renglón conserva su anillo), nunca más ancho que la columna (max-w-full: una palabra larguísima
+   * se parte), con overflow: clip y 1 px de margen en vez del hidden de line-clamp-3 (con hidden, el borde suavizado de
+   * la primera letra y del subrayado quedaba cortado) y, al imprimir, entero (print:line-clamp-none). Lo demás es lo de
+   * siempre: el after estirado sobre la tarjeta, el subrayado con el puntero sobre la tarjeta y el anillo del foco.
+   */
+  const ENLACE_TITULO_CARRUSEL = [
+    'line-clamp-3', 'w-fit', 'max-w-full', 'overflow-clip', '[overflow-clip-margin:1px]', 'rounded-sm', 'decoration-1',
+    'underline-offset-4', 'after:absolute',
+    'after:inset-0', 'group-hover:underline', 'focus-visible:outline-2', 'focus-visible:outline-offset-4',
+    'focus-visible:outline-blanco', 'print:line-clamp-none',
+  ]
+  /**
+   * Las flechas a los costados del carrusel de Novedades (FlechasCarrusel.jsx, 16/11/2026), como salen del servidor:
+   * la capa sobre la fila (después de la lista, dentro de su envoltorio; no toma el puntero; ni sin JavaScript ni al
+   * imprimir), con «Anterior» y «Siguiente» una sola vez, con su nombre y aria-controls a la fila, de 44x44, con el
+   * puntero y ocultos hasta que el efecto mide (visibility: hidden, salvo con el foco visible); después de la capa, en
+   * el mismo envoltorio, la región viva (AvisoCarrusel), vacía y una sola vez; y abajo de la fila, nada: desde el
+   * 17/11/2026 (decisión Q) ni el contador ni ninguna fila, y la sección termina con el envoltorio (hasta ese día iba
+   * abajo la fila del contador: el contador en un <span> y la región viva). El orden en el HTML: la lista, «Anterior»,
+   * «Siguiente» y la región viva.
+   */
+  function comprobarFlechasALosCostados(html, total, textos) {
+    const fila = /<ul id="([^"]+)" aria-label="[^"]+" data-lenis-prevent-horizontal=""/.exec(html)
+    assert.ok(fila, 'la fila')
+    const sinEntidades = html.replaceAll('&amp;', '&').replaceAll('&gt;', '>')
+    const capa = /<\/ul><div class="([^"]*)"><div class="[^"]*"><\/div>(<button[\s\S]*?<\/button><button[\s\S]*?<\/button>)<\/div><p aria-live="polite" class="sr-only"><\/p><\/div>/.exec(sinEntidades)
+    assert.ok(capa, 'la capa de las flechas y la región viva, después de la lista y dentro del envoltorio de la fila')
+    assert.deepEqual(capa[1].split(' '), ['pointer-events-none', 'absolute', 'inset-x-0', 'top-2', 'z-10', 'grid', 'noscript:hidden', 'print:hidden'])
+    assert.equal(cuantas(html, '<button'), 2)
+    const botones = [...capa[2].matchAll(/<button type="button" aria-controls="([^"]+)" aria-disabled="(true|false)" class="([^"]*)">[\s\S]*?<span class="sr-only">([^<]*)<\/span><\/button>/g)]
+    assert.deepEqual(botones.map((b) => [b[1], b[2], b[4]]), [
+      [fila[1], 'true', textos.anterior],
+      [fila[1], 'false', textos.siguiente],
+    ])
+    // Cada botón, con su lista de clases ENTERA (ni una de más ni una de menos: VFC-05): las de la flecha, las de su
+    // borde y, como sale del servidor (hasta que el efecto mide), las de oculta.
+    for (const [i, b] of botones.entries()) {
+      const clases = b[3].split(' ')
+      assert.deepEqual(clases, [...FLECHA_COSTADO, ...BORDE_FLECHA[i], ...FLECHA_OCULTA], b[4])
+      // Con reduced-motion las transiciones no se apagan (index.css las deja en 0,01 ms): se perdería el retardo.
+      assert.ok(!clases.some((c) => c.startsWith('motion-reduce:')), clases.join(' '))
+    }
+    // La región viva: una sola (dice "Novedad n de total" después de un botón), vacía, en el envoltorio de la fila.
+    assert.equal(cuantas(html, 'aria-live='), 1)
+    assert.equal(cuantas(html, '<p aria-live="polite" class="sr-only"></p>'), 1)
+    // Abajo de la fila, nada (Q, 17/11/2026): el envoltorio de la fila, que termina con la región viva, es lo último del
+    // contenedor de la sección (ninguna fila después, ni vacía ni invisible), y no hay contador "n/total" (ni en un
+    // <span> ni en un <p>) en ningún lado.
+    assert.equal(cuantas(sinEntidades, '<p aria-live="polite" class="sr-only"></p></div></div></section>'), 1, 'nada abajo de la fila')
+    assert.equal(cuantas(html, '<span aria-hidden="true"'), 0)
+    assert.equal(cuantas(html, '<p aria-hidden="true"'), cuantas(html, '<article '), 'solo los "leer más"')
+    assert.doesNotMatch(html, new RegExp(`>\d+(<!-- -->)?/(<!-- -->)?${total}<`), 'sin contador')
+    const orden = ['</ul>', `>${textos.anterior}</span></button>`, `>${textos.siguiente}</span></button>`, 'aria-live='].map((x) => html.indexOf(x))
+    assert.ok(orden.every((x, i) => x >= 0 && (i === 0 || x > orden[i - 1])), orden.join(' '))
   }
 
   test('la Home: un solo h1 ("Un viaje a nuestros orígenes") con la bajada, la foto del hero con prioridad y nada de la landing', () => {
@@ -1254,7 +1403,7 @@ describe('Layout, header, menú y pie (sin base)', () => {
     assert.equal(cuantas(html, 'novedades-titulo'), 0)
   })
 
-  test('la franja de accesos: "Planificá tu visita"; "Tickets" solo con la compra; "Recursos educativos" con la página de Educación; nunca "Tienda virtual"', () => {
+  test('la franja de accesos: "Planificá tu visita"; "Tickets" solo con la compra; "Recursos educativos", a su sección, solo con la página de Educación; nunca "Tienda virtual"', () => {
     const { accesos } = contenido.home
     const franja = (html) => parte(html, `<nav aria-label="${accesos.etiqueta}"`, '</nav>')
     // El texto de cada enlace, con los espacios juntos (con la compra, "Recursos educativos" lleva un salto de línea).
@@ -1274,14 +1423,25 @@ describe('Layout, header, menú y pie (sin base)', () => {
     const CAJA_ENTRADAS = 'flex min-w-0 max-lg:order-first lg:w-[12.5rem] lg:shrink-0'
     // Sin compra: Visitas, en celeste, y "Recursos educativos" (desde el 06/11/2026, la página de Educación existe), en
     // bordó debajo de lg y en naranja desde lg, con la dirección del menú (D11).
+    // "Recursos educativos" lleva a su sección de Educación (T6 de la tanda 1, 16/11/2026): la ruta del menú y, de
+    // ancla, el id de esa sección en content.js (no va escrito a mano en HeroHome.jsx). Y el ancla existe: es el h2 que
+    // nombra a la sección "Recursos educativos" de la página, una sola vez.
+    const RECURSOS = `${contenido.navegacion.menu.find((s) => s.pagina === 'educacion').ruta}#${contenido.educacion.recursos.id}`
+    assert.equal(RECURSOS, '/educacion#educacion-recursos')
+    const educacionMain = delMain(educacionCon())
+    assert.equal(cuantas(educacionMain, 'id="educacion-recursos"'), 1)
+    assert.match(educacionMain, /<section aria-labelledby="educacion-recursos" [^>]*><div [^>]*><p [^>]*>Recursos<\/p><h2 id="educacion-recursos" /)
     let html = home()
-    assert.deepEqual(enlaces(html), [['/visitas', accesos.visita], ['/educacion', accesos.recursos]])
+    assert.deepEqual(enlaces(html), [['/visitas', accesos.visita], [RECURSOS, accesos.recursos]])
     assert.deepEqual(cajas(html).map(({ href, li, fondos }) => [href, li, fondos]), [
       ['/visitas', CAJA, ['bg-celeste']],
-      ['/educacion', CAJA, ['bg-bordo', 'lg:bg-naranja']],
+      [RECURSOS, CAJA, ['bg-bordo', 'lg:bg-naranja']],
     ])
     assert.equal(cuantas(franja(html), 'max-lg:order-first'), 0)
-    assert.match(franja(html), /<a href="\/educacion" class="[^"]*">Recursos educativos<\/a>/)
+    assert.match(franja(html), /<a href="\/educacion#educacion-recursos" class="[^"]*">Recursos educativos<\/a>/)
+    // Solo la caja de la franja lleva el ancla: el menú, el del celular y el pie siguen yendo al principio de la página.
+    assert.equal(cuantas(html, RECURSOS), 1)
+    assert.equal(cuantas(franja(html), 'href="/educacion"'), 0)
     // Con la compra activa: "Tickets" (el texto del botón del header, no el que cargó el museo), en naranja debajo de lg
     // y en bordó desde lg, medido por la analítica (data-entradas). En el HTML va segundo, como en escritorio (el orden
     // del foco y del lector de pantalla no cambia); debajo de lg sube primero a la vista con su <li>, el único que
@@ -1290,12 +1450,12 @@ describe('Layout, header, menú y pie (sin base)', () => {
     assert.deepEqual(enlaces(html), [
       ['/visitas', accesos.visita],
       [MUSEO_MAXIMO.compra.url, contenido.navegacion.entradas],
-      ['/educacion', accesos.recursos],
+      [RECURSOS, accesos.recursos],
     ])
     assert.deepEqual(cajas(html).map(({ href, li, fondos }) => [href, li, fondos]), [
       ['/visitas', CAJA, ['bg-celeste']],
       [MUSEO_MAXIMO.compra.url, CAJA_ENTRADAS, ['bg-naranja', 'lg:bg-bordo']],
-      ['/educacion', CAJA, ['bg-bordo', 'lg:bg-naranja']],
+      [RECURSOS, CAJA, ['bg-bordo', 'lg:bg-naranja']],
     ])
     assert.equal(cuantas(franja(html), 'max-lg:order-first'), 1)
     assert.match(franja(html), /<a href="https:\/\/example.com\/entradas" data-entradas="" class="/)
@@ -1307,11 +1467,13 @@ describe('Layout, header, menú y pie (sin base)', () => {
     assert.equal(cuantas(franja(html), 'verde'), 0)
     // "Recursos educativos" no se mide (no lleva data-entradas). Con las tres cajas lleva el corte después de la primera
     // palabra (un salto de línea en el texto, que vale solo de lg a 1081 px: ahí va en dos renglones con la fuente y con
-    // el respaldo, COD-01 de la verificación de las internas); con dos cajas (sin la compra, arriba) no lo lleva.
+    // el respaldo, COD-01 de la verificación de las internas); con dos cajas (sin la compra, arriba) no lo lleva. Con
+    // el ancla (T6), el corte sigue igual.
     assert.match(
       franja(html),
-      /<a href="\/educacion" class="[^"]*bg-bordo lg:bg-naranja lg:whitespace-pre-line min-\[67\.625rem\]:whitespace-normal">Recursos\neducativos<\/a>/,
+      /<a href="\/educacion#educacion-recursos" class="[^"]*bg-bordo lg:bg-naranja lg:whitespace-pre-line min-\[67\.625rem\]:whitespace-normal">Recursos\neducativos<\/a>/,
     )
+    assert.equal(cuantas(html, RECURSOS), 1)
     assert.equal(cuantas(franja(home()), 'whitespace-pre-line'), 0)
     // Las cajas nunca miden menos de lo que sube la franja (80 desde lg): con el espaciado de WCAG 1.4.12 quedaba foto
     // debajo (A11Y-02 de la verificación de la Home).
@@ -1321,6 +1483,8 @@ describe('Layout, header, menú y pie (sin base)', () => {
     try {
       delete tabla.PAGINAS.educacion
       assert.deepEqual(enlaces(home([], MUSEO_MAXIMO)).map(([href]) => href), ['/visitas', MUSEO_MAXIMO.compra.url])
+      // Ni la caja ni el ancla: el id sale de content.js, pero sin la página no hay adónde ir.
+      assert.equal(cuantas(home([], MUSEO_MAXIMO), 'educacion-recursos'), 0)
     } finally {
       tabla.PAGINAS.educacion = educacion
     }
@@ -1337,20 +1501,25 @@ describe('Layout, header, menú y pie (sin base)', () => {
     }
   })
 
-  test('Novedades: sin novedades no hay sección; con una, la tarjeta sin botones; con seis, el carrusel con "1/6" listo para hidratar', () => {
+  test('Novedades: sin novedades no hay sección; con una, la tarjeta sin botones; con seis, el carrusel con las flechas a los costados listas para hidratar y sin contador', () => {
     const textos = contenido.home.novedades
     assert.equal(cuantas(home([]), textos.verTodas), 0)
-    // Una sola: la sección, la tarjeta y "Ver todas las novedades", sin flechas ni contador.
+    // Una sola: la sección, la tarjeta y "Ver todas las novedades", sin flechas, contador ni región viva.
     const una = seccion(home([novedad(1)]), 'novedades-titulo')
     assert.match(una, new RegExp(`<h2 id="novedades-titulo"[^>]*>${textos.titulo}</h2>`))
     assert.ok(una.includes(`>${textos.bajada}</p>`))
     assert.match(una, new RegExp(`<a href="/novedades" class="[^"]*">${textos.verTodas}<svg`))
     assert.equal(cuantas(una, '<li '), 1)
     assert.equal(cuantas(una, '<button'), 0)
+    assert.equal(cuantas(una, 'aria-live='), 0)
     // Seis: en el orden en que llegan, cada una con su enlace (el título, estirado sobre la tarjeta) y "leer más" a la
     // vista pero no para el lector (si no, seis "leer más" iguales).
     const seis = [1, 2, 3, 4, 5, 6].map((n) => novedad(n))
     const html = seccion(home(seis), 'novedades-titulo')
+    // El aire de abajo: la sección termina 40 px debajo de la fila (pb-10; con los 8 del -mb-2 del envoltorio, a 32 del
+    // borde de la fila). Lo que Q cuida es ese aire, y con la sección en pb-16 (24 px más) las pruebas pasaban (RF-03
+    // de la re-verificación de las flechas, 17/11/2026); en el navegador lo mide tools/carrusel-check.js.
+    assert.ok(html.startsWith('<section aria-labelledby="novedades-titulo" class="pt-12 pb-10">'), html.slice(0, 90))
     const titulos = [...html.matchAll(/<h3 [^>]*><a href="([^"]*)" class="[^"]*after:absolute after:inset-0[^"]*">([^<]*)<\/a><\/h3>/g)]
     assert.deepEqual(titulos.map((m) => m[1]), seis.map((n) => n.url))
     assert.deepEqual(titulos.map((m) => m[2]), seis.map((n) => n.titulo))
@@ -1375,27 +1544,65 @@ describe('Layout, header, menú y pie (sin base)', () => {
     assert.ok(fila, 'la fila de tarjetas')
     assert.equal(fila[2], textos.lista)
     assert.ok(fila[3].split(' ').includes('overflow-x-auto'), fila[3])
+    // Y adentro de la fila, el aire de siempre (R3H-02 de la re-verificación de la ronda 3, 18/11/2026: con «py-2 pb-8»
+    // en la fila, o un margen abajo en cada tarjeta, de las tarjetas al final de la sección quedaban 64 px en vez de 40 y
+    // las pruebas pasaban): la fila, solo con su py-2 arriba y abajo (los 8 px para el foco), y las tarjetas sin margen
+    // ni padding arriba o abajo. En el navegador lo mide tools/carrusel-check.js (res.aireDesdeLasTarjetas).
+    assert.deepEqual(fila[3].split(' ').filter((c) => /(^|:)p[ytb]?-/.test(c)), ['py-2'], fila[3])
+    const clasesDeLasTarjetas = [...html.matchAll(/<li class="([^"]*)"/g)].map((m) => m[1])
+    assert.equal(clasesDeLasTarjetas.length, 6)
+    for (const clases of clasesDeLasTarjetas) assert.deepEqual(clases.split(' ').filter((c) => /(^|:)-?[mp][ytb]?-/.test(c)), [], clases)
+    // Ni adentro de la tarjeta (R4-01 de la re-verificación de la ronda 4, 18/11/2026: un padding abajo en el <article>, un
+    // ::after o un espaciador vacío después de «leer más» también sumaban aire, y las pruebas pasaban): el <article> con
+    // sus clases de siempre, y después de «leer más», solo la portada.
+    assert.equal(cuantas(html, '<article class="group relative flex flex-col">'), 6)
+    assert.equal(html.match(new RegExp(`<p aria-hidden="true"[^>]*>${textos.leerMas}</p><img [^>]*/?></article>`, 'g'))?.length, 6)
     // Antes de hidratar la fila no tiene snap: lo pone el efecto. Sin JavaScript (noscript: @media (scripting: none)) las
     // tarjetas van en renglones, todas a la vista: en una fila con scroll el foco en una tarjeta cortada quedaba a medias
     // (A11Y-06).
     for (const clase of ['snap-x', 'snap-mandatory']) assert.ok(!fila[3].split(' ').includes(clase), clase)
     for (const clase of ['noscript:flex-wrap', 'noscript:overflow-visible']) assert.ok(fila[3].split(' ').includes(clase), clase)
     assert.equal(cuantas(html, 'snap-start'), 6)
-    // Anterior y Siguiente con nombre, sobre la fila; el contador "1/6" (dibujo) y la región viva, vacía hasta el primer
-    // Anterior o Siguiente (A11Y-03: no avisa con cada scroll). Antes de hidratar la fila de los botones está invisible
-    // (sin JavaScript no hacen nada).
+    // Anterior y Siguiente con nombre, a los costados de la fila, sobre las fotos (desde el 16/11/2026: FlechasCarrusel),
+    // y la región viva en el envoltorio de la fila, vacía hasta el primer Anterior o Siguiente (A11Y-03: no avisa con
+    // cada scroll); abajo, nada (desde el 17/11/2026, decisión Q: ni el contador "1/6"). Antes de hidratar los botones
+    // no se ven (sin JavaScript no hacen nada). renderToStaticMarkup no separa los textos con <!-- --> (el render del
+    // servidor sí).
+    comprobarFlechasALosCostados(html, 6, textos)
+    assert.deepEqual([textos.anterior, textos.siguiente], ['Anterior', 'Siguiente'])
+    assert.equal(cuantas(html, textos.contador(1, 6)), 0)
+    // Con dos (en el celular desbordan): lo mismo.
+    comprobarFlechasALosCostados(seccion(home([novedad(1), novedad(2)]), 'novedades-titulo'), 2, textos)
+  })
+
+  test('Novedades (F8): si una tarjeta no tiene portada, sin flechas a los costados: los controles de siempre abajo, con sus botones y su contador', () => {
+    const textos = contenido.home.novedades
+    const seis = [1, 2, 3, 4, 5, 6].map((n) => novedad(n, n === 4 ? { portada: null } : {}))
+    const html = seccion(home(seis), 'novedades-titulo')
+    assert.equal(cuantas(html, '<img'), 5)
+    // Ni la capa ni la guía: sobre una tarjeta sin foto las flechas taparían el título.
+    assert.equal(cuantas(html, 'pointer-events-none'), 0)
+    assert.equal(cuantas(html, 'pointer-events-auto'), 0)
+    // La fila, en su envoltorio, como siempre; y abajo, ← "1/6" → (ControlesCarrusel.jsx, sin cambios), invisible hasta
+    // medir: los dos botones con su nombre y aria-controls, el contador (el <span> de debajo de lg y el <p> de lg) y
+    // la región viva, vacía.
+    const fila = /<ul id="([^"]+)" aria-label="[^"]+" data-lenis-prevent-horizontal=""/.exec(html)
+    assert.ok(html.includes('</ul></div><div class="mt-6 flex items-center justify-end gap-2 noscript:hidden print:hidden invisible"><button'), 'los controles, abajo')
     const botones = [...html.matchAll(/<button type="button" aria-controls="([^"]+)" aria-disabled="(true|false)"[^>]*>[\s\S]*?<span class="sr-only">([^<]*)<\/span><\/button>/g)]
     assert.deepEqual(botones.map((b) => [b[1], b[2], b[3]]), [
       [fila[1], 'true', textos.anterior],
       [fila[1], 'false', textos.siguiente],
     ])
-    assert.match(html, /<div class="mt-6 flex items-center justify-end gap-2[^"]* invisible">/)
-    // renderToStaticMarkup no separa los textos con <!-- --> (el render del servidor sí).
-    // El contador: un <span> debajo de lg y el <p> de siempre desde lg (VA11-03; ControlesCarrusel.jsx).
     assert.match(html, /<span aria-hidden="true" class="[^"]* lg:hidden">1(<!-- -->)?\/(<!-- -->)?6<\/span>/)
     assert.match(html, /<p aria-hidden="true" class="hidden [^"]* lg:block">1(<!-- -->)?\/(<!-- -->)?6<\/p>/)
-    assert.ok(html.includes('<p aria-live="polite" class="sr-only"></p>'), 'la región viva, vacía')
-    assert.equal(cuantas(html, textos.contador(1, 6)), 0)
+    assert.equal(cuantas(html, 'aria-live='), 1)
+    // Con todas las portadas vuelven las flechas a los costados (y abajo no queda nada: ni botones ni contador).
+    const conTodas = seccion(home(seis.map((t, i) => ({ ...t, portada: fotoDelPanel(i + 1) }))), 'novedades-titulo')
+    comprobarFlechasALosCostados(conTodas, 6, textos)
+    // Lo decide cada portada, no la primera: con la última sin foto, también abajo.
+    const ultimaSin = seccion(home([novedad(1), novedad(2, { portada: null })]), 'novedades-titulo')
+    assert.equal(cuantas(ultimaSin, 'pointer-events-none'), 0)
+    assert.ok(ultimaSin.includes('justify-end gap-2 noscript:hidden print:hidden invisible"><button'))
   })
 
   test('Novedades: una sin portada va sin foto; lo largo se parte; el título mantiene sus mayúsculas y minúsculas', () => {
@@ -1411,6 +1618,14 @@ describe('Layout, header, menú y pie (sin base)', () => {
     assert.match(/<h3 class="([^"]*)"/.exec(tarjetas[1])[1], /\bmt-6\b/)
     // El texto va tal cual (las mayúsculas las pone el CSS).
     assert.ok(tarjetas[0].includes(`>${largo}</a>`))
+    // Con portada y sin ella, el enlace del título con las mismas clases, ENTERAS: el recorte a tres renglones también
+    // sin portada (RC-01 de la verificación de RF-01, 19/11/2026: si el recorte iba solo en las que tienen portada, como
+    // en F8, ninguna prueba lo veía).
+    for (const tarjeta of tarjetas) {
+      const enlace = /<h3 class="[^"]*"><a href="[^"]*" class="([^"]*)">/.exec(tarjeta)
+      assert.ok(enlace, tarjeta.slice(0, 300))
+      assert.deepEqual(enlace[1].split(' '), ENLACE_TITULO_CARRUSEL)
+    }
   })
 
   test('"El MuPa en imágenes" y "Mapa del Museo": los títulos, las cinco fotos, las piedritas decorativas y los nombres del plano como texto', () => {
@@ -1488,6 +1703,21 @@ describe('Layout, header, menú y pie (sin base)', () => {
     assert.deepEqual(fijo.filter((c) => /(^|:)(pt|items)-/.test(c)), ['items-start', 'pt-[7.5rem]', 'md:items-center', 'md:pt-0', 'apilado:pt-0'])
     assert.ok(fijo.includes('h-svh') && fijo.includes('apilado:static'), fijo.join(' '))
     assert.ok(!/\d(d|l)?vh/.test(parte(fotos, '<div id="identidad-collage"', '<img ')), 'ningún alto en vh ni dvh')
+    // El recorrido (G de la tanda 1b, 16/11/2026): uno solo para todos los anchos, el que tenía escritorio. El bloque
+    // mide la pantalla fija, 16rem de scroll por cada foto que sale (4 con 5 fotos: --fotos) y la cola, y la cola (la
+    // última foto quieta antes de soltarse), el 30 % de la pantalla; sin variantes lg:, que serían iguales. Debajo de
+    // lg eran 24,2rem por foto y una cola del 45 % (145svh en el bloque): el desarrollador encontró la galería muy
+    // larga en el celular (1848 px con la pila clavada en un iPhone de 664 de alto; ahora, 1223). Quieto (apilado),
+    // sin alto fijo ni cola.
+    const altos = (clases) => clases.filter((c) => /(^|:)(h|min-h|max-h)-/.test(c))
+    assert.deepEqual(altos(bloque), ['h-[calc(130svh+(var(--fotos)-1)*16rem)]', 'apilado:h-auto'])
+    assert.match(fotos, /<div id="identidad-collage" class="[^"]*" style="--fotos:5">/)
+    const cola = clasesDe(fotos, /<div data-cola="true" aria-hidden="true" class="([^"]*)"/)
+    assert.deepEqual(altos(cola), ['h-[30svh]'])
+    assert.ok(cola.includes('apilado:hidden') && cola.includes('pointer-events-none'), cola.join(' '))
+    assert.equal(cuantas(fotos, 'data-cola='), 1)
+    for (const viejo of ['24.2rem', '145svh', '45svh']) assert.ok(!fotos.includes(viejo), `volvió ${viejo}, del recorrido largo del celular`)
+    for (const clases of [bloque, fijo, cola]) assert.deepEqual(clases.filter((c) => /^lg:(h|min-h|max-h)-/.test(c)), [], 'el recorrido no cambia en lg')
     for (const img of fotos.match(/<img [^>]*alt="[^"]+"[^>]*>/g)) {
       assert.ok(img.includes('sizes="(min-width: 1440px) 667px, (min-width: 1024px) 46vw, (min-width: 768px) 66vw, min(calc(100vw - 3rem), 350px)"'), img)
       assert.ok(img.includes('loading="lazy"') && img.includes('fetchPriority="low"'), img)
@@ -1624,6 +1854,194 @@ describe('Layout, header, menú y pie (sin base)', () => {
     }
     // Los trazados viajan en el JS de la Home (hoy 3.699 B).
     assert.ok(SALAS_DEL_PLANO.reduce((total, s) => total + s.d.length, 0) < 4500)
+    // Van en el orden de home.mapa.espacios (src/content.js), y desde M6 ese orden decide también qué nombre muestra la
+    // etiqueta de cada sala al tocarla (espacios[i] para SALAS_DEL_PLANO[i], en MapaMuseo.jsx): el id de cada sala es su
+    // nombre sin tildes y con guiones (RM-01 de la re-verificación, 17/11/2026: con «Sala 3» y «Sala 4» cambiadas de
+    // lugar en content.js, cada una mostraba el nombre de la otra y las pruebas pasaban).
+    const slug = (texto) => texto.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, '-')
+    assert.deepEqual(contenido.home.mapa.espacios.map(slug), SALAS_DEL_PLANO.map((s) => s.id))
+  })
+
+  // El mapa del celular con el toque (decisión M6 del desarrollador, 17/11/2026): debajo de md, tocar una sala la pinta
+  // de bordó y muestra su nombre. Todo lo arma el JavaScript del navegador: lo que sale del servidor no cambia (el HTML
+  // de escritorio queda igual) y lo que decide qué sala se tocó es código puro de mapaSalas.js, que se prueba acá sin
+  // el DOM. Lo que hace en el navegador (los toques, la etiqueta, el fundido) se midió con toques por CDP
+  // (tools/salida/tanda-1/mapa-tactil, no versionado).
+  test('el mapa táctil (M6): del servidor no sale nada nuevo; las capas y las etiquetas las arma el navegador', async () => {
+    const { readFile } = await import('node:fs/promises')
+    const plano = seccion(home(), 'mapa-titulo')
+    for (const marca of ['data-sala-tocada', 'data-etiqueta-sala', 'mapa-toque', '<image', '<mask', 'mapa-museo-movil-tocada', 'data-activa']) {
+      assert.equal(cuantas(plano, marca), 0, marca)
+    }
+    // Ni un control: el toque es el click del contenedor (React no lo escribe en el HTML).
+    assert.equal(cuantas(plano, 'onClick'), 0)
+    assert.equal(cuantas(plano, 'onPointerDown'), 0)
+    // Las capas usan el plano "tocado", que importa solo MapaMuseo (así viaja en el JS de la Home y en ninguna otra
+    // página), y se dibujan solo debajo de md, sin el puntero, decorativas y fuera de la impresión.
+    const fuente = await readFile(join(RAIZ, 'src', 'components', 'MapaMuseo.jsx'), 'utf8')
+    assert.match(fuente, /^import mapaTocada from '\.\.\/assets\/mapa-museo-movil-tocada\.svg'$/m)
+    assert.equal(cuantas(await readFile(join(RAIZ, 'src', 'content.js'), 'utf8'), 'tocada'), 0)
+    const capa = /<svg\s+aria-hidden="true"\s+focusable="false"\s+viewBox=\{`0 0 \$\{ANCHO_PLANO\} \$\{ALTO_PLANO\}`\}\s+className="([^"]*)"/.exec(fuente)
+    assert.ok(capa, 'el svg de las capas')
+    assert.deepEqual(capa[1].split(' '), ['pointer-events-none', 'absolute', 'inset-0', 'size-full', 'md:hidden', 'print:hidden'])
+    const etiqueta = /const ETIQUETA =\s+((?:'[^']*'\s*\+?\s*)+)/.exec(fuente)[1].replace(/'\s*\+\s*'/g, '').replace(/'/g, '').trim().split(/\s+/)
+    for (const clase of ['pointer-events-none', 'absolute', 'bg-bordo', 'text-blanco', 'font-mono', 'text-base', 'opacity-0', 'data-activa:opacity-100', 'transition-opacity', 'duration-200', 'motion-reduce:transition-none', 'md:hidden', 'print:hidden']) {
+      assert.ok(etiqueta.includes(clase), `la etiqueta: ${clase}`)
+    }
+    assert.match(fuente, /aria-hidden="true"\s+data-etiqueta-sala=\{id\}/)
+    for (const control of ['role=', 'tabIndex', 'cursor-pointer', '<button', '<a ']) assert.equal(cuantas(fuente, control), 0, control)
+    // Lo que hace el JavaScript del toque, sobre la fuente (RM-01 de la re-verificación, 17/11/2026: con la etiqueta
+    // vacía, con el nombre de otra sala, sin etiquetas, sin el corte de md, sin el tope del toque largo, con otra
+    // tolerancia o con otra máscara, las pruebas pasaban; lo que eso hace en el navegador lo midieron, con toques por CDP,
+    // tools/salida/tanda-1/mapa-tactil y rv-mapa, no versionados):
+    // - la etiqueta de cada sala, con las capas, dice SU nombre: el de home.mapa.espacios con el mismo índice (el orden
+    //   lo ata la prueba de mapaSalas.js, arriba);
+    assert.match(fuente, /const \{[^}]*\bespacios\b[^}]*\} = home\.mapa(?![.\w])/)
+    assert.match(fuente, /\{capas &&\s+SALAS_DEL_PLANO\.map\(\(\{ id \}, i\) => [({][\s\S]{0,800}?data-etiqueta-sala=\{id\}[\s\S]{0,800}?>\s*\{espacios\[i\]\}\s*<\/span>/)
+    assert.match(fuente, /\{capas && \(\s*<svg\s+aria-hidden="true"/)
+    // - desde md el toque no hace nada (ni arma las capas ni pide el plano tocado: en escritorio un clic bajaba sus
+    //   10.662 B), con el mismo corte que el <source> del plano de escritorio; y el toque largo (el menú de la imagen) no
+    //   cuenta: tocar, apoyar el dedo y el IntersectionObserver;
+    const desdeMd = /^const DESDE_MD = '([^']+)'/m.exec(fuente)?.[1]
+    assert.ok(desdeMd && plano.includes(`<source media="${desdeMd}" `), `el corte del toque (${desdeMd}) es el del <source> del plano`)
+    assert.match(fuente, /const desdeMd = \(\) => matchMedia\(DESDE_MD\)\.matches/)
+    assert.match(fuente, /if \(desdeMd\(\) \|\| !plano\.current \|\| e\.timeStamp - apoyo\.current > LARGO_MS\) return/)
+    assert.match(fuente, /if \(!capas && !desdeMd\(\)\) setCapas\(true\)/)
+    assert.match(fuente, /if \(e\.isIntersecting && !desdeMd\(\)\) setCapas\(true\)/)
+    // - y los valores medidos, a confirmar por el desarrollador (M6): la tolerancia de 6 px, el toque largo de 500 ms y
+    //   cuánto se agranda la máscara de cada sala para tomar su contorno (medido con librsvg contra el plano de celular
+    //   con esa sala en bordó; sin agrandar queda el hilo naranja y de más pinta las vecinas). Cambiarlos es a
+    //   propósito, midiendo otra vez; y cada capa va con la máscara de su sala.
+    assert.match(fuente, /^const TOLERANCIA_PX = 6(?![\d.])/m)
+    // La sala del toque es la que da salaEnElPunto, sin respaldo (anclado al final del renglón: con «?? la primera
+    // sala», tocar el plano fuera de las salas la encendía y la expresión suelta pasaba; R3M-01 de la re-verificación de
+    // la ronda 3, 18/11/2026).
+    assert.match(fuente, /^\s*const sala = salaEnElPunto\(x, y, TOLERANCIA_PX \/ k\)$/m)
+    assert.match(fuente, /^const LARGO_MS = 500(?![\d.])/m)
+    assert.match(fuente, /^const RADIO = \{ confiteria: 4\.5, 'sala-8': 4, 'jardin-triasico': 0 \}/m)
+    assert.match(fuente, /^const RADIO_COMUN = 3\.5(?!\d)/m)
+    assert.match(fuente, /const radio = RADIO\[id\] \?\? RADIO_COMUN/)
+    assert.match(fuente, /<mask key=\{id\} id=\{`mapa-toque-\$\{id\}`\}>\s*<path\s+d=\{d\}\s+fill="#fff"\s+stroke=\{radio \? '#fff' : undefined\}\s+strokeWidth=\{radio \? 2 \* radio : undefined\}/)
+    assert.match(fuente, /<image\s+key=\{id\}\s+href=\{mapaTocada\}\s+width=\{ANCHO_PLANO\}\s+height=\{ALTO_PLANO\}\s+mask=\{`url\(#mapa-toque-\$\{id\}\)`\}/)
+    // - y lo que enciende y apaga (R2-01 de la re-verificación de la ronda 2, 17/11/2026: con el toque roto —sin los dos
+    //   manejadores, la capa o la etiqueta que nunca se encienden o que se encienden las otras, la capa encendida sin
+    //   verse, tocar la misma o fuera que no apaga, x e y cambiados, la etiqueta sin acomodar—, todo lo de arriba
+    //   pasaba): el toque llega (los dos manejadores en el plano); la capa y la etiqueta se encienden SOLO con su sala
+    //   (data-activa) y la capa encendida se ve; tocar la misma o fuera de las salas apaga (anclado a setCapas: con un
+    //   «if (sala)» delante de setActiva, fuera de las salas no apagaba y la expresión suelta pasaba), y tocar fuera del
+    //   plano también; el punto se lee con x de clientX e y de clientY; y la etiqueta se acomoda arriba o abajo de su
+    //   sala, se dibuja donde dice ese lado (bottom encima, top debajo) y se vuelve a acomodar si el plano cambia de
+    //   tamaño (RM-02, 17/11/2026: al girar el teléfono tapaba su sala). En el navegador, con toques de verdad, lo mira
+    //   tools/mapa-check.mjs.
+    assert.match(fuente, /onPointerDown=\{apoyar\}\s+onClick=\{tocar\}/)
+    assert.match(fuente, /data-sala-tocada=\{id\}\s+data-activa=\{id === activa \? '' : undefined\}\s+className=\{CAPA_TOCADA\}/)
+    assert.match(fuente, /data-etiqueta-sala=\{id\}\s+data-activa=\{id === activa \? '' : undefined\}\s+className=\{ETIQUETA\}/)
+    const capaTocada = (/const CAPA_TOCADA = '([^']*)'/.exec(fuente)?.[1] ?? '').split(' ')
+    for (const clase of ['opacity-0', 'data-activa:opacity-100', 'transition-opacity', 'duration-200', 'motion-reduce:transition-none']) {
+      assert.ok(capaTocada.includes(clase), `la capa: ${clase}`)
+    }
+    assert.match(fuente, /setCapas\(true\)\s+setActiva\(sala === activa \? null : sala\)/)
+    assert.match(fuente, /if \(!plano\.current\?\.contains\(e\.target\)\) setActiva\(null\)/)
+    assert.match(fuente, /document\.addEventListener\('click', fuera\)/)
+    assert.match(fuente, /const x = \(e\.clientX - r\.left\) \/ k/)
+    assert.match(fuente, /const y = \(\(e\.clientY - r\.top\) \* ALTO_PLANO\) \/ r\.height/)
+    assert.match(fuente, /setLugar\(\(antes\) =>/)
+    assert.match(fuente, /style=\{estiloDeEtiqueta\(id, lugar\[id\]\)\}/)
+    // En el ancho, la etiqueta va centrada en proporción a su sala (R3M-01: con left 0, siempre contra el borde
+    // izquierdo del plano, a ~290 px de la Sala 6, las pruebas pasaban).
+    assert.match(fuente, /const centro = \(50 \* \(x0 \+ x1\)\) \/ ANCHO_PLANO\s+const estilo = \{ left: `\$\{centro\}%`, translate: `-\$\{centro\}% 0` \}/)
+    assert.match(fuente, /else if \(sitio\.lado === 'sobre'\) estilo\.bottom = `min\(calc\(\$\{100 - arriba\}% \+ \$\{AIRE_PX\}px\)/)
+    assert.match(fuente, /else estilo\.top = `min\(calc\(\$\{\(100 \* y1\) \/ ALTO_PLANO\}% \+ \$\{AIRE_PX\}px\)/)
+    assert.match(fuente, /new ResizeObserver\(decidir\)\s+vigia\.observe\(plano\.current\)/)
+  })
+
+  test('mapaSalas.js: qué sala hay en un punto y la caja de cada una (M6), sin el DOM', async () => {
+    const { ANCHO_PLANO, ALTO_PLANO, cajaDeSala, salaEnElPunto } = await import('../../src/components/mapaSalas.js')
+    assert.equal(ANCHO_PLANO, 882.765)
+    assert.equal(ALTO_PLANO, 811.848)
+    // Un punto adentro de cada sala (el centro que midió el cierre de E6.3 en Chrome con isPointInFill) y su caja (la de
+    // getBBox de tools/salida/e6-cierre/prep-mapa/spec.md: x, y, ancho y alto, con una décima de margen).
+    const SALAS = {
+      confiteria: [120.3, 166.4, 44.3, 96.4, 153.9, 124.9],
+      'sala-inmersiva': [257.4, 262.1, 183.4, 174.1, 148.6, 148.6],
+      tienda: [86.5, 342.4, 30.5, 306.4, 113.4, 84.8],
+      'sala-8': [212.2, 458, 104.2, 350, 215, 215],
+      microcine: [202.4, 624.6, 146.4, 564.6, 113.5, 121],
+      'sala-1': [305.5, 691.7, 257.5, 649.7, 94.5, 94.5],
+      'sala-educativa': [366.7, 517.7, 308.7, 471.7, 117.3, 117.3],
+      'sala-2': [485.1, 689.6, 371.1, 619.6, 226, 132],
+      'sala-3': [670.3, 687.8, 622.3, 645.8, 94.5, 94.5],
+      'sala-4': [657.7, 557.2, 609.7, 517.2, 94.5, 94.5],
+      'sala-5': [743.7, 476.6, 695.7, 436.6, 94.5, 94.5],
+      'jardin-triasico': [672.6, 455.6, 598.6, 383.6, 148.5, 144.5],
+      'sala-6': [776.8, 350.8, 728.8, 310.8, 94.5, 94.5],
+      'sala-7': [605.3, 418, 511.3, 322, 187.3, 197.2],
+    }
+    assert.deepEqual(Object.keys(SALAS), SALAS_DEL_PLANO.map((s) => s.id))
+    for (const [id, [x, y, x0, y0, ancho, alto]] of Object.entries(SALAS)) {
+      assert.equal(salaEnElPunto(x, y), id, `${id}: su punto`)
+      assert.equal(salaEnElPunto(x, y, 15), id, `${id}: con tolerancia, también`)
+      const caja = cajaDeSala(id)
+      for (const [i, esperado] of [x0, y0, x0 + ancho, y0 + alto].entries()) assert.ok(Math.abs(caja[i] - esperado) < 0.25, `${id}: la caja ${caja} contra ${esperado}`)
+    }
+    assert.equal(cajaDeSala('no-existe'), null)
+    // Fuera de las salas: nada sin tolerancia; con ella, la más cercana si está a menos (si no, nada).
+    for (const [x, y] of [[20, 20], [470, 560], [540, 600], [450, 420], [800, 700], [700, 250], [60, 600]]) {
+      assert.equal(salaEnElPunto(x, y), null, `${x},${y}`)
+      assert.equal(salaEnElPunto(x, y, 15), null, `${x},${y} con tolerancia`)
+    }
+    assert.equal(salaEnElPunto(600, 580), null)
+    assert.equal(salaEnElPunto(600, 580, 15), 'sala-4')
+    // En el medio del hueco entre dos vecinas (de 2,7 a 15,7 unidades): ninguna sin tolerancia y, con ella, una de las
+    // dos (la más cercana).
+    for (const [a, b, x, y] of [
+      ['jardin-triasico', 'sala-7', 646.3, 440.9],
+      ['jardin-triasico', 'sala-5', 699, 463.4],
+      ['jardin-triasico', 'sala-4', 663.7, 516.3],
+      ['confiteria', 'sala-inmersiva', 184.6, 211.2],
+      ['sala-8', 'microcine', 205.8, 566.3],
+      ['sala-8', 'sala-educativa', 315, 497.7],
+    ]) {
+      assert.equal(salaEnElPunto(x, y), null, `${a}/${b}`)
+      assert.ok([a, b].includes(salaEnElPunto(x, y, 15)), `${a}/${b}: ${salaEnElPunto(x, y, 15)}`)
+    }
+    // La roseta de Sala 8 está adentro de la sala: tocarla es tocar la sala.
+    assert.equal(salaEnElPunto(200.19, 473.74), 'sala-8')
+  })
+
+  test('el plano tocado (mapa-museo-movil-tocada.svg, M6): el de celular con las 14 salas y los 13 contornos en bordó', async () => {
+    const { readFile } = await import('node:fs/promises')
+    const leer = (nombre) => readFile(join(RAIZ, 'src', 'assets', nombre), 'utf8')
+    const [celular, tocada] = await Promise.all(['mapa-museo-movil.svg', 'mapa-museo-movil-tocada.svg'].map(leer))
+    const raiz = (svg) => /^<svg width="([\d.]+)" height="([\d.]+)" viewBox="([^"]+)"/.exec(svg)?.slice(1).join(' ')
+    assert.equal(raiz(tocada), raiz(celular))
+    const trazados = (svg) => svg.match(/<path [^>]*\/>/g) ?? []
+    const a = trazados(celular)
+    const b = trazados(tocada)
+    assert.equal(b.length, a.length)
+    assert.equal(b.length, 187)
+    // Trazado por trazado, iguales salvo el color de 27: los 14 rellenos de las salas (#EB622D y, el Jardín, #CF7349)
+    // y los 13 contornos (#EB622D al 70 %), que pasan a #8A1812 (el contorno, al 100 %, como en el "Group 4").
+    const rellenos = SALAS_DEL_PLANO.map((s) => s.d)
+    let cambiados = 0
+    a.forEach((p, i) => {
+      if (p === b[i]) return
+      cambiados++
+      const d = / d="([^"]+)"/.exec(p)[1]
+      assert.equal(/ d="([^"]+)"/.exec(b[i])[1], d, `trazado ${i}: la misma geometría`)
+      if (rellenos.includes(d)) {
+        assert.equal(b[i], p.replace(/fill="#(EB622D|CF7349)"/, 'fill="#8A1812"'), `relleno ${i}`)
+      } else {
+        assert.equal(b[i], p.replace('stroke="#EB622D" stroke-opacity=".7"', 'stroke="#8A1812"'), `contorno ${i}`)
+      }
+    })
+    assert.equal(cambiados, 27)
+    for (const color of ['#EB622D', '#CF7349']) assert.equal(cuantas(tocada, color), 0, color)
+    assert.equal(cuantas(tocada, 'fill="#8A1812"'), 14)
+    assert.equal(cuantas(tocada, 'stroke="#8A1812"'), 13)
+    // Sin los nombres (ningún relleno blanco) y del mismo peso que el de celular.
+    assert.equal(cuantas(tocada, 'fill="white"'), 0)
+    assert.ok(Math.abs(tocada.length - celular.length) < 400, `${tocada.length} B`)
   })
 
   // Exposiciones, Novedades y las fichas de una muestra y de una novedad con el lenguaje del tablero "Web" (04/11/2026,
@@ -2287,6 +2705,14 @@ describe('Layout, header, menú y pie (sin base)', () => {
         assert.ok(fotos[0].includes(a), `${b.id}: ${a}`)
       }
     }
+    // El alt de la foto de relleno, repetida en los cuatro bloques (T7 de la tanda 1, 16/11/2026): solo el primer
+    // bloque lo lleva; en los otros tres va vacío (decorativa), así el lector de pantalla no la anuncia cuatro veces.
+    const ALT_DE_RELLENO = 'Paleontóloga registrando un hallazgo en el campo con una cuadrícula de hilos sobre el fósil'
+    assert.deepEqual(bloques.map((b) => b.imagen.alt), [ALT_DE_RELLENO, '', '', ''])
+    assert.deepEqual(bloques.map((b) => /<img [^>]*\salt="([^"]*)"/.exec(seccion(main, b.id))?.[1]), [ALT_DE_RELLENO, '', '', ''])
+    assert.equal(cuantas(main, 'alt=""'), 3)
+    // Va vacío solo mientras la foto sea la repetida: un bloque que estrene la suya tiene que traer su alt.
+    for (const b of bloques.slice(1)) assert.equal(b.imagen.src, bloques[0].imagen.src, `${b.id}: con una foto propia, lleva su alt (y esta prueba cambia)`)
     // Infraestructura: la lista con la viñeta de 6 px, 12 entre ítems, y "Coordinar visita" a Contacto (DV9).
     const infra = seccion(main, 'divulgacion-infraestructura')
     const lista = /<ul class="([^"]*)">((?:<li>[^<]*<\/li>)+)<\/ul>/.exec(infra)
@@ -2314,6 +2740,8 @@ describe('Layout, header, menú y pie (sin base)', () => {
     const news = seccion(main, 'divulgacion-newsletter')
     assert.match(news, new RegExp(`<h2 id="divulgacion-newsletter" class="[^"]*font-thin[^"]*">${newsletter.titulo}</h2><p class="text-lg leading-7 font-normal text-muted text-pretty mt-4 max-w-none">${newsletter.bajada}</p>`))
     assert.equal(cuantas(news, 'font-mono text-sm leading-5 font-medium text-paper uppercase'), 0)
+    // El mismo margen de scroll que el h2 de "Recursos educativos" de Educación (SeccionRecursos.jsx: T6 de la tanda 1).
+    assert.deepEqual(clasesDe(news, /<h2 id="divulgacion-newsletter" class="([^"]*)"/).filter((c) => /(^|:)scroll-m/.test(c)), ['scroll-mt-25', 'lg:scroll-mt-29'])
     const tarjetas = [...news.matchAll(/<li class="([^"]*)"><span class="flex size-12 [^"]*bg-caja[^"]*"><svg [^>]*class="shrink-0 size-6 text-naranja"[\s\S]*?<\/svg><\/span><div class="flex flex-col gap-2"><h3 class="font-mono text-xs [^"]*">([^<]*)<\/h3><p class="text-base [^"]*text-muted[^"]*">([^<]*)<\/p><\/div><p class="flex items-center gap-2 font-mono text-sm leading-5 font-normal text-paper">([^<]*)<svg [^>]*aria-hidden="true"/g)]
     assert.deepEqual(tarjetas.map((m) => [m[2], m[3], m[4]]), newsletter.tarjetas.map((t) => [t.titulo, t.texto, t.accion]))
     for (const m of tarjetas) for (const c of ['lg:px-6', 'lg:py-10', 'xl:px-10', 'gap-6']) assert.ok(m[1].split(' ').includes(c), c)
@@ -2340,7 +2768,7 @@ describe('Layout, header, menú y pie (sin base)', () => {
     }
   })
 
-  test('Divulgación (DV2): con una novedad, la tarjeta sin botones; con seis, "Últimas noticias" con la bajada de la Home y "1/6"', () => {
+  test('Divulgación (DV2): con una novedad, la tarjeta sin botones; con seis, "Últimas noticias" con la bajada de la Home y las flechas a los costados, sin contador', () => {
     const { noticias } = contenido.divulgacion
     const textos = contenido.home.novedades
     // Una: la sección con su tarjeta, sin flechas ni contador.
@@ -2349,7 +2777,7 @@ describe('Layout, header, menú y pie (sin base)', () => {
     assert.equal(cuantas(una, '<li '), 1)
     assert.equal(cuantas(una, '<button'), 0)
     // Seis: el h2 "Últimas noticias" con el id de la Home, la bajada de la Home, "Ver todas las novedades" a /novedades
-    // y el contador "1/6"; entre el hero y el primer bloque.
+    // y las flechas a los costados, sin contador (Q, 17/11/2026); entre el hero y el primer bloque.
     const seis = [1, 2, 3, 4, 5, 6].map((n) => novedad(n))
     const html = divulgacionCon(seis)
     const main = delMain(html)
@@ -2357,8 +2785,9 @@ describe('Layout, header, menú y pie (sin base)', () => {
     assert.match(s, new RegExp(`<h2 id="novedades-titulo" class="[^"]*">${noticias.titulo}</h2>`))
     assert.ok(s.includes(`>${textos.bajada}</p>`))
     assert.match(s, new RegExp(`<a href="/novedades" class="[^"]*">${textos.verTodas}<svg`))
-    assert.match(s, /<span aria-hidden="true" class="[^"]* lg:hidden">1(<!-- -->)?\/(<!-- -->)?6<\/span>/)
-    assert.match(s, /<p aria-hidden="true" class="hidden [^"]* lg:block">1(<!-- -->)?\/(<!-- -->)?6<\/p>/)
+    // Las flechas a los costados, la región viva en el envoltorio de la fila y nada abajo, como en la Home (16 y
+    // 17/11/2026: el componente es el mismo).
+    comprobarFlechasALosCostados(s, 6, textos)
     assert.equal(cuantas(s, '<article'), 6)
     // Las mismas tarjetas que la Home, también las de celular (el componente es el mismo).
     comprobarTarjetasDelCarrusel(s, 6)
@@ -2484,6 +2913,31 @@ describe('Layout, header, menú y pie (sin base)', () => {
     const h2 = clasesDe(html, /<h2 id="educacion-recursos" class="([^"]*)"/)
     assert.ok(h2.includes('font-thin'), h2.join(' '))
     assert.deepEqual(margenesDeArriba(h2), ['mt-4'], h2.join(' '))
+    // El h2 es el ancla de la sección ("Recursos educativos" de la franja de la Home lleva a /educacion#educacion-recursos:
+    // T6 de la tanda 1, 16/11/2026). Su margen de scroll: los 36 del rótulo (el renglón de 20 y los 16 hasta el h2) más
+    // el aire de la sección (64; 80 desde lg), así al llegar la ventana arranca en el borde de la sección.
+    assert.deepEqual(h2.filter((c) => /(^|:)scroll-m/.test(c)), ['scroll-mt-25', 'lg:scroll-mt-29'], h2.join(' '))
+    assert.match(main, /<section aria-labelledby="educacion-recursos" class="py-16 lg:py-20">/)
+    // La cuenta de ese margen sale también del renglón del rótulo (VS-04 de la verificación de la tanda 1, 16/11/2026):
+    // leading-5 (20) + el mt-4 del h2 (16) + el aire de la sección (py-16, 64; lg:py-20, 80) = 100 y 116 px, que son
+    // scroll-mt-25 y lg:scroll-mt-29 (en unidades de Tailwind: 5 + 4 + 16 y 5 + 4 + 20). La expresión de arriba ya
+    // compara la clase entera del rótulo, pero no dice por qué importa: si cambia ROTULO_SECCION (tablero.js) y alguien
+    // pone al día esa expresión, esto avisa que hay que rehacer ANCLA (SeccionRecursos.jsx). El rótulo, sin margen ni
+    // padding propios arriba o abajo (sumarían a la cuenta).
+    const rotuloDeRecursos = clasesDe(html, /<p class="([^"]*)">Recursos<\/p><h2 id="educacion-recursos" /)
+    // Un solo renglón de 20 (leading-5, sin variantes: un lg:leading-7 lo cambiaría desde lg) y sin bordes arriba o
+    // abajo (un border-b-4 sumaría 4 px a la cuenta): RT-05 de la re-verificación, 17/11/2026, con includes() pasaban.
+    assert.deepEqual(
+      rotuloDeRecursos.filter((c) => /(^|:)(leading-|border(-[ytb])?(-\d+)?$)/.test(c)),
+      ['leading-5'],
+      `el renglón del rótulo ya no es solo leading-5, o tiene un borde arriba o abajo (${rotuloDeRecursos.join(' ')}): hay que rehacer el margen de scroll del h2 (ANCLA, en SeccionRecursos.jsx)`,
+    )
+    assert.deepEqual(rotuloDeRecursos.filter((c) => /(^|:)-?[mp][ytb]?-/.test(c)), [], 'el rótulo con margen o padding propios arriba o abajo: hay que rehacer el margen de scroll del h2 (ANCLA, en SeccionRecursos.jsx)')
+    // Lo que npm test no mira (también VS-04): estas pruebas leen el HTML del servidor, no el CSS construido. Que la
+    // tarjeta de los documentales de El Museo (T4 de la tanda 1; su prueba, más abajo) mida el ancho entero sin
+    // JavaScript y al imprimir depende de que noscript:w-full y print:w-full queden en el CSS después de
+    // w-[min(100%,24rem)] (al 16/11/2026, quedan): esos dos modos se comprueban en el navegador, no en npm test
+    // (tools/salida/tanda-1/v-sitio/herr/v-t4-geo.mjs, modos nojs e imprimir; no versionado).
     assert.ok(html.includes(`<p class="text-lg leading-7 font-normal text-muted text-pretty mt-4 max-w-none">${recursos.bajada}</p>`))
     // Las tarjetas: el ícono en crema (sin text-naranja), el h3, el texto en gris y la acción como texto con la flecha.
     const tarjetas = [...html.matchAll(/<li class="([^"]*)"><span class="flex size-12 [^"]*bg-caja[^"]*text-paper"><svg [^>]*class="shrink-0 size-6"[\s\S]*?<\/svg><\/span><div class="flex flex-col gap-2"><h3 class="font-mono text-xs [^"]*">([^<]*)<\/h3><p class="text-base [^"]*text-muted[^"]*">([^<]*)<\/p><\/div><p class="flex items-center gap-2 font-mono text-sm leading-5 font-normal text-paper">([^<]*)<svg [^>]*aria-hidden="true"/g)]
@@ -2595,6 +3049,14 @@ describe('Layout, header, menú y pie (sin base)', () => {
       assert.ok(fotos[0].includes('bloque-ciencia-600'), id)
       assert.doesNotMatch(d.imagen.alt, /Martínez|Alcober/)
     }
+    // El alt de la foto de relleno, repetida en los dos circuitos (T7 de la tanda 1, 16/11/2026): el primero lo lleva y
+    // el segundo va vacío (decorativa), así el lector de pantalla no la anuncia dos veces.
+    const ALT_DE_RELLENO = 'Paleontóloga registrando un hallazgo en el campo con una cuadrícula de hilos sobre el fósil'
+    assert.deepEqual(destinos.map((d) => d.imagen.alt), [ALT_DE_RELLENO, ''])
+    assert.deepEqual(destinos.map((d) => /<img [^>]*\salt="([^"]*)"/.exec(seccion(main, `circuito-${d.slug}`))?.[1]), [ALT_DE_RELLENO, ''])
+    assert.equal(cuantas(main, 'alt=""'), 1)
+    // Va vacío solo mientras la foto sea la repetida: un circuito que estrene la suya tiene que traer su alt.
+    assert.equal(destinos[1].imagen.src, destinos[0].imagen.src, 'con una foto propia, el segundo circuito lleva su alt (y esta prueba cambia)')
     // Valle de la Luna: la lista con la viñeta de 6 px y, después del enlace, "Conexión MuPa" (h3 Thin 40/52) y su párrafo.
     const [valle, huellas] = destinos
     const v = seccion(main, 'circuito-valle-de-la-luna')
@@ -2845,11 +3307,16 @@ describe('Layout, header, menú y pie (sin base)', () => {
     // La fila toma el foco (para deslizarla con el teclado) recién cuando el efecto mide que desborda: el HTML del
     // servidor no lo lleva.
     assert.equal(cuantas(d, 'tabindex'), 0)
-    // Cada documental una vez, del ancho del contenido debajo de md (con el snap a su borde izquierdo) y de su columna
-    // desde md.
+    // Cada documental una vez: debajo de md, del ancho del contenido con el tope de 24rem de la tarjeta de Novedades
+    // (T4 de la tanda 1, 16/11/2026: en los teléfonos, el ancho del contenido, como el cuadro; en las tablets de menos
+    // de 768 px, 384, y asoma la siguiente), con el snap a su borde izquierdo; sin JavaScript y al imprimir (apiladas),
+    // el ancho entero, como antes; y de su columna desde md.
     assert.deepEqual([...d.matchAll(/<h3 class="[^"]*">([^<]*)<\/h3>/g)].map((x) => x[1]), documentales.lista.map((x) => x.titulo))
     for (const doc of documentales.lista) assert.equal(cuantas(main, `>${doc.titulo}<`), 1, doc.titulo)
-    assert.equal(cuantas(d, '<li class="group relative w-full min-w-0 shrink-0 snap-start md:w-auto">'), 3)
+    assert.equal(cuantas(d, '<li class="group relative w-[min(100%,24rem)] min-w-0 shrink-0 snap-start noscript:w-full print:w-full md:w-auto">'), 3)
+    // El tope es el de la tarjeta de Novedades (CarruselNovedades.jsx), y ninguna quedó con el ancho de antes.
+    assert.match(seccion(home([novedad(1), novedad(2)]), 'novedades-titulo'), /<li class="w-\[min\(100%,24rem\)\] shrink-0 snap-start /)
+    assert.equal(cuantas(d, '<li class="group relative w-full '), 0)
     assert.equal(cuantas(d, '<li'), 3)
     for (const n of [1, 2, 3]) assert.ok(d.includes(`<p class="font-mono text-xs leading-4 font-medium text-paper uppercase">Documental · ${n}</p>`), n)
     assert.equal(cuantas(d, '>[Título pendiente]</p>'), 3)
@@ -2860,15 +3327,17 @@ describe('Layout, header, menú y pie (sin base)', () => {
       const clases = / class="([^"]*)"/.exec(f)[1].split(' ')
       assert.deepEqual(clases, ['block', 'aspect-[354/280]', 'h-auto', 'w-full', 'rounded-xl', 'object-cover', 'md:aspect-[405/280]'])
       for (const a of ['loading="lazy"', 'fetchPriority="low"']) assert.ok(f.includes(a), a)
-      assert.match(f, /sizes="\(min-width: 90rem\) 405px, \(min-width: 64rem\) calc\(\(100vw - 14rem\) \/ 3\), \(min-width: 48rem\) calc\(\(100vw - 8rem\) \/ 3\), calc\(100vw - 3rem\)"/)
+      // El sizes: un tercio desde md y, debajo, el contenido con el tope de la tarjeta (T4: 24rem); sin JavaScript
+      // (apiladas, con el ancho entero), el contenido, como antes.
+      assert.match(f, /sizes="\(min-width: 90rem\) 405px, \(min-width: 64rem\) calc\(\(100vw - 14rem\) \/ 3\), \(min-width: 48rem\) calc\(\(100vw - 8rem\) \/ 3\), \(scripting: none\) calc\(100vw - 3rem\), min\(calc\(100vw - 3rem\), 24rem\)"/)
     }
     // El "play": un círculo decorado (aria-hidden), con el ícono; no es un enlace ni un botón.
     assert.equal(cuantas(d, '<span aria-hidden="true" class="absolute top-1/2 left-1/2 flex size-16'), 3)
     assert.equal(cuantas(d, '<polygon points="5 3 19 12 5 21 5 3"'), 3)
-    // Los controles del carrusel (los de Novedades: ControlesCarrusel.jsx), a la izquierda y solo debajo de md, con
-    // JavaScript y en la pantalla; invisibles hasta que la página hidrata. Anterior y Siguiente con su nombre y
-    // aria-controls a la fila (IN2: en el celular hacen algo), el "1/3" de dibujo y la región viva vacía (dice
-    // "Documental 2 de 3" después de un botón).
+    // Los controles de abajo del carrusel (ControlesCarrusel.jsx; los de Novedades son FlechasCarrusel.jsx desde el
+    // 16/11/2026), a la izquierda y solo debajo de md, con JavaScript y en la pantalla; invisibles hasta que la página
+    // hidrata. Anterior y Siguiente con su nombre y aria-controls a la fila (IN2: en el celular hacen algo), el "1/3" de
+    // dibujo y la región viva vacía (dice "Documental 2 de 3" después de un botón).
     assert.equal(cuantas(d, '<a'), 0)
     assert.equal(cuantas(d, '<button'), 2)
     const botones = [...d.matchAll(/<button type="button" aria-controls="([^"]+)" aria-disabled="(true|false)"[^>]*>[\s\S]*?<span class="sr-only">([^<]*)<\/span><\/button>/g)]
@@ -3020,6 +3489,10 @@ describe('Layout, header, menú y pie (sin base)', () => {
     // Sin rótulo, el h2 sin mt-4 (el newsletter de Divulgación) y ningún <p> antes del h2.
     assert.match(naranja, /<div class="[^"]*"><h2 id="p" class="[^"]*font-thin[^"]*">T<\/h2>/)
     assert.ok(!clasesDe(naranja, /<h2 id="p" class="([^"]*)"/).includes('mt-4'))
+    // Con rótulo o sin él, el h2 (el ancla de la sección) lleva su margen de scroll (T6 de la tanda 1, 16/11/2026).
+    for (const [h, id] of [[html, 'prueba'], [naranja, 'p']]) {
+      assert.deepEqual(clasesDe(h, new RegExp(`<h2 id="${id}" class="([^"]*)"`)).filter((c) => /(^|:)scroll-m/.test(c)), ['scroll-mt-25', 'lg:scroll-mt-29'], id)
+    }
   })
 
   test('los respaldos del h1 de los hero debajo de lg (VHOM-04 y VREN-01): cada familia con sus caras, y cada cara con su size-adjust y sus métricas', async () => {
@@ -3055,7 +3528,118 @@ describe('Layout, header, menú y pie (sin base)', () => {
     }
   })
 
-  test('ControlesCarrusel (los de Novedades y de los documentales de El Museo): las clases de su fila, invisible hasta medir; con una tarjeta, nada', async () => {
+  test('FlechasCarrusel y AvisoCarrusel (los controles de Novedades desde el 16/11/2026): cada flecha a la vista solo si hay más para su lado; la región viva, siempre en el HTML y vacía hasta el primer botón; sin contador (Q); con una tarjeta, nada', async () => {
+    const modulo = await vite.ssrLoadModule('/src/components/FlechasCarrusel.jsx')
+    const FlechasCarrusel = modulo.default
+    const { AvisoCarrusel } = modulo
+    const textos = { anterior: 'Atrás', siguiente: 'Adelante' }
+    const base = { idFila: 'fila-x', aviso: '', anterior: () => {}, siguiente: () => {} }
+    const con = (estado) => ({ ...base, estado: { listo: true, desborda: true, actual: 1, alInicio: false, alFinal: false, ...estado } })
+    const flechas = (carrusel, total = 4) =>
+      renderToStaticMarkup(createElement(FlechasCarrusel, { carrusel, total, textos, guia: 'aspect-[2/1] w-10' })).replaceAll('&amp;', '&').replaceAll('&gt;', '>')
+    /**
+     * De cada botón, en su orden: el nombre, aria-disabled y si está oculto. Sus clases se comparan ENTERAS (VFC-05):
+     * a la vista, las de la flecha y las de su borde (FLECHA_COSTADO y BORDE_FLECHA, arriba), y oculto, esas y las de
+     * oculta (FLECHA_OCULTA); cualquier otra lista, con una clase de más o de menos, hace fallar la prueba.
+     */
+    const botones = (html) =>
+      [...html.matchAll(/<button type="button" aria-controls="fila-x" aria-disabled="(true|false)" class="([^"]*)">[\s\S]*?<span class="sr-only">([^<]*)<\/span><\/button>/g)].map((b, i) => {
+        const clases = b[2].split(' ')
+        const aLaVista = [...FLECHA_COSTADO, ...BORDE_FLECHA[i]]
+        const oculto = clases.length > aLaVista.length
+        assert.deepEqual(clases, oculto ? [...aLaVista, ...FLECHA_OCULTA] : aLaVista, b[3])
+        return [b[3], b[1], oculto]
+      })
+    // Antes de medir (el estado inicial, el mismo en el servidor y en el navegador): los dos ocultos.
+    const sinMedir = flechas(con({ listo: false, desborda: false, alInicio: true }))
+    assert.deepEqual(botones(sinMedir), [['Atrás', 'true', true], ['Adelante', 'false', true]])
+    // La capa, con la guía (las clases que le pasan, después de las suyas) antes de los botones.
+    assert.match(sinMedir, /^<div class="pointer-events-none absolute inset-x-0 top-2 z-10 grid noscript:hidden print:hidden"><div class="col-start-1 row-start-1 self-start justify-self-start aspect-\[2\/1\] w-10"><\/div><button /)
+    // Medido: al principio, solo «Siguiente»; en el medio, los dos; al final, solo «Anterior».
+    assert.deepEqual(botones(flechas(con({ alInicio: true }))), [['Atrás', 'true', true], ['Adelante', 'false', false]])
+    assert.deepEqual(botones(flechas(con({ actual: 2 }))), [['Atrás', 'false', false], ['Adelante', 'false', false]])
+    assert.deepEqual(botones(flechas(con({ actual: 4, alFinal: true }))), [['Atrás', 'false', false], ['Adelante', 'true', true]])
+    // Medido, pero entran todas: ninguno. Con una sola tarjeta, nada.
+    assert.deepEqual(botones(flechas(con({ desborda: false, alInicio: true, alFinal: true }))), [['Atrás', 'true', true], ['Adelante', 'true', true]])
+    assert.equal(flechas(con({}), 1), '')
+    // Oculto es visibility: hidden (no toma el foco ni figura para el lector), salvo con el foco visible: ahí se
+    // queda, con la flecha tenue (aria-disabled) y el contorno entero. A la vista, la lista entera sin ninguna de esas
+    // clases. Con reduced-motion no hay fundido (index.css deja las transiciones en 0,01 ms), pero el retardo de
+    // visibility sigue: el botón no las apaga.
+    const visible = /aria-disabled="false" class="([^"]*)"/.exec(flechas(con({ alInicio: true })))[1].split(' ')
+    assert.deepEqual(visible, [...FLECHA_COSTADO, ...BORDE_FLECHA[1]])
+    assert.ok(!visible.some((c) => c.startsWith('motion-reduce:')))
+    for (const c of FLECHA_OCULTA) assert.ok(!visible.includes(c), c)
+    // Tenue: solo la flecha, al 45 % (al 35 % daba 2,73:1 sobre una portada blanca: VFU-02), y el contorno del foco,
+    // entero. El cursor: la mano, y el común si está deshabilitado (VFU-05).
+    assert.deepEqual(visible.filter((c) => /opacity-/.test(c) && c.startsWith('aria-disabled:')), ['aria-disabled:[&>svg]:opacity-45'])
+    assert.ok(!visible.some((c) => /^aria-disabled:opacity/.test(c)), 'tenue, solo la flecha (el contorno del foco se ve entero)')
+    assert.deepEqual(visible.filter((c) => /(^|:)cursor-/.test(c)), ['cursor-pointer', 'aria-disabled:cursor-default'])
+    // La capa no lleva la región viva (va aparte, después de ella: AvisoCarrusel).
+    assert.equal(cuantas(sinMedir, 'aria-live'), 0)
+    // La región viva (AvisoCarrusel): solo el párrafo para el lector, con el aviso del hook, sin envoltorio ni clases que
+    // la escondan: está desde el principio, igual antes y después de medir y con todas a la vista (no ocupa lugar), y
+    // vacía hasta el primer botón; con una tarjeta, nada. Y ya no hay contador (Q, 17/11/2026): el módulo no exporta
+    // ContadorCarrusel (era la fila de abajo, con el "n/total" en un <span> y la región viva, invisible hasta medir).
+    const aviso = (carrusel, total = 4) => renderToStaticMarkup(createElement(AvisoCarrusel, { carrusel, total }))
+    assert.equal(aviso(con({ listo: false, desborda: false, alInicio: true })), '<p aria-live="polite" class="sr-only"></p>')
+    assert.equal(aviso({ ...con({ actual: 3 }), aviso: 'Novedad 3 de 4' }), '<p aria-live="polite" class="sr-only">Novedad 3 de 4</p>')
+    assert.equal(aviso(con({ desborda: false })), '<p aria-live="polite" class="sr-only"></p>')
+    assert.equal(aviso(con({}), 1), '')
+    assert.equal(modulo.ContadorCarrusel, undefined)
+  })
+
+  test('FlechasCarrusel: el dedo que desliza sobre una flecha (gestoDelDedo: 24 px o más a lo ancho y más a lo ancho que a lo alto) y solo el dedo (useDedoSobreLaFlecha: el mouse y el lápiz no cuentan, VFC-04)', async () => {
+    const { gestoDelDedo, useDedoSobreLaFlecha } = await vite.ssrLoadModule('/src/components/FlechasCarrusel.jsx')
+    const desde = { x: 200, y: 100 }
+    const hasta = (dx, dy = 0) => gestoDelDedo(desde, { x: desde.x + dx, y: desde.y + dy })
+    // Un toque (sin moverse) y hasta 23 px a lo ancho: no es un deslizamiento (es el clic del botón, o nada).
+    for (const dx of [0, 1, 10, 23, -23, 23.9, -23.9]) assert.equal(hasta(dx), null, `${dx} px`)
+    // Desde 24 px: hacia la izquierda, «Siguiente»; hacia la derecha, «Anterior».
+    for (const [dx, gesto] of [[-24, 'siguiente'], [24, 'anterior'], [-200, 'siguiente'], [60, 'anterior']]) assert.equal(hasta(dx), gesto, `${dx} px`)
+    // Más a lo ancho que a lo alto; vertical o en diagonal de 45° o más, es de la página: nada.
+    for (const [dx, dy, gesto] of [[-30, 29, 'siguiente'], [30, -29, 'anterior'], [-60, -40, 'siguiente'], [-30, -30, null], [30, 30, null], [-40, -60, null], [0, -150, null], [-24, 24, null]]) {
+      assert.equal(hasta(dx, dy), gesto, `(${dx}, ${dy})`)
+    }
+    // El hook, con eventos de mentira (sin DOM): los manejadores que lleva cada botón.
+    const llamadas = []
+    let dedo
+    function Sonda() {
+      dedo = useDedoSobreLaFlecha(() => llamadas.push('anterior'), () => llamadas.push('siguiente'))
+      return null
+    }
+    renderToStaticMarkup(createElement(Sonda))
+    const deslizar = (tipo, x0, x1, { id = 1, idFin = id, y1 = 100 } = {}) => {
+      dedo.onPointerDown({ pointerType: tipo, pointerId: id, clientX: x0, clientY: 100 })
+      dedo.onPointerUp({ pointerType: tipo, pointerId: idFin, clientX: x1, clientY: y1 })
+      return llamadas.splice(0)
+    }
+    // El dedo: 30 px a la izquierda, «Siguiente»; a la derecha, «Anterior»; 10 px, nada (es el clic del botón); en
+    // diagonal, nada; y un pointerup de otro dedo no cuenta.
+    assert.deepEqual(deslizar('touch', 200, 170), ['siguiente'])
+    assert.deepEqual(deslizar('touch', 200, 230), ['anterior'])
+    assert.deepEqual(deslizar('touch', 200, 190), [])
+    assert.deepEqual(deslizar('touch', 200, 150, { y1: 160 }), [])
+    assert.deepEqual(deslizar('touch', 200, 150, { idFin: 2 }), [])
+    // El mouse y el lápiz: nada (son un clic común; con el lápiz, el deslizamiento y el clic disparaban los dos).
+    for (const tipo of ['mouse', 'pen']) {
+      assert.deepEqual(deslizar(tipo, 200, 170), [], tipo)
+      assert.deepEqual(deslizar(tipo, 200, 260), [], tipo)
+    }
+    // El lápiz que aprieta en una flecha y suelta fuera del botón (sin captura implícita, ese pointerup no llega) no
+    // deja guardado dónde se apoyó: el pointerup siguiente sobre la otra flecha, sin haber apretado en ella, no hace
+    // nada (antes, la fila se movía).
+    dedo.onPointerDown({ pointerType: 'pen', pointerId: 2, clientX: 200, clientY: 100 })
+    dedo.onPointerUp({ pointerType: 'pen', pointerId: 2, clientX: 80, clientY: 100 })
+    assert.deepEqual(llamadas, [])
+    // El dedo que la página se queda (pointercancel: el gesto vertical) tampoco cuenta.
+    dedo.onPointerDown({ pointerType: 'touch', pointerId: 3, clientX: 200, clientY: 100 })
+    dedo.onPointerCancel({ pointerType: 'touch', pointerId: 3 })
+    dedo.onPointerUp({ pointerType: 'touch', pointerId: 3, clientX: 150, clientY: 100 })
+    assert.deepEqual(llamadas, [])
+  })
+
+  test('ControlesCarrusel (los de los documentales de El Museo y, en Novedades, solo si una tarjeta no tiene foto): las clases de su fila, invisible hasta medir; con una tarjeta, nada', async () => {
     const ControlesCarrusel = (await vite.ssrLoadModule('/src/components/ControlesCarrusel.jsx')).default
     // Lo que da useCarrusel antes de medir (el estado inicial, el mismo en el servidor y en el navegador) y después.
     const sinMedir = { idFila: 'fila-x', aviso: '', anterior: () => {}, siguiente: () => {}, estado: { listo: false, desborda: false, actual: 1, alInicio: true, alFinal: false } }

@@ -1078,12 +1078,17 @@ describe('sin base', () => {
       assert.ok(r.texto.includes('>Últimas noticias</h2>'))
       const seccion = r.texto.slice(r.texto.indexOf('<section aria-labelledby="novedades-titulo"'))
       assert.equal(cuantas(seccion.slice(0, seccion.indexOf('</section>')), '<button'), 0)
-      // Seis, en el orden del lector, con el contador.
+      // Seis, en el orden del lector, todas con portada: las flechas a los costados y, desde Q (17/11/2026), sin el
+      // contador «n/total» abajo; la región viva, una, ya en el HTML del servidor.
       publicadas = [1, 2, 3, 4, 5, 6].map((n) => ({ titulo: `Novedad ${n}`, slug: `novedad-${n}`, resumen: `Resumen ${n}`, portada: foto(n) }))
       r = await pedir(puerto, 'GET', '/divulgacion')
       assert.deepEqual(estadoDe(r.texto).datos.novedades.map((n) => n.url), [1, 2, 3, 4, 5, 6].map((n) => `/novedades/novedad-${n}`))
       assert.equal(r.texto.split('<article').length - 1, 6)
-      assert.match(r.texto, /<span aria-hidden="true" class="[^"]*">1<!-- -->\/<!-- -->6<\/span>/)
+      const conSeis = r.texto.slice(r.texto.indexOf('<section aria-labelledby="novedades-titulo"'))
+      const seccionSeis = conSeis.slice(0, conSeis.indexOf('</section>'))
+      assert.doesNotMatch(seccionSeis, /1<!-- -->\/<!-- -->6/)
+      assert.equal(cuantas(seccionSeis, 'aria-live="polite"'), 1)
+      assert.equal(cuantas(seccionSeis, '<button'), 2)
       assert.equal(cuantas(r.texto, '<h1'), 1)
       // Lo que no existe debajo de /divulgacion, 404; también debajo de /educacion.
       assert.equal((await pedir(puerto, 'GET', '/divulgacion/algo')).status, 404)

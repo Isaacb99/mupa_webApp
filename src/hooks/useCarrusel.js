@@ -2,14 +2,17 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { crearAvisador } from '../components/avisoCarrusel.js'
 
 // La lógica de un carrusel con scroll horizontal nativo: una fila (<ul>) que se desliza con el dedo, el trackpad o
-// Mayús + rueda, y Anterior y Siguiente (ControlesCarrusel.jsx). La usan el carrusel de Novedades de la Home y de
+// Mayús + rueda, y Anterior y Siguiente (abajo de la fila, ControlesCarrusel.jsx, o a sus costados, FlechasCarrusel.jsx,
+// desde el 16/11/2026: el hook no cambió). La usan el carrusel de Novedades de la Home y de
 // Divulgación (CarruselNovedades.jsx) y los documentales de El Museo en el celular (src/paginas/ElMuseo.jsx). Salió
 // tal cual de CarruselNovedades.jsx (10/11/2026): el HTML de esas páginas no cambió.
 // - estado.listo: ya se midió en el navegador. El estado inicial es el mismo en el servidor y en el navegador (sin
 //   diferencias de hidratación): lo demás se mide después, en un efecto. Antes de eso, y sin JavaScript, quien lo usa
 //   no pone el snap y deja los controles invisibles (ocupan su lugar: nada se corre al aparecer).
 // - estado.desborda: las tarjetas no entran sin scroll (si entran, los controles quedan invisibles).
-// - estado.actual: la primera tarjeta que se ve entera desde la izquierda, desde 1 (el contador "n/total").
+// - estado.actual: la primera tarjeta que se ve entera desde la izquierda, desde 1 (el contador "n/total" de los
+//   controles de abajo y el aviso de la región viva; el carrusel de Novedades, con las flechas a los costados, no
+//   dibuja el contador desde el 17/11/2026, pero sigue avisando).
 // - estado.alInicio y estado.alFinal: Anterior o Siguiente no tienen adónde ir (van con aria-disabled, no disabled: el
 //   foco no se pierde).
 // - aviso: lo que dice la región viva (aria-live polite): vacío hasta el primer Anterior o Siguiente, y después

@@ -1,8 +1,16 @@
 // Genera los archivos de public/ que no salen del código: favicon.ico (32 px, PNG adentro de un contenedor ICO) y
 // apple-touch-icon.png (180 px, sin esquinas redondeadas: iOS las pone) a partir de public/favicon.svg, y og.jpg
-// (1200x630: la tarjeta que muestran WhatsApp, Instagram o X al compartir el link) a partir de la foto del hero con
-// el degradé de arriba y el logo, como en el header. Toma el original si se le pasa la ruta; si no, el hero de
-// src/assets (2560 px, ya recortado al 5,7..98,9 % del original), que alcanza de sobra para 1200 px.
+// (1200x630: la tarjeta que muestran WhatsApp, Instagram o X al compartir el link) a partir de la foto de la fachada
+// con el cartel (el hero de la landing) con el degradé de arriba y el logo, como en el header de la landing. Toma el
+// original si se le pasa la ruta; si no, el hero de src/assets (2560 px, ya recortado al 5,7..98,9 % del original),
+// que alcanza de sobra para 1200 px.
+// El color: el fondo de los íconos (el <rect> de favicon.svg) y el del degradé de og.jpg son el fondo del sitio,
+// #010101 (--color-ink de src/index.css y el theme-color de server/seo.js, D6; hasta el 16/11/2026, #0e100d, el de la
+// landing). Si el fondo del sitio cambia: cambiarlo en favicon.svg y en FONDO, más abajo, y correr esto otra vez.
+// Lo publicado en public/ se generó SIN la ruta, desde el hero del repo (el 29/09/2026 y otra vez el 16/11/2026): así
+// sale igual byte a byte en cualquier copia del repo, con el mismo sharp. Con el original el encuadre no es idéntico:
+// queda un 1,15 % más abierto (unos 5 px más de foto arriba, 2 abajo y 7 a cada lado), porque el hero del repo
+// recorta además el 0,57 % de cada costado; la nitidez, a 1200 px, es la misma.
 // Uso: node tools/iconos.mjs ["C:/ruta/Header - IMG_1526 v2.jpg"]
 import sharp from 'sharp'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
@@ -34,21 +42,22 @@ const touch = await sharp(Buffer.from(sinRedondeo)).resize(180, 180).png().toFil
 console.log(`public/apple-touch-icon.png  ${touch.width}x${touch.height}  ${touch.size} bytes`)
 
 // og.jpg: la franja de la foto con el cartel y la entrada (del 32 % al 92 % del alto del original; el hero del repo ya
-// viene recortado, así que ahí es del 28,2 % al 92,6 %), a 1200x630, con el degradé negro de arriba (como el del hero,
-// hasta el 40 % del alto) y el logo a 70 px del borde, como en el header (marca 145 px, texto 279 px a partir de 161,
-// 4,8 px más abajo).
+// viene recortado, así que ahí es del 28,2 % al 92,6 %), a 1200x630, con el degradé de arriba (como el del hero de la
+// landing, hasta el 40 % del alto, con el color del fondo del sitio: FONDO) y el logo a 70 px del borde, como en el
+// header de la landing (marca 145 px, texto 279 px a partir de 161, 4,8 px más abajo).
 const conOriginal = original && existsSync(original)
 if (original && !conOriginal) console.log(`(no encuentro ${original}: uso el hero del repo)`)
 const foto = conOriginal ? original : 'src/assets/hero-fachada-2560.webp'
 const [y0, y1] = conOriginal ? [0.32, 0.9164] : [0.282, 0.926]
 const ANCHO = 1200, ALTO = 630
+const FONDO = '#010101' // el fondo del sitio (--color-ink): el mismo del <rect> de public/favicon.svg
 const m = await sharp(foto).rotate().metadata()
 const top = Math.round(m.height * y0), alto = Math.round(m.height * (y1 - y0))
 const base = await sharp(foto).rotate().extract({ left: 0, top, width: m.width, height: alto }).resize(ANCHO, ALTO, { fit: 'cover' }).toBuffer()
 const degrade = Buffer.from(
   `<svg xmlns="http://www.w3.org/2000/svg" width="${ANCHO}" height="${ALTO}"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1">` +
-    '<stop offset="0" stop-color="#0e100d" stop-opacity="1"/><stop offset="0.25" stop-color="#0e100d" stop-opacity="0.52"/>' +
-    '<stop offset="0.6" stop-color="#0e100d" stop-opacity="0.12"/><stop offset="1" stop-color="#0e100d" stop-opacity="0"/></linearGradient></defs>' +
+    `<stop offset="0" stop-color="${FONDO}" stop-opacity="1"/><stop offset="0.25" stop-color="${FONDO}" stop-opacity="0.52"/>` +
+    `<stop offset="0.6" stop-color="${FONDO}" stop-opacity="0.12"/><stop offset="1" stop-color="${FONDO}" stop-opacity="0"/></linearGradient></defs>` +
     `<rect width="${ANCHO}" height="${Math.round(ALTO * 0.55)}" fill="url(#g)"/></svg>`,
 )
 const marca = await sharp(readFileSync('src/assets/logo-mupa-marca.svg')).resize({ width: 145 }).png().toBuffer()

@@ -1,5 +1,5 @@
 import { preload } from 'react-dom'
-import { home, navegacion } from '../content.js'
+import { educacion, home, navegacion } from '../content.js'
 import { seccionDe } from './navegacion.js'
 import { TITULO_HERO } from './tablero.js'
 
@@ -28,7 +28,9 @@ import { TITULO_HERO } from './tablero.js'
 //   tres fondos: texto grande, que nunca baja de 24 px; A11Y-08: sobre el naranja da 3,3:1); el verde de "Tienda
 //   virtual" no va (fuera del alcance, y 2:1). "Tickets" es la compra externa del panel (sin la compra activa no se
 //   dibuja; data-entradas: la mide la analítica con origen "home") y "Recursos educativos" va porque existe la página de
-//   Educación (desde el 06/11/2026; si no existiera no iría: navegacion.js). Si no queda ninguna, no hay franja. Foco,
+//   Educación (desde el 06/11/2026; si no existiera no iría: navegacion.js) y lleva a su sección "Recursos educativos"
+//   (/educacion#educacion-recursos: la ruta, la del menú, y el ancla, el id de esa sección en content.js; hasta el
+//   16/11/2026 llevaba al principio de la página: T6 de la tanda 1). Si no queda ninguna, no hay franja. Foco,
 //   paso del puntero: no están en el tablero; contorno blanco por dentro (las cajas van pegadas) y subrayado. Desde lg
 //   el padding va en em de la letra de la franja (1em y 0,375em) y "Tickets" mide 12,5rem (200).
 // - La franja nunca mide menos de lo que sube (desde lg, 5rem): con el espaciado de texto de WCAG 1.4.12
@@ -151,7 +153,8 @@ export default function HeroHome({ compra }) {
     recursos
       ? {
           clave: 'recursos',
-          href: recursos.ruta,
+          // A la sección "Recursos educativos" de Educación: el ancla es el id de su h2 (SeccionRecursos.jsx).
+          href: `${recursos.ruta}#${educacion.recursos.id}`,
           // Con la compra (tres cajas), el salto después de la primera palabra (CORTE).
           texto: compra ? home.accesos.recursos.replace(' ', '\n') : home.accesos.recursos,
           caja: CAJA,

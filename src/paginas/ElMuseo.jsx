@@ -36,8 +36,10 @@ import useCarrusel from '../hooks/useCarrusel.js'
 //   una lista, no controles (IN2).
 // - "Haciendo el MuPa": tres documentales en una fila desde md (a 1440 entran los tres: sin las flechas ni el "1/3" del
 //   tablero, que no harían nada, IN2) y, debajo de md, un carrusel de a uno con ← "1/3" → a la izquierda, como el
-//   cuadro de celular (Documentales: ahí las flechas hacen algo). El "play" es un decorado (aria-hidden). Con url en la
-//   fila, el título es el enlace, estirado sobre la tarjeta (ENLACE_TARJETA, como las de Novedades).
+//   cuadro de celular (Documentales: ahí las flechas hacen algo), con la tarjeta de 24rem (384) como mucho, como la de
+//   Novedades: en los teléfonos mide el ancho del contenido; desde 432 px de ventana mide 384 y, desde ~457, asoma la
+//   siguiente (T4 de la tanda 1, 16/11/2026). El "play" es un decorado (aria-hidden). Con url en la fila, el título es
+//   el enlace, estirado sobre la tarjeta (ENLACE_TARJETA, como las de Novedades).
 // - "El MuPa en números": el h2 centrado (escrita a mano, como "El MuPa en imágenes": Seccion no lo centra) y un <dl>
 //   de cuatro columnas con una línea entre ellas desde lg (de md a lg, dos; debajo de md, una, a 64 px: CIFRAS); la
 //   cifra arriba (order-first: en el HTML va después de su etiqueta, así el lector dice "Piezas fósiles, …"), con la
@@ -118,24 +120,38 @@ const BAJADA_SECCION = `${BAJADA} mt-4`
 /**
  * Los documentales. Desde md, la fila de tres de escritorio (32 entre sí desde lg y 24 de md a lg; a 48 de la bajada
  * desde lg y a 32 de md a lg). Debajo de md, la misma lista es un carrusel de a uno, como el cuadro de celular: scroll
- * horizontal nativo, cada tarjeta del ancho del contenido y 32 entre tarjetas; el snap obligatorio, recién cuando la
- * página hidrató (como en Novedades), y sin barra. 24 debajo de la bajada: el margen de arriba (16) más los 8 del
- * margen por dentro (para el contorno del foco), que los márgenes negativos devuelven, como en Novedades. Sin
- * JavaScript y al imprimir, las tres una debajo de la otra. Con el foco (ver Documentales), el contorno blanco, a 8 de
- * la tarjeta en los cuatro lados (el margen por dentro va también a la derecha: VMUS-02 de la verificación).
+ * horizontal nativo, cada tarjeta del ancho del contenido con un tope de 24rem (DOCUMENTAL) y 32 entre tarjetas; el
+ * snap obligatorio, recién cuando la página hidrató (como en Novedades), y sin barra. 24 debajo de la bajada: el margen
+ * de arriba (16) más los 8 del margen por dentro (para el contorno del foco), que los márgenes negativos devuelven,
+ * como en Novedades. Sin JavaScript y al imprimir, las tres una debajo de la otra. Con el foco (ver Documentales), el
+ * contorno blanco de la fila: en los teléfonos, a 8 de la tarjeta en los cuatro lados (el margen por dentro va también
+ * a la derecha: VMUS-02 de la verificación); con el tope de la tarjeta, a 8 de la primera arriba, abajo y a la
+ * izquierda y, a la derecha, en el borde de la fila, por donde asoma la siguiente.
  */
 const FILA_DOCUMENTALES =
   'relative mt-4 -mr-2 -mb-2 -ml-2 flex scroll-pl-2 gap-8 overflow-x-auto overscroll-x-contain py-2 pr-2 pl-2 ' +
   '[scrollbar-width:none] [&::-webkit-scrollbar]:hidden noscript:flex-wrap noscript:overflow-visible ' +
   'print:flex-wrap print:overflow-visible focus-visible:outline-2 focus-visible:outline-blanco md:m-0 md:mt-8 ' +
   'md:grid md:grid-cols-3 md:gap-6 md:overflow-visible md:p-0 lg:mt-12 lg:gap-8'
-const DOCUMENTAL = 'group relative w-full min-w-0 shrink-0 snap-start md:w-auto'
-/** La foto de un documental: 354x280 en el celular (el cuadro), 405x280 desde md. */
+/**
+ * Una tarjeta de documental. Debajo de md, la del carrusel: el ancho del contenido con un tope de 24rem (384), el de la
+ * tarjeta de Novedades (CarruselNovedades.jsx). En los teléfonos (hasta 431 px de ventana, con la letra normal) el
+ * contenido mide menos de 384 y la tarjeta lo ocupa entero, como el cuadro de celular; más allá (las tablets de menos
+ * de 768 px: el iPad mini parado, las de 7 pulgadas) mide 384 y, desde ~457 px, asoma la siguiente, como en Novedades.
+ * Hasta el 16/11/2026 (T4 de la tanda 1) medía siempre el ancho del contenido: hasta 767 px quedaba una sola tarjeta
+ * de hasta 719 px y, para pasar a la siguiente con el dedo lento, había que arrastrarla más de la mitad (376 px a 767);
+ * con el tope, de una tarjeta a la otra hay 416 y alcanza con 208. Sin JavaScript y al imprimir (las tres una debajo
+ * de la otra), el ancho entero, como antes (y el sizes de las fotos, también: SIZES_TERCIO de content.js). Desde md, la
+ * celda de la grilla de tres (auto; con el ancho entero de los modos apilados la celda mide lo mismo).
+ */
+const DOCUMENTAL =
+  'group relative w-[min(100%,24rem)] min-w-0 shrink-0 snap-start noscript:w-full print:w-full md:w-auto'
+/** La foto de un documental: 354x280 en el celular (el cuadro; con el tope, 384x304), 405x280 desde md. */
 const FOTO_DOCUMENTAL = 'block aspect-[354/280] h-auto w-full rounded-xl object-cover md:aspect-[405/280]'
 /**
- * ← "1/3" → debajo de la fila, a la izquierda (como los dibuja el cuadro de celular; los de Novedades van a la derecha),
- * a 24 de la tarjeta; solo debajo de md (desde md entran los tres y no harían nada: IN2), con JavaScript y en la
- * pantalla.
+ * ← "1/3" → debajo de la fila, a la izquierda (como los dibuja el cuadro de celular; en Novedades, desde el 16/11/2026,
+ * las flechas van a los costados de la fila y, desde el 17/11/2026, abajo no queda nada, ni el contador), a 24 de la
+ * tarjeta; solo debajo de md (desde md entran los tres y no harían nada: IN2), con JavaScript y en la pantalla.
  */
 const CONTROLES_DOCUMENTALES = 'mt-6 flex items-center justify-start gap-2 md:hidden noscript:hidden print:hidden'
 /** El círculo del play: 64, negro al 60 %, centrado sobre la foto (decorado). */
@@ -233,14 +249,15 @@ const { hero, presentacion, cogestion, mision, documentales, numeros, autoridade
 
 /**
  * "Haciendo el MuPa": la lista de los documentales, una sola vez en el HTML (el lector la lee una vez, en el orden de
- * siempre), que es la fila de tres desde md y el carrusel de a uno debajo (FILA_DOCUMENTALES), con los controles del
- * carrusel de Novedades (useCarrusel y ControlesCarrusel): Anterior y Siguiente con su nombre, el "1/3" de dibujo y,
- * para el lector, "Documental 2 de 3" después de un botón. El estado inicial es fijo (el mismo en el servidor y en el
- * navegador): el snap y los controles a la vista llegan en un efecto. Mientras las tarjetas no sean enlaces (url:
- * null), en la fila con scroll no hay nada que tome el foco y con el teclado solo se la podría deslizar con los botones
- * (axe: scrollable-region-focusable): cuando desborda (debajo de md, medido en el efecto), la fila misma entra en el
- * orden del Tab; desde md no desborda (la fila de tres) y no entra. El HTML del servidor no lo lleva. La lista se llama
- * como su sección (aria-labelledby al h2): enfocada, el lector dice cuál es (VREG-01 y VA11-02 de la verificación).
+ * siempre), que es la fila de tres desde md y el carrusel de a uno debajo (FILA_DOCUMENTALES), con los controles de
+ * abajo de un carrusel (useCarrusel y ControlesCarrusel, los que tenía Novedades hasta el 16/11/2026): Anterior y
+ * Siguiente con su nombre, el "1/3" de dibujo y, para el lector, "Documental 2 de 3" después de un botón. El estado
+ * inicial es fijo (el mismo en el servidor y en el navegador): el snap y los controles a la vista llegan en un efecto.
+ * Mientras las tarjetas no sean enlaces (url: null), en la fila con scroll no hay nada que tome el foco y con el
+ * teclado solo se la podría deslizar con los botones (axe: scrollable-region-focusable): cuando desborda (debajo de md,
+ * medido en el efecto), la fila misma entra en el orden del Tab; desde md no desborda (la fila de tres) y no entra. El
+ * HTML del servidor no lo lleva. La lista se llama como su sección (aria-labelledby al h2): enfocada, el lector dice
+ * cuál es (VREG-01 y VA11-02 de la verificación).
  */
 function Documentales() {
   const total = documentales.lista.length

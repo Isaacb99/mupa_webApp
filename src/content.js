@@ -438,8 +438,11 @@ export const home = {
   },
   // La franja de accesos debajo del título (decisión D11): "Planificá tu visita" lleva a Visitas; "Tickets", a la compra
   // externa que carga el panel (sin la compra activa no se dibuja; su texto es el del botón del header,
-  // navegacion.entradas); "Recursos educativos" va a Educación (se dibuja porque la página existe, desde el
-  // 06/11/2026). La "Tienda virtual" del tablero no va (fuera del alcance: "a futuro" en la nota de la diseñadora).
+  // navegacion.entradas); "Recursos educativos" va a la sección "Recursos educativos" de Educación
+  // (/educacion#educacion-recursos: HeroHome.jsx arma la dirección con la ruta del menú y educacion.recursos.id; desde
+  // el 16/11/2026, T6 de la tanda 1: antes llevaba al principio de la página), y se dibuja porque la página existe
+  // (desde el 06/11/2026). La "Tienda virtual" del tablero no va (fuera del alcance: "a futuro" en la nota de la
+  // diseñadora).
   accesos: {
     etiqueta: 'Accesos directos',
     visita: 'Planificá tu visita',
@@ -602,7 +605,9 @@ export const visitas = {
 // object-cover (BloqueTextoFoto.jsx). Hasta el cierre de E6.3 (DIV-FOTO-01, 09/11/2026) era area-ciencia-570 de la
 // landing (570x567), que se estiraba un 5 % para llenar los 600 de la caja; ahora sale del original con el mismo
 // recorte que se veía (bloque-divulgacion-600, tools/convertir-fotos.mjs), sin agrandar. Para una pantalla de densidad
-// 2 hace falta el original del museo (pregunta 14). El alt no nombra a nadie (IN5); repetido en cada bloque (R-I).
+// 2 hace falta el original del museo (pregunta 14). El alt no nombra a nadie (IN5) y va solo en el primer bloque: en
+// los otros tres, la foto repetida va sin alt mientras sea relleno (T7 de la tanda 1, 16/11/2026; hasta entonces el
+// lector de pantalla anunciaba el mismo alt cuatro veces: R-I).
 // RELLENO DEL TABLERO: la misma foto en los cuatro bloques (y en la tarjeta 1 de las noticias del tablero), de la banda
 // Ciencia de la landing; la destraba la pregunta 14 de tools/salida/e6-divulgacion/prep/preguntas-museo.md (fotos del
 // laboratorio, del campo y de los investigadores). sizes: el de "Museo accesible" (la mitad del contenido desde lg).
@@ -697,7 +702,10 @@ export const divulgacion = {
         'Visitas guiadas al laboratorio',
         'Redacción de papers científicos',
       ],
-      imagen: fotoDeBloque,
+      // RELLENO DEL TABLERO: la foto es la misma del primer bloque; repetida, va sin alt (decorativa: el lector de
+      // pantalla no la anuncia otra vez) mientras sea relleno (T7 de la tanda 1, 16/11/2026). Cuando el museo mande la
+      // foto de este bloque (pregunta 14 de preguntas-museo.md), lleva su alt.
+      imagen: { ...fotoDeBloque, alt: '' },
     },
     {
       id: 'divulgacion-investigaciones',
@@ -706,7 +714,10 @@ export const divulgacion = {
       // RELLENO DEL TABLERO: el párrafo es el del laboratorio, copiado (y en borrador); lo destraba la pregunta 10
       // (preguntas-museo.md: ¿un texto o una lista de publicaciones?).
       parrafos: [{ texto: parrafoDelLaboratorio }],
-      imagen: fotoDeBloque,
+      // RELLENO DEL TABLERO: la foto es la misma del primer bloque; repetida, va sin alt (decorativa: el lector de
+      // pantalla no la anuncia otra vez) mientras sea relleno (T7 de la tanda 1, 16/11/2026). Cuando el museo mande la
+      // foto de este bloque (pregunta 14), lleva su alt.
+      imagen: { ...fotoDeBloque, alt: '' },
     },
     {
       id: 'divulgacion-multimedial',
@@ -717,7 +728,10 @@ export const divulgacion = {
       parrafos: [
         { texto: 'Entrevistas con científicos:\nConocé quiénes son los científicos detrás del laboratorio triásico.' },
       ],
-      imagen: fotoDeBloque,
+      // RELLENO DEL TABLERO: la foto es la misma del primer bloque; repetida, va sin alt (decorativa: el lector de
+      // pantalla no la anuncia otra vez) mientras sea relleno (T7 de la tanda 1, 16/11/2026). Cuando el museo mande la
+      // foto de este bloque (pregunta 14), lleva su alt.
+      imagen: { ...fotoDeBloque, alt: '' },
     },
   ],
   // "NEWSLETTER" (Figma 2857:5575): el h2 sin rótulo, la bajada en gris y tres tarjetas de recursos con el ícono en
@@ -829,7 +843,9 @@ export const educacion = {
   },
   // "Recursos educativos" (SeccionRecursos.jsx, Figma 2851:104): el rótulo, el h2, la bajada y tres tarjetas con el
   // ícono en crema. Cada tarjeta, con la forma de una fila (IN3): icono (la clave de SeccionRecursos.jsx: descarga,
-  // video o enlace), titulo, texto, accion y url (null: la acción va como texto; con url, como enlace).
+  // video o enlace), titulo, texto, accion y url (null: la acción va como texto; con url, como enlace). El id es el de
+  // su h2 y también el ancla adonde lleva "Recursos educativos" de la franja de la Home (HeroHome.jsx): si cambia acá,
+  // cambia allá.
   recursos: {
     id: 'educacion-recursos',
     rotulo: 'Recursos', // del tablero (no está en la nota); las mayúsculas, por CSS
@@ -871,8 +887,9 @@ export const educacion = {
 // original ("Acordeon - Ciencia" de la Selección, 920x633; decisión R-C del orquestador) y no desde area-ciencia-570: sin
 // el marco del escaneo y un poco más abierta, en 600 y 880 (1,47x a 600; para 2x hace falta el original del museo).
 // Divulgación va con el encuadre del tablero (fotoDeBloque, más arriba: el mismo original, desde el cierre de E6.3). El
-// alt, el de Divulgación (no nombra a nadie: IN5); repetido en los dos circuitos, como en Divulgación (R-I: vaciarlo en
-// la repetida queda a decidir, para las dos páginas). sizes: el de "Museo accesible" (la mitad del contenido desde lg).
+// alt, el de Divulgación (no nombra a nadie: IN5), va solo en el primer circuito: en el segundo, la foto repetida va
+// sin alt mientras sea relleno, como en Divulgación (T7 de la tanda 1, 16/11/2026; hasta entonces iba repetido: R-I).
+// sizes: el de "Museo accesible" (la mitad del contenido desde lg).
 // RELLENO DEL TABLERO: la misma foto en los dos circuitos (y en los bloques de Divulgación); no es de Ischigualasto ni
 // del Parque las Huellas que se sepa. La destraba la pregunta 35 de tools/salida/e6-divulgacion/prep/preguntas-museo.md
 // (fotos de los dos lugares, con permiso y crédito).
@@ -975,7 +992,10 @@ export const circuitos = {
       // Sin destino en el tablero: a Contacto (IN2; pregunta 34).
       enlace: { texto: 'Coordinar visita', pagina: 'contacto' },
       apartado: null, // ¿tiene su "Conexión MuPa"? (pregunta C4)
-      imagen: fotoDeCircuito,
+      // RELLENO DEL TABLERO: la foto es la misma del primer circuito; repetida, va sin alt (decorativa: el lector de
+      // pantalla no la anuncia otra vez) mientras sea relleno (T7 de la tanda 1, 16/11/2026). Cuando el museo mande la
+      // foto de este circuito (pregunta 35), lleva su alt.
+      imagen: { ...fotoDeCircuito, alt: '' },
     },
   ],
 }
@@ -984,13 +1004,17 @@ export const circuitos = {
 // desde md (desde lg, como "Museo accesible" de Visitas; de md a lg, con 40 a los costados y 32 entre columnas), el
 // contenido de 32rem a md y, debajo de 32rem, el ancho del contenido por 1,52, porque ahí se ve agrandada 1,515 veces
 // (el recorte del cuadro de celular); las de los documentales, un tercio desde md (tres columnas con 32 entre sí desde
-// lg y 24 de md a lg) y, debajo, el contenido.
+// lg y 24 de md a lg) y, debajo, el contenido con el tope de 24rem de la tarjeta del carrusel (T4 de la tanda 1,
+// 16/11/2026: en los teléfonos no cambia nada; en las tablets de menos de 768 px ya no se pide una foto para 719 px:
+// a 600 px con densidad 1,5, o a 767 con densidad 1, baja la de 700 y no la de 1400). Sin JavaScript las tarjetas van
+// una debajo de la otra con el ancho entero del contenido: ahí vale el tamaño de antes ((scripting: none); un
+// navegador que no conoce esa condición la saltea y toma el tope).
 const SIZES_MITAD =
   '(min-width: 90rem) 600px, (min-width: 64rem) calc((100vw - 15rem) / 2), ' +
   '(min-width: 48rem) calc((100vw - 7rem) / 2), (min-width: 32rem) calc(100vw - 3rem), calc((100vw - 3rem) * 1.52)'
 const SIZES_TERCIO =
   '(min-width: 90rem) 405px, (min-width: 64rem) calc((100vw - 14rem) / 3), ' +
-  '(min-width: 48rem) calc((100vw - 8rem) / 3), calc(100vw - 3rem)'
+  '(min-width: 48rem) calc((100vw - 8rem) / 3), (scripting: none) calc(100vw - 3rem), min(calc(100vw - 3rem), 24rem)'
 
 // El Museo (src/paginas/ElMuseo.jsx): la página del tablero "Web" (Figma 2823:10228; decisiones IN1 a IN10 del
 // desarrollador, 06/11/2026). Va COMPLETA, como el tablero (IN1): el hero, El MuPa, Cómo nos organizamos, Misión y visión

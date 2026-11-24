@@ -1,5 +1,5 @@
 // Uso: node measure.mjs <ancho> <alto> "<expresión JS>" | <archivo.js> [--shot salida.png] [--url http://127.0.0.1:5300/] [--reduce]
-//   [--con-externos]
+//   [--con-externos] [--sin-foco]
 // La expresión puede ir como texto o como la ruta de un archivo .js (p. ej. tools/parallax-ejes.js): así anda igual desde
 // PowerShell, donde "$(cat archivo)" pierde los saltos de línea y las comillas internas.
 // Emula el viewport por CDP (sirve para <500px), espera fonts.ready, evalúa la expresión y opcionalmente captura página completa.
@@ -9,6 +9,10 @@
 // la carga diferida y pedía www.google.com al cargar la página (VR1-01 de la re-verificación de Visitas, 04/11/2026);
 // también UserWay, con su ID. --con-externos lo deja salir. Contra mupa.ar o Render, sale todo. La regla se aplica
 // también a las direcciones IP: [::1] va excluida como ::1, sin corchetes (con ellos, o sin excluirla, no cargaba).
+// La página tiene el foco (Emulation.setFocusEmulationEnabled, desde el 17/11/2026): Chrome headless no se lo da
+// (document.hasFocus() era false) y sin él :focus-visible no vale nunca, así que tools/carrusel-check.js no podía probar
+// «el foco que no se pierde» de las flechas del carrusel de Novedades (VFC-03 de la verificación de las flechas). Con
+// --sin-foco, como antes.
 import { spawn } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -18,6 +22,7 @@ const opt = (k, d) => { const i = argv.indexOf(k); return i >= 0 ? argv.splice(i
 const shot = opt('--shot', null), url = opt('--url', 'http://127.0.0.1:5300/');
 const reduceIdx = argv.indexOf('--reduce'); const reduce = reduceIdx >= 0; if (reduce) argv.splice(reduceIdx, 1);
 const externosIdx = argv.indexOf('--con-externos'); const conExternos = externosIdx >= 0; if (conExternos) argv.splice(externosIdx, 1);
+const sinFocoIdx = argv.indexOf('--sin-foco'); const sinFoco = sinFocoIdx >= 0; if (sinFoco) argv.splice(sinFocoIdx, 1);
 const soloLocal = !conExternos && ['127.0.0.1', 'localhost', '[::1]'].includes(new URL(url).hostname);
 const [w, h] = [Number(argv[0]), Number(argv[1])];
 const expr = argv[2] && /\.m?js$/.test(argv[2]) && existsSync(argv[2]) ? readFileSync(argv[2], 'utf8') : (argv[2] ?? '1');
@@ -35,6 +40,7 @@ ws.onmessage = e => { const m = JSON.parse(e.data); if (m.id && pend.has(m.id)) 
 const send = (method, params = {}) => new Promise(r => { const i = ++id; pend.set(i, r); ws.send(JSON.stringify({ id: i, method, params })); });
 const evalJs = async (expression) => { const r = await send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true }); if (r.result?.exceptionDetails) throw new Error(r.result.exceptionDetails.exception?.description || 'error en la expresión'); return r.result?.result?.value; };
 await send('Page.enable');
+if (!sinFoco) await send('Emulation.setFocusEmulationEnabled', { enabled: true });
 // Por debajo de 768 px emula un celular (mobile: true). Ojo: así, si la página desborda a lo ancho, innerWidth crece hasta
 // el ancho del contenido (409 en vez de 320) y "scrollWidth > innerWidth" nunca da verdadero. El scroll horizontal se mide
 // contra document.documentElement.clientWidth, que sigue en el ancho emulado (VDIS-02 de la verificación del cierre de

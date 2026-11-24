@@ -20,3 +20,87 @@ export const SALAS_DEL_PLANO = [
   { id: 'sala-6', d: 'M823.28 358.05C823.28 331.87 802.07 310.8 776.03 310.8C750 310.8 728.79 332.01 728.79 358.05C728.79 384.08 750 405.29 776.03 405.29C802.07 405.29 823.28 384.08 823.28 358.05Z' },
   { id: 'sala-7', d: 'M535.28 430.59C517.29 440.69 508.08 461.46 512.32 481.64C516.56 501.82 533.53 516.89 554 518.94C574.48 520.98 593.93 509.28 601.98 490.42C613.53 463.5 635.18 442.29 662.53 431.62C687.4 421.82 702.17 396.08 697.78 369.6C693.54 343.27 671.31 323.38 644.69 322.07C617.92 320.75 593.93 338.16 587.06 364.04C579.45 392.27 560.73 416.26 535.28 430.74V430.59Z' },
 ]
+
+// El tamaño del viewBox de los tres SVG del plano (MapaMuseo.jsx: el recorte de las capas del hover y el toque).
+export const ANCHO_PLANO = 882.765
+export const ALTO_PLANO = 811.848
+
+// El toque en el celular (decisión M6 del desarrollador, 17/11/2026): qué sala hay en un punto del plano y la caja de
+// cada sala, sin el DOM (en las unidades del viewBox). Cada trazado (solo usa M, L, H, V, C y Z absolutos) pasa una
+// sola vez, con el primer toque, a un polígono con cada curva partida en 16 tramos (el error queda debajo de una
+// centésima de unidad: en el celular, menos de un milésimo de píxel). Las salas no se superponen (el cierre de E6.3 lo
+// comprobó con una grilla): un punto cae a lo sumo en una.
+const TRAMOS = 16
+let poligonos = null
+function geometria() {
+  if (poligonos) return poligonos
+  poligonos = SALAS_DEL_PLANO.map(({ id, d }) => {
+    const t = d.match(/[A-Za-z]|-?(?:\d+\.?\d*|\.\d+)/g)
+    const puntos = []
+    let x = 0
+    let y = 0
+    let orden = ''
+    let i = 0
+    const n = () => Number(t[i++])
+    while (i < t.length) {
+      if (/[A-Za-z]/.test(t[i])) orden = t[i++]
+      if (orden === 'Z') {
+        orden = ''
+        continue
+      }
+      if (orden === 'M' || orden === 'L') {
+        x = n()
+        y = n()
+      } else if (orden === 'H') x = n()
+      else if (orden === 'V') y = n()
+      else if (orden === 'C') {
+        const [x1, y1, x2, y2, x3, y3] = [n(), n(), n(), n(), n(), n()]
+        for (let k = 1; k < TRAMOS; k++) {
+          const s = k / TRAMOS
+          const r = 1 - s
+          puntos.push([r * r * r * x + 3 * r * r * s * x1 + 3 * r * s * s * x2 + s * s * s * x3, r * r * r * y + 3 * r * r * s * y1 + 3 * r * s * s * y2 + s * s * s * y3])
+        }
+        x = x3
+        y = y3
+      } else break // otra orden (los trazados de hoy no tienen): el polígono queda hasta ahí
+      puntos.push([x, y])
+    }
+    const xs = puntos.map((p) => p[0])
+    const ys = puntos.map((p) => p[1])
+    return { id, puntos, caja: [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)] }
+  })
+  return poligonos
+}
+
+/** La caja de una sala: [x0, y0, x1, y1] en las unidades del viewBox (null si la sala no existe). */
+export function cajaDeSala(id) {
+  return geometria().find((s) => s.id === id)?.caja ?? null
+}
+
+/**
+ * La sala del punto (x, y) del plano, en las unidades del viewBox: la que lo contiene o, si ninguna, la más cercana a
+ * menos de `tolerancia` de su borde (un dedo no es exacto y entre dos salas hay apenas un hueco); si no hay, null.
+ */
+export function salaEnElPunto(x, y, tolerancia = 0) {
+  let cerca = null
+  let mejor = tolerancia
+  for (const { id, puntos } of geometria()) {
+    let adentro = false
+    let minimo = Infinity
+    for (let i = 0, j = puntos.length - 1; i < puntos.length; j = i++) {
+      const [xi, yi] = puntos[i]
+      const [xj, yj] = puntos[j]
+      if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) adentro = !adentro
+      const dx = xj - xi
+      const dy = yj - yi
+      const s = Math.max(0, Math.min(1, ((x - xi) * dx + (y - yi) * dy) / (dx * dx + dy * dy || 1)))
+      minimo = Math.min(minimo, Math.hypot(x - xi - s * dx, y - yi - s * dy))
+    }
+    if (adentro) return id
+    if (minimo <= mejor) {
+      mejor = minimo
+      cerca = id
+    }
+  }
+  return cerca
+}

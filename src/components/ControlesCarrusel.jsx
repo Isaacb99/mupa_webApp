@@ -1,8 +1,11 @@
 import { FlechaDerecha, FlechaIzquierda } from './Iconos.jsx'
 
-// Los controles de un carrusel (src/hooks/useCarrusel.js): ← "n/total" → y la región viva. Salieron tal cual de
-// CarruselNovedades.jsx (10/11/2026); los usan Novedades (la Home y Divulgación, a la derecha) y los documentales de
-// El Museo en el celular (a la izquierda, como los dibuja el cuadro de celular). Cada uno pasa las clases de su fila
+// Los controles de un carrusel (src/hooks/useCarrusel.js), abajo de la fila: ← "n/total" → y la región viva. Salieron
+// tal cual de CarruselNovedades.jsx (10/11/2026); los usan los documentales de El Museo en el celular (a la izquierda,
+// como los dibuja el cuadro de celular) y, desde el 16/11/2026, Novedades (la Home y Divulgación, a la derecha) solo
+// si alguna tarjeta no tiene foto: con todas las fotos, sus flechas van a los costados de la fila, con la región viva,
+// y desde el 17/11/2026 abajo no queda nada, ni el contador (FlechasCarrusel.jsx). Esos días no cambiaron el código de
+// este archivo ni el HTML de los controles de El Museo (solo este comentario). Cada uno pasa las clases de su fila
 // (estáticas: el lugar, la alineación y cuándo no van).
 // - Anterior y Siguiente son botones con su nombre (las flechas son solo dibujo), de 44x44 sin mover las flechas de su
 //   lugar, con aria-controls a la fila; en el principio o en el final quedan con aria-disabled y más tenues. Debajo de

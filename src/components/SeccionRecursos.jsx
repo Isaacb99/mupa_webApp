@@ -28,12 +28,26 @@ import {
 //   el mismo aspecto, 44 de alto para el dedo (-my-3: ocupa los 20 del renglón) y el foco de ENLACE_FLECHA. Esa clase
 //   va escrita entera, sin ENLACE_FLECHA: con text-base y text-sm juntas ganaría la que Tailwind ordena después.
 // - Debajo de lg no hay diseño (D2): una columna.
+// - El h2 es el ancla de la sección (su id; "Recursos educativos" de la franja de la Home lleva a
+//   /educacion#educacion-recursos desde el 16/11/2026, T6 de la tanda 1) y deja arriba, al llegar, el lugar del rótulo
+//   y el aire de la sección (ANCLA): el header no es fijo, nada lo tapa.
 // Encabezados: el h2 de la sección y un h3 por tarjeta.
 
 // Los íconos de las tarjetas, por la clave de content.js.
 const ICONOS = { descarga: Descarga, video: Video, enlace: Enlace }
 
-const TITULO_CON_ROTULO = `${TITULO_SECCION} mt-4`
+/**
+ * El margen de scroll del h2, que es el ancla de la sección: los 36 del rótulo (su renglón de 20 y los 16 hasta el h2)
+ * y el aire de arriba de la sección (64; 80 desde lg). Así, al llegar con un enlace, la ventana arranca en el borde de
+ * la sección: el rótulo queda a la vista con su aire de siempre y de la sección anterior no asoma nada (como el ancla
+ * de las salas de Exposiciones). En rem: crece con la letra, como el rótulo. El newsletter de Divulgación, que no tiene
+ * rótulo, lleva el mismo (nadie enlaza a él). Salvo en una ventana alta (VS-02 de la verificación, 16/11/2026): la
+ * página termina antes y la sección queda más abajo, entera a la vista (a 1920x1080, a 181 px del borde, o a 129 con
+ * el pie del museo máximo, más alto; a 1440x900, a 1,4, y con ese pie llega al borde).
+ */
+const ANCLA = 'scroll-mt-25 lg:scroll-mt-29'
+const TITULO_SIN_ROTULO = `${TITULO_SECCION} ${ANCLA}`
+const TITULO_CON_ROTULO = `${TITULO_SECCION} mt-4 ${ANCLA}`
 const BAJADA_SECCION = `${BAJADA} mt-4 max-w-none`
 const ICONO = 'size-6'
 const ICONO_NARANJA = 'size-6 text-naranja'
@@ -55,7 +69,7 @@ export default function SeccionRecursos({ id, rotulo = null, titulo, bajada, tar
     <section aria-labelledby={id} className={SECCION_TABLERO}>
       <div className={CONTENEDOR_TABLERO}>
         {rotulo ? <p className={ROTULO_SECCION}>{rotulo}</p> : null}
-        <h2 id={id} className={rotulo ? TITULO_CON_ROTULO : TITULO_SECCION}>
+        <h2 id={id} className={rotulo ? TITULO_CON_ROTULO : TITULO_SIN_ROTULO}>
           {titulo}
         </h2>
         <p className={BAJADA_SECCION}>{bajada}</p>

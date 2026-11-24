@@ -9,6 +9,12 @@
 // - Al filtrar o cambiar de página se anuncia cuántas hay (role="status"); al cambiar de página, el foco va a esa
 //   cuenta (el enlace que se apretó puede no estar en la página nueva).
 // - "Nueva novedad" lleva al alta (/novedades/nueva). El aviso con que se llega (después de eliminar una) se ve arriba.
+// - El párrafo de arriba dice dónde se ven: las publicadas, en el sitio, y las últimas seis publicadas, además, en la
+//   página principal y en Divulgación (el carrusel "Novedades" de la Home y "Últimas noticias" de Divulgación:
+//   server/contenido-publico.js, ultimasNovedades), de donde una actividad sale cuando ya se realizó. La frase vale
+//   con PAGINAS_PUBLICAS_DE_CONTENIDO prendida o apagada. El "seis" es NOVEDADES_EN_LA_HOME de ese archivo, que el
+//   panel no puede importar (es del servidor): si cambia, cambian juntos la constante, esta frase y el manual
+//   (docs/manual/manual.html, sección 7).
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLoaderData, useLocation, useNavigate } from 'react-router'
 import { PAGINAS_PUBLICAS_DE_CONTENIDO } from '../../../compartido/contenidos.js'
@@ -96,7 +102,9 @@ export default function Novedades() {
         Las noticias y las actividades del museo (talleres, charlas, visitas especiales).{' '}
         {PAGINAS_PUBLICAS_DE_CONTENIDO
           ? 'Las publicadas están en el sitio; los borradores, solo acá.'
-          : 'Las publicadas van a estar en el sitio cuando se sume su página; los borradores, solo acá.'}
+          : 'Las publicadas van a estar en el sitio cuando se sume su página; los borradores, solo acá.'}{' '}
+        En la página principal y en Divulgación salen las últimas seis publicadas; una actividad deja de salir ahí
+        cuando ya se realizó.
       </p>
 
       <form

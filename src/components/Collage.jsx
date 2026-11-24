@@ -155,11 +155,21 @@ export default function Collage({ fotos = [] }) {
     // foto, sobre la sección siguiente que sube con ese margen, y como elementos posicionados le robaban el puntero (el
     // texto no se podía seleccionar; hallazgo de la revisión adversarial, 21/09/2026). Solo las fotos vuelven a recibirlo.
     <div className="@container pointer-events-none">
-      {/* Alto del bloque = pantalla fija + el scroll de cada foto que sale (4 con 5 fotos): 24,2 rem (387 px) con el dedo
-          y 16 rem (256 px, ~2,5 muescas de rueda) en lg, donde 22 se sentían largos (pedido del desarrollador, 21/09/2026).
-          Con el dedo eran 22 rem; el 22/09/2026 pasaron a 27,5 (+25 %, pedido suyo) y el mismo día a 24,2 (+10 %: un
-          usuario de prueba lo sintió trabado). Más la cola con la última foto quieta antes de soltarse (ver progreso):
-          30 % de pantalla en lg y 45 % con el dedo, como en los ejes de Identidad (pedido del desarrollador, 28/09/2026).
+      {/* Alto del bloque = pantalla fija + el scroll de cada foto que sale (4 con 5 fotos) + la cola con la última foto
+          quieta antes de soltarse (ver progreso). Desde el 16/11/2026, un solo recorrido para todos los anchos, el que
+          tenía escritorio: 16 rem por foto (256 px, ~2,5 muescas de rueda) y una cola del 30 % de la pantalla. El
+          desarrollador revisó la galería en el celular y la encontró muy larga («hay que deslizar demasiado para
+          pasarla»): con la pila clavada había 1848 px de scroll en un iPhone de 664 px de alto (2,8 pantallas) y ahora
+          hay 1223 (1,8); vale también para las tablets, de md a lg. Hasta ese día, debajo de lg eran 24,2 rem por foto
+          (387 px) y una cola del 45 %: con el dedo habían sido 22 rem (los mismos que en lg, donde se sentían largos y
+          el 21/09/2026 bajaron a 16, pedido del desarrollador), el 22/09/2026 pasaron a 27,5 (+25 %, pedido suyo) y
+          el mismo día a 24,2 (+10 %: un usuario de prueba lo sintió trabado), y la cola del 45 % con el dedo era la
+          de los ejes de Identidad (28/09/2026). Este cambio deja sin efecto, solo acá, en la galería de master, el
+          recorrido más largo con el dedo (los 24,2 rem del 22/09/2026 y también los 22 del principio: con el dedo
+          nunca había habido 16) y la cola del 45 %: los demás efectos por pasos son de la landing y no se tocan. Desde
+          lg no cambió nada (el alto y la cola calculados son los de antes). El 17/11/2026 el desarrollador lo probó en
+          su teléfono y lo confirmó así, con 16 rem (la variante de 12 rem por foto, que acortaba también el
+          escritorio, se descartó).
           collage-cola (index.css) además sube el bloque para que, antes de engancharse, la caja quede 80 px debajo del
           título de la sección (GaleriaHome.jsx), como en el tablero (debajo de md, 24: el cuadro de celular). Apilado
           (sin efecto: reduced-motion, impresión, sin JavaScript o pantalla baja) va como el tablero, quieto: 80 px de
@@ -170,7 +180,7 @@ export default function Collage({ fotos = [] }) {
         id="identidad-collage"
         className={
           activo
-            ? 'collage-cola relative h-[calc(145svh+(var(--fotos)-1)*24.2rem)] lg:h-[calc(130svh+(var(--fotos)-1)*16rem)] apilado:h-auto apilado:mt-0 apilado:mb-0 apilado:pt-6 apilado:md:pt-20 apilado:pb-0'
+            ? 'collage-cola relative h-[calc(130svh+(var(--fotos)-1)*16rem)] apilado:h-auto apilado:mt-0 apilado:mb-0 apilado:pt-6 apilado:md:pt-20 apilado:pb-0'
             : 'relative pt-6 md:pt-20'
         }
         style={{ '--fotos': fotos.length }}
@@ -229,9 +239,10 @@ export default function Collage({ fotos = [] }) {
           </div>
         </div>
       </div>
-      {/* Cola: el último tramo del bloque, en el que la última foto queda quieta antes de soltarse (lo mide `medir`). */}
+      {/* Cola: el último tramo del bloque, en el que la última foto queda quieta antes de soltarse (lo mide `medir`):
+          el 30 % de la pantalla en todos los anchos (hasta el 16/11/2026, el 45 % debajo de lg). */}
       {activo && (
-        <div ref={cola} data-cola aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-[45svh] lg:h-[30svh] apilado:hidden" />
+        <div ref={cola} data-cola aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-[30svh] apilado:hidden" />
       )}
       </div>
     </div>

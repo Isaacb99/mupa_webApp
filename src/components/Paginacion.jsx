@@ -5,16 +5,19 @@ import { ENLACE_FLECHA } from './tablero.js'
 // Las páginas de un listado (Novedades: ?pagina=, plan 6.1): "Anterior", "Página 2 de 5" y "Siguiente". La primera
 // página es la dirección sin ?pagina= (con ?pagina=1 el servidor manda ahí con un 301). Enlaces comunes: andan sin
 // JavaScript.
-// Con el lenguaje del tablero "Web" (decisión R4 del desarrollador, 04/11/2026), cerca del "← 1/6 →" del carrusel de
-// Novedades de la Home (el tablero no tiene un listado con páginas: desvío a confirmar con la diseñadora):
-// - "Página 2 de 5", como el contador del carrusel: Roboto Mono Medium 24/28,8 en blanco (no es un enlace);
+// Con el lenguaje del tablero "Web" (decisión R4 del desarrollador, 04/11/2026), cerca del "← 1/6 →" que tenía entonces
+// el carrusel de Novedades de la Home y del "← 1/3 →" de los documentales de El Museo (el tablero no tiene un listado
+// con páginas: desvío a confirmar con la diseñadora). Desde el 16/11/2026 las flechas de Novedades van a los costados
+// de la fila y desde el 17/11/2026 no lleva contador (los controles de abajo, con el suyo, solo si una tarjeta no tiene
+// foto); los documentales siguen igual:
+// - "Página 2 de 5", como el contador de esos controles: Roboto Mono Medium 24/28,8 en blanco (no es un enlace);
 // - "Anterior" y "Siguiente", enlaces con flecha (ENLACE_FLECHA: Roboto Mono 16 en blanco, la flecha de 20 a 8 del
 //   texto, 44 de alto);
-// - y cada cosa siempre en el mismo lugar, como las flechas del carrusel: desde sm, en tres columnas a lo ancho del
+// - y cada cosa siempre en el mismo lugar, como los controles de un carrusel: desde sm, en tres columnas a lo ancho del
 //   contenido, "Anterior" contra el borde izquierdo, el contador en el medio y "Siguiente" contra el derecho (cada uno en
-//   su columna, esté o no el otro). El carrusel atenúa la flecha que no aplica; acá no se dibuja: un "Anterior" que no
-//   lleva a ningún lado sería un texto más en la página. Debajo de sm (sin diseño, D2), uno al lado del otro, en
-//   varios renglones si no entran.
+//   su columna, esté o no el otro). El carrusel de Novedades oculta la flecha que no aplica y el de los documentales la
+//   atenúa; acá no se dibuja: un "Anterior" que no lleva a ningún lado sería un texto más en la página. Debajo de sm
+//   (sin diseño, D2), uno al lado del otro, en varios renglones si no entran.
 // 64 debajo de la grilla de tarjetas. Hasta la corrección del rediseño (EST-04 de su verificación, 05/11/2026) el
 // contador iba en Roboto Mono 16 en gris, todo junto a la izquierda, y el contador y "Siguiente" se corrían de la primera
 // página a las demás.

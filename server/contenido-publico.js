@@ -30,8 +30,21 @@ export const TOPE_CONTENIDO_MS = 4_000
 export const NOVEDADES_POR_PAGINA = 12
 /**
  * Las novedades del carrusel de la Home (tablero "Web" de la diseñadora, 02/11/2026) y de "Últimas noticias" de
- * Divulgación (06/11/2026, las mismas: DV2): su contador dice "1/6", así que van las 6 últimas publicadas. El nombre
- * dice "la Home" y se queda así: lo importan las pruebas.
+ * Divulgación (06/11/2026, las mismas: DV2): el tablero dibuja "1/6" (desde el 17/11/2026, decisión Q, el sitio no
+ * dibuja el contador), así que van las 6 últimas publicadas. El nombre dice "la Home" y se queda así, aunque vale
+ * también para Divulgación.
+ * Este número también está escrito, como «seis», en la ayuda de la pantalla Novedades del panel
+ * (panel/src/pantallas/Novedades.jsx, que no puede importar esta constante) y en el manual del panel
+ * (docs/manual/manual.html, sección 7: «las últimas seis» y «la séptima»): si cambia, se cambian juntos, y el manual
+ * se regenera (tools/manual.mjs). Lo controla server/pruebas/herramientas.test.js (VPI-02 de la verificación de la
+ * tanda 1, 16/11/2026), que importa esta constante y lee esos dos textos: si no dicen el número en letras (y el
+ * manual, el ordinal que sigue), falla. Es la única prueba que la importa (hasta ese día este comentario decía que la
+ * importaban las pruebas, y no era cierto): las de la Home y de Divulgación tienen el 6 escrito
+ * (server/pruebas/ssr.test.js: con la base, `creadas.noticias.slice(-5)` más la actividad; con un lector falso,
+ * `articulos.length, 6`), así que si cambia la constante fallan también.
+ * Los dos textos dicen además cuáles son (las últimas publicadas, sin las actividades realizadas; el manual, en 7.7,
+ * que volver a publicar una no la pasa adelante), y eso no lo controla ninguna prueba: si cambia el criterio de
+ * ultimasNovedades, más abajo, también se cambian a mano.
  */
 export const NOVEDADES_EN_LA_HOME = 6
 /**
