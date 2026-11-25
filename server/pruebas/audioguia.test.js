@@ -2417,12 +2417,18 @@ describe('npm run dev no sirve la audioguía (server/denegados-dev.js: AG-SEG-04
 // manifiesto, un aviso («0 estaciones»): el módulo se puede deployar antes de las grabaciones.
 
 /**
- * Los textos del guion, copiados del resumen que dio el desarrollador (las tablas 1.2.1 y 12 de la especificación)
- * mientras no llegue el documento del museo («EXPERIENCIA MUPA 2026»): cuando llegue, se cotejan uno por uno, con su
- * caja, y se corrigen acá y en audioguias/pistas.json en el mismo commit (lo mismo si se aprueba la propuesta de 14.8).
- * Por grupo: [espacio, nombreGuion, titulo, lema, estaciones]; cada estación, [numero, titulo]. Un título null es una
- * estación que el guion trajo sin título (la referencial de un espacio): en el manifiesto lleva tituloProvisorio y, de
- * título, el del espacio o, si no tiene, su lema (1.2).
+ * Los textos del guion, copiados del documento del museo, «EXPERIENCIA MUPA 2026» (exportado de Google Docs el
+ * 25/11/2026), tal cual y con su caja (D13: «MUPA» y «Quetzacoatlus» se le preguntan al museo, 14.8 y 14.10): el título
+ * de cada estación, el de su renglón del «DESGLOSE DE PISTAS - LISTA DE REPRODUCCIÓN», sin la anotación «(Referencial de
+ * sala)» ni los espacios de las puntas (donde el encabezado de su texto difiere, manda el desglose: la 27 termina ahí
+ * con un punto); los de los espacios, de sus encabezados («SALA 1 “EL CICLO DE LA VIDA. Empecemos desde cero”»: el
+ * rótulo, y entre comillas el título y el lema), iguales en el desglose y en los textos. Desde el 25/11/2026 ninguna
+ * estación es provisoria: las nueve referenciales (14, 15, 16, 19, 24, 28, 29, 30 y 34) tienen su título en el
+ * documento. Si el documento cambia, o se aprueba la propuesta de 14.8, se corrigen acá y en audioguias/pistas.json en
+ * el mismo commit.
+ * Por grupo: [espacio, nombreGuion, titulo, lema, estaciones]; cada estación, [numero, titulo]. Un título null sería
+ * una estación que el guion trae sin título: en el manifiesto llevaría tituloProvisorio y, de título, el del espacio o,
+ * si no tiene, su lema (1.2; hoy, ninguna).
  */
 const TEXTOS_DEL_GUION = Object.freeze([
   ['recepcion', 'RECEPCIÓN', null, null, [[1, 'Bienvenida al MUPA']]],
@@ -2442,35 +2448,35 @@ const TEXTOS_DEL_GUION = Object.freeze([
     [12, 'Crurotarsi: los antecesores de los cocodrilos'],
     [13, 'Fósiles icónicos de Ischigualasto'],
   ]],
-  ['sala-3', 'SALA 3', 'EL LABORATORIO', 'Donde los fósiles se transforman en conocimiento', [[14, null]]],
-  ['sala-4', 'SALA 4', 'LA CAMPAÑA', 'Tras las huellas del pasado', [[15, null]]],
+  ['sala-3', 'SALA 3', 'EL LABORATORIO', 'Donde los fósiles se transforman en conocimiento', [[14, 'Los fósiles se transforman en conocimiento']]],
+  ['sala-4', 'SALA 4', 'LA CAMPAÑA', 'Tras las huellas del pasado', [[15, 'Tras las huellas del pasado']]],
   ['sala-5', 'SALA 5', 'GEOLOGÍA', 'La historia escrita en rocas', [
-    [16, null],
+    [16, 'La historia escrita en rocas'],
     [17, 'Ciclo de las rocas: una historia sin fin'],
     [18, 'Estratigrafía: aprender a leer los paisajes'],
   ]],
   ['sala-6', 'SALA 6', 'PALEOBOTÁNICA', 'Las plantas nos cuentan el pasado', [
-    [19, null],
+    [19, 'Las plantas nos cuentan el pasado'],
     [20, 'Plantas primitivas, las primeras en conquistar la Tierra'],
     [21, 'Los bosques gigantes del Carbonífero'],
     [22, 'La flora triásica'],
     [23, 'La llegada de las flores'],
   ]],
   ['sala-7', 'SALA 7', 'UN VIAJE AL TRIÁSICO', 'El fin de un mundo, el inicio de otro', [
-    [24, null],
+    [24, 'El fin de un mundo, el inicio de otro'],
     [25, 'Ischigualasto en tiempos del Triásico'],
     [26, 'Quebrada del Barro: nuevos protagonistas del Triásico'],
     [27, 'Extinción Triásica: una crisis que transformó la vida'],
   ]],
-  ['jardin-triasico', 'JARDÍN TRIÁSICO', null, 'Paisaje vivo', [[28, null]]],
-  ['sala-educativa', 'PLAZA INTERACTIVA', null, 'Aprender jugando', [[29, null]]],
+  ['jardin-triasico', 'JARDÍN TRIÁSICO', null, 'Paisaje vivo', [[28, 'Paisaje vivo']]],
+  ['sala-educativa', 'PLAZA INTERACTIVA', null, 'Aprender jugando', [[29, 'Aprender jugando']]],
   ['sala-8', 'SALA GIGANTISMO', 'GIGANTISMO', 'La grandeza del pasado', [
-    [30, null],
+    [30, 'La grandeza del pasado'],
     [31, 'Patagotitán, la grúa viviente'],
     [32, 'Mapusaurus, el cazador en equipo'],
     [33, 'Quetzacoatlus, el rey de los cielos'],
   ]],
-  ['sala-inmersiva', 'SALA INMERSIVA', null, 'La memoria del tiempo', [[34, null]]],
+  ['sala-inmersiva', 'SALA INMERSIVA', null, 'La memoria del tiempo', [[34, 'La memoria del tiempo']]],
   ['recepcion', 'RECEPCIÓN', null, null, [[35, 'Despedida MUPA']]],
 ])
 

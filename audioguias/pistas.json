@@ -46,7 +46,7 @@
       "titulo": "EL LABORATORIO",
       "lema": "Donde los fósiles se transforman en conocimiento",
       "estaciones": [
-        { "numero": 14, "titulo": "EL LABORATORIO", "tituloProvisorio": true }
+        { "numero": 14, "titulo": "Los fósiles se transforman en conocimiento" }
       ]
     },
     {
@@ -56,7 +56,7 @@
       "titulo": "LA CAMPAÑA",
       "lema": "Tras las huellas del pasado",
       "estaciones": [
-        { "numero": 15, "titulo": "LA CAMPAÑA", "tituloProvisorio": true }
+        { "numero": 15, "titulo": "Tras las huellas del pasado" }
       ]
     },
     {
@@ -66,7 +66,7 @@
       "titulo": "GEOLOGÍA",
       "lema": "La historia escrita en rocas",
       "estaciones": [
-        { "numero": 16, "titulo": "GEOLOGÍA", "tituloProvisorio": true },
+        { "numero": 16, "titulo": "La historia escrita en rocas" },
         { "numero": 17, "titulo": "Ciclo de las rocas: una historia sin fin" },
         { "numero": 18, "titulo": "Estratigrafía: aprender a leer los paisajes" }
       ]
@@ -78,7 +78,7 @@
       "titulo": "PALEOBOTÁNICA",
       "lema": "Las plantas nos cuentan el pasado",
       "estaciones": [
-        { "numero": 19, "titulo": "PALEOBOTÁNICA", "tituloProvisorio": true },
+        { "numero": 19, "titulo": "Las plantas nos cuentan el pasado" },
         { "numero": 20, "titulo": "Plantas primitivas, las primeras en conquistar la Tierra" },
         { "numero": 21, "titulo": "Los bosques gigantes del Carbonífero" },
         { "numero": 22, "titulo": "La flora triásica" },
@@ -92,7 +92,7 @@
       "titulo": "UN VIAJE AL TRIÁSICO",
       "lema": "El fin de un mundo, el inicio de otro",
       "estaciones": [
-        { "numero": 24, "titulo": "UN VIAJE AL TRIÁSICO", "tituloProvisorio": true },
+        { "numero": 24, "titulo": "El fin de un mundo, el inicio de otro" },
         { "numero": 25, "titulo": "Ischigualasto en tiempos del Triásico" },
         { "numero": 26, "titulo": "Quebrada del Barro: nuevos protagonistas del Triásico" },
         { "numero": 27, "titulo": "Extinción Triásica: una crisis que transformó la vida" }
@@ -104,7 +104,7 @@
       "nombreGuion": "JARDÍN TRIÁSICO",
       "lema": "Paisaje vivo",
       "estaciones": [
-        { "numero": 28, "titulo": "Paisaje vivo", "tituloProvisorio": true }
+        { "numero": 28, "titulo": "Paisaje vivo" }
       ]
     },
     {
@@ -113,7 +113,7 @@
       "nombreGuion": "PLAZA INTERACTIVA",
       "lema": "Aprender jugando",
       "estaciones": [
-        { "numero": 29, "titulo": "Aprender jugando", "tituloProvisorio": true }
+        { "numero": 29, "titulo": "Aprender jugando" }
       ]
     },
     {
@@ -123,7 +123,7 @@
       "titulo": "GIGANTISMO",
       "lema": "La grandeza del pasado",
       "estaciones": [
-        { "numero": 30, "titulo": "GIGANTISMO", "tituloProvisorio": true },
+        { "numero": 30, "titulo": "La grandeza del pasado" },
         { "numero": 31, "titulo": "Patagotitán, la grúa viviente" },
         { "numero": 32, "titulo": "Mapusaurus, el cazador en equipo" },
         { "numero": 33, "titulo": "Quetzacoatlus, el rey de los cielos" }
@@ -135,7 +135,7 @@
       "nombreGuion": "SALA INMERSIVA",
       "lema": "La memoria del tiempo",
       "estaciones": [
-        { "numero": 34, "titulo": "La memoria del tiempo", "tituloProvisorio": true }
+        { "numero": 34, "titulo": "La memoria del tiempo" }
       ]
     },
     {
