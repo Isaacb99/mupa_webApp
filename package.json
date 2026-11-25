@@ -39,19 +39,19 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
-    "@tailwindcss/vite": "^4.2.4",
-    "@tiptap/core": "^3.32.0",
+    "@tailwindcss/vite": "^4.3.5",
+    "@tiptap/core": "^3.33.1",
     "@tiptap/extension-link": "^3.32.0",
     "@tiptap/extension-list": "^3.32.0",
-    "@tiptap/pm": "^3.32.0",
-    "@tiptap/react": "^3.32.0",
-    "@tiptap/starter-kit": "^3.32.0",
-    "@vitejs/plugin-react": "^6.0.1",
+    "@tiptap/pm": "^3.33.1",
+    "@tiptap/react": "^3.33.1",
+    "@tiptap/starter-kit": "^3.33.1",
+    "@vitejs/plugin-react": "^6.3.0",
     "pdfjs-dist": "^5.7.284",
     "qrcode": "1.5.4",
-    "react-router": "^7.18.4",
+    "react-router": "^7.18.5",
     "subset-font": "^2.9.0",
     "tailwindcss": "^4.2.4",
-    "vite": "^8.0.9"
+    "vite": "^8.3.8"
   }
 }
