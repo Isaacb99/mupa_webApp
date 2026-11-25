@@ -107,6 +107,51 @@ function medirContacto(estado) {
   registrar('enviar_contacto', { formulario: 'contacto' })
 }
 
+/** El título fijo de la audioguía en GA4: el mismo de su <title>, sin la versión (especificación de las audioguías, 6). */
+export const TITULO_AUDIOGUIA = 'Audioguía · MuPa'
+
+/** Toda dirección de la audioguía, con la página prendida o no, y con cualquier mayúscula (/Audioguia/…). */
+const RUTA_AUDIOGUIA = /^\/audioguia(\/|$)/i
+
+/**
+ * Lo que la página le dice de sí a GA4 en su page_view. En la audioguía (estado.pagina === 'audioguia'), la dirección
+ * sin la consulta ni el fragmento y el título fijo: la versión elegida (?v=ad, la audiodescripción) es un dato sobre una
+ * discapacidad y no le llega nunca a Google (especificación de las audioguías, 6; el h1, que dice la versión, GA4 no lo
+ * lee). Cualquier otra página en una dirección de la audioguía (la 404: con el módulo apagado, un QR escaneado o un
+ * marcador viejo caen ahí, y con el módulo prendido también /Audioguia/… o /audioguia/q sin código) va como
+ * `<origen>/audioguia`, sin el resto de la ruta, la consulta ni el fragmento: ni el código del QR, ni el espacio, ni
+ * ?v=ad (AGP-COD-01 y AGP-SPE-02 de la verificación de la página; decidido por el desarrollador el 25/11/2026); el
+ * título es el de esa página, que no lleva la dirección. Y si la página anterior fue una dirección de la audioguía del
+ * mismo sitio (la 404 sale con el Referrer-Policy del sitio, no con el no-referrer de las rutas de la audioguía), el
+ * referrer va recortado igual. En las demás páginas, nada: GA4 toma la dirección y el título solo, como siempre.
+ * @param {{ pagina?: string }} estado
+ * @param {{ origin: string, pathname: string }} [lugar]  window.location
+ * @param {string} [referrer]  document.referrer
+ */
+export function paginaParaGa4(
+  estado,
+  lugar = window.location,
+  referrer = typeof document === 'undefined' ? '' : document.referrer,
+) {
+  const extra = {}
+  if (estado?.pagina === 'audioguia') {
+    extra.page_location = `${lugar.origin}${lugar.pathname}`
+    extra.page_title = TITULO_AUDIOGUIA
+  } else if (RUTA_AUDIOGUIA.test(lugar.pathname)) {
+    extra.page_location = `${lugar.origin}/audioguia`
+  }
+  let anterior = null
+  try {
+    anterior = referrer ? new URL(referrer) : null
+  } catch {
+    anterior = null
+  }
+  if (anterior && anterior.origin === lugar.origin && RUTA_AUDIOGUIA.test(anterior.pathname)) {
+    extra.page_referrer = `${lugar.origin}/audioguia`
+  }
+  return extra
+}
+
 function arrancar(estado) {
   window.dataLayer = window.dataLayer || []
   gtag('js', new Date())
@@ -115,6 +160,7 @@ function arrancar(estado) {
     allow_google_signals: false,
     allow_ad_personalization_signals: false,
     cookie_expires: 60 * 60 * 24 * 395,
+    ...paginaParaGa4(estado),
   })
   const script = document.createElement('script')
   script.async = true

@@ -88,6 +88,12 @@
 // contador ni ninguna fila: la sección termina con el envoltorio de la fila) y la región viva, la misma, va en ese
 // envoltorio, después de las flechas, vacía y una sola vez; con una tarjeta sin portada, los controles de abajo, como
 // antes.
+// Y la audioguía (24/11/2026; especificación de las audioguías, versión 2, 5, 6 y 9.3): la página en la tabla de
+// páginas y fuera de navegacion (ni menú, ni pie, ni 404), sus textos de content.js, la página sin acceso (con los cuatro
+// motivos y con datos {}) y con acceso en las dos versiones (el bloque de versión con un solo enlace, «Ir a…», el
+// índice al h2 enfocable de cada espacio, las listas con role="list", los 13 h2 distintos, el espacio actual con una
+// sola marca, cada estación con su h3, su duración, su <audio preload="none">, su aviso y su transcripción) y el
+// page_location y el título fijos de GA4 (paginaParaGa4).
 import assert from 'node:assert/strict'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -100,7 +106,7 @@ import { DIAS, abreElDia, resumirHorario, textoDias, textoFranjas, textoHora, un
 import { DIAS as DIAS_DEL_ESQUEMA } from '../../compartido/esquemas/horarios.js'
 import { REDES as REDES_DEL_ESQUEMA } from '../../compartido/esquemas/museo.js'
 import { REDES } from '../../compartido/redes.js'
-import { origenDeEntradas, pieVisto } from '../../src/analitica.js'
+import { origenDeEntradas, paginaParaGa4, pieVisto, TITULO_AUDIOGUIA } from '../../src/analitica.js'
 import { ESPERA_MS, crearAvisador } from '../../src/components/avisoCarrusel.js'
 import { SALAS_DEL_PLANO } from '../../src/components/mapaSalas.js'
 import { MUSEO_MAXIMO, MUSEO_VACIO, museoComun } from '../museo.js'
@@ -324,7 +330,7 @@ describe('Layout, header, menú y pie (sin base)', () => {
     const modulo = await vite.ssrLoadModule('/src/Raiz.jsx')
     Raiz = modulo.default
     // Desde E4 cada página va en su archivo (src/Raiz.jsx): se cargan antes, como hacen el servidor y el navegador.
-    for (const nombre of ['home', 'el-museo', 'visitas', 'divulgacion', 'educacion', 'circuitos', 'exposiciones', 'muestra', 'novedades', 'novedad', 'contacto', 'no-encontrada', 'rara']) {
+    for (const nombre of ['home', 'el-museo', 'visitas', 'divulgacion', 'educacion', 'circuitos', 'exposiciones', 'muestra', 'novedades', 'novedad', 'contacto', 'audioguia', 'no-encontrada', 'rara']) {
       paginasCargadas[nombre] = await modulo.cargarPagina(nombre)
     }
     Header = (await vite.ssrLoadModule('/src/components/Header.jsx')).default
@@ -4119,6 +4125,351 @@ describe('Layout, header, menú y pie (sin base)', () => {
     const main = delMain(pagina({ pagina: 'exposiciones', ruta: '/exposiciones', museo: MUSEO_VACIO, datos: { muestras: [], salas } }))
     assert.match(main, /<span class="min-w-0 wrap-anywhere">Ciencia interdisciplinariam<span class="whitespace-nowrap">ente<svg /)
     assert.match(main, /<span class="min-w-0 wrap-anywhere">Huellas del <span class="whitespace-nowrap">Triásico<svg /)
+  })
+
+  // ——— La audioguía (src/paginas/Audioguia.jsx; especificación de las audioguías, versión 2, 5 y 9.3) ———
+  // Los datos, armados como los arma el servidor (datosDeLaPagina de server/audioguia/rutas.js) sobre un recorrido de
+  // los 13 grupos del guion (1.2.1: Recepción al principio y al final), con títulos de prueba.
+  const GRUPOS_DE_PRUEBA = [
+    ['recepcion', 'RECEPCIÓN', null, null, [1]],
+    ['sala-1', 'SALA 1', 'EL CICLO DE LA VIDA', 'Empecemos desde cero', [2, 3, 4, 5]],
+    ['sala-2', 'SALA 2', 'ISCHIGUALASTO', 'El origen de los dinosaurios', [6, 7, 8, 9, 10, 11, 12, 13]],
+    ['sala-3', 'SALA 3', 'EL LABORATORIO', 'Donde los fósiles se transforman en conocimiento', [14]],
+    ['sala-4', 'SALA 4', 'LA CAMPAÑA', 'Tras las huellas del pasado', [15]],
+    ['sala-5', 'SALA 5', 'GEOLOGÍA', 'La historia escrita en rocas', [16, 17, 18]],
+    ['sala-6', 'SALA 6', 'PALEOBOTÁNICA', 'Las plantas nos cuentan el pasado', [19, 20, 21, 22, 23]],
+    ['sala-7', 'SALA 7', 'UN VIAJE AL TRIÁSICO', 'El fin de un mundo, el inicio de otro', [24, 25, 26, 27]],
+    ['jardin-triasico', 'JARDÍN TRIÁSICO', null, 'Paisaje vivo', [28]],
+    ['sala-educativa', 'PLAZA INTERACTIVA', null, 'Aprender jugando', [29]],
+    ['sala-8', 'SALA GIGANTISMO', 'GIGANTISMO', 'La grandeza del pasado', [30, 31, 32, 33]],
+    ['sala-inmersiva', 'SALA INMERSIVA', null, 'La memoria del tiempo', [34]],
+    ['recepcion', 'RECEPCIÓN', null, null, [35]],
+  ]
+  const dos = (n) => String(n).padStart(2, '0')
+  const audioguiaDePrueba = () => {
+    const vistas = new Set()
+    const estaciones = new Map()
+    const grupos = GRUPOS_DE_PRUEBA.map(([espacio, nombreGuion, titulo, lema, numeros]) => {
+      const alFinal = vistas.has(espacio)
+      vistas.add(espacio)
+      for (const n of numeros) {
+        estaciones.set(dos(n), { duracion: '1:12', duracionLarga: '1 minuto 12 segundos', parrafos: [`Común ${n}, primero.`, `Común ${n}, segundo.`] })
+        estaciones.set(`${dos(n)}-ad`, { duracion: '1:40', duracionLarga: '1 minuto 40 segundos', parrafos: [`Con audiodescripción ${n}.`] })
+      }
+      return {
+        espacio,
+        nombreGuion,
+        titulo,
+        lema,
+        ancla: alFinal ? `espacio-${espacio}-fin` : `espacio-${espacio}`,
+        alFinal,
+        estaciones: numeros.map((n) => ({ id: dos(n), numero: n, titulo: `Título de la estación ${n}` })),
+      }
+    })
+    return { grupos, estaciones }
+  }
+  let datosDeLaAudioguia
+  const audioguiaCon = ({ version = 'comun', espacioActual = 'sala-2' } = {}) =>
+    datosDeLaAudioguia({ audioguia: audioguiaDePrueba(), version, espacioActual, token: '1.2026-11-24.firma' })
+  const paginaAudioguia = (datos) =>
+    pagina({ pagina: 'audioguia', ruta: datos.espacioActual ? `/audioguia/${datos.espacioActual}` : '/audioguia', museo: MUSEO_MAXIMO, datos })
+  // El elemento con ese id (su etiqueta de apertura), o null.
+  const elementoConId = (html, id) => new RegExp(`<[a-z0-9]+ [^>]*id="${id}"[^>]*>`).exec(html)?.[0] ?? null
+
+  test('la audioguía está en la tabla de páginas, fuera de la tabla del servidor y de navegacion (ni menú, ni pie, ni 404)', async () => {
+    const rutas = await import('../audioguia/rutas.js')
+    datosDeLaAudioguia = rutas.datosDeLaPagina
+    assert.ok(Object.hasOwn(tabla.PAGINAS, 'audioguia'))
+    assert.equal(tabla.ARCHIVOS_DE_PAGINAS.audioguia, 'src/paginas/Audioguia.jsx')
+    assert.deepEqual(rutas.PAGINAS_FUERA_DE_LA_TABLA, ['audioguia'])
+    assert.ok(!RUTAS.some((r) => r.pagina === 'audioguia'))
+    const enNavegacion = [...contenido.navegacion.menu, ...contenido.navegacion.otras].map((s) => s.pagina)
+    assert.ok(!enNavegacion.includes('audioguia'))
+    for (const html of [pagina({ pagina: 'home', museo: MUSEO_MAXIMO }), pagina({ pagina: 'no-encontrada', ruta: '/x', museo: MUSEO_MAXIMO })]) {
+      assert.equal(cuantas(html, '/audioguia'), 0)
+    }
+    // Sin sobreFoto: el título arriba, como las fichas.
+    assert.notEqual(paginasCargadas.audioguia.sobreFoto, true)
+  })
+
+  test('la audioguía: los textos de content.js, con todas sus claves y el guion blando en tituloAd (5.4)', () => {
+    const t = contenido.audioguia
+    assert.deepEqual(Object.keys(t).sort(), [
+      'alFinal', 'artista', 'bajada', 'duracion', 'estacion', 'estasAca', 'estasAcaLector', 'etiquetaIndice', 'etiquetaRecorrido',
+      'irA', 'irAlEspacio', 'motivos', 'navegadorApp', 'navegadorAppPregunta', 'sinConexion', 'sinSoporte', 'titulo', 'tituloAd',
+      'transcripcion', 'version',
+    ])
+    assert.deepEqual(Object.keys(t.version).sort(), ['actualAd', 'actualComun', 'cambiarAAd', 'cambiarAComun'])
+    assert.deepEqual(Object.keys(t.motivos).sort(), ['codigo', 'sin-codigo', 'sin-cookie', 'vencido'])
+    assert.equal(t.titulo, 'Audioguía')
+    assert.equal(t.tituloAd, 'Audioguía con audio­descripción')
+    assert.equal(cuantas(t.tituloAd, '­'), 1)
+    for (const valor of [t.titulo, t.bajada, t.irA, t.estasAca, ...Object.values(t.version), ...Object.values(t.motivos)]) {
+      assert.ok(typeof valor === 'string' && valor.length > 0)
+    }
+  })
+
+  test('la audioguía sin acceso: el h1, el motivo y el enlace a Visitas; ningún <audio> ni dirección de una estación', () => {
+    const casos = [
+      [{}, 'sin-codigo'],
+      [{ acceso: false, motivo: 'sin-codigo' }, 'sin-codigo'],
+      [{ acceso: false, motivo: 'sin-cookie' }, 'sin-cookie'],
+      [{ acceso: false, motivo: 'codigo' }, 'codigo'],
+      [{ acceso: false, motivo: 'vencido' }, 'vencido'],
+      [{ acceso: false, motivo: 'otra-cosa' }, 'sin-codigo'],
+    ]
+    for (const [datos, motivo] of casos) {
+      const main = delMain(pagina({ pagina: 'audioguia', ruta: '/audioguia', museo: MUSEO_MAXIMO, datos }))
+      assert.equal(cuantas(main, '<h1'), 1, motivo)
+      assert.match(main, /<h1 class="[^"]*">Audioguía<\/h1>/, motivo)
+      assert.ok(main.includes(contenido.audioguia.motivos[motivo].replace(/"/g, '&quot;')), motivo)
+      assert.equal(cuantas(main, '<audio'), 0, motivo)
+      assert.equal(cuantas(main, '/audioguia/pista/'), 0, motivo)
+      assert.equal(cuantas(main, '<details'), 0, motivo)
+      assert.equal(hrefs(main).join(' '), '/visitas', motivo)
+      assert.equal(cuantas(main, 'href="#"'), 0, motivo)
+    }
+  })
+
+  test('el h1 de la audioguía: el de las fichas con un tope propio debajo de 32rem, en las tres formas (AGP-SPE-01 y AGP-NAV-03)', async () => {
+    const { TITULO_SIN_FOTO } = await vite.ssrLoadModule('/src/components/tablero.js')
+    // El de las fichas y la 404 no cambió (con el tope en él, cambiarían también ellas).
+    assert.ok(!TITULO_SIN_FOTO.includes('max-[32rem]'))
+    const esperada = `${TITULO_SIN_FOTO} max-[32rem]:text-[length:min(1.75rem,9.3vw)] max-[32rem]:leading-[min(2rem,10.6286vw)]`
+    const htmls = [
+      pagina({ pagina: 'audioguia', ruta: '/audioguia', museo: MUSEO_MAXIMO, datos: {} }),
+      paginaAudioguia(audioguiaCon()),
+      paginaAudioguia(audioguiaCon({ version: 'ad' })),
+    ]
+    for (const html of htmls) {
+      const clase = /<h1 class="([^"]*)">/.exec(delMain(html))[1]
+      assert.equal(clase, esperada)
+    }
+  })
+
+  test('la audioguía con acceso: el bloque de versión, «Ir a…», el índice, la bajada y la región del aviso (5.2 y 5.3)', () => {
+    const datos = audioguiaCon()
+    const main = delMain(paginaAudioguia(datos))
+    assert.equal(cuantas(main, '<h1'), 1)
+    assert.match(main, /<h1 class="[^"]*">Audioguía<\/h1>/)
+    // El bloque de versión: enfocable, con la frase del estado y UN solo enlace, a la otra versión; sin aria-current ni <nav>.
+    const bloque = parte(main, '<div id="audioguia-version"', '</div>')
+    assert.match(bloque, /^<div id="audioguia-version" tabindex="-1" class="scroll-mt-25 lg:scroll-mt-29 focus:outline-none mt-10">/)
+    assert.ok(bloque.includes(`>${contenido.audioguia.version.actualComun}</p>`))
+    assert.deepEqual(hrefs(bloque), ['/audioguia/sala-2?v=ad#audioguia-version'])
+    assert.ok(bloque.includes(`${contenido.audioguia.version.cambiarAAd}<svg`))
+    assert.equal(cuantas(bloque, 'aria-current'), 0)
+    assert.equal(cuantas(bloque, '<nav'), 0)
+    // «Ir a SALA 2, el espacio en el que estás», al h2 del espacio, enfocable.
+    assert.ok(main.includes('<a href="#espacio-sala-2" class="'))
+    assert.ok(main.includes('>Ir a SALA 2, el espacio en el que estás<svg'))
+    // El índice: un enlace por grupo (13), cada uno a un elemento con tabindex="-1" (el h2 de su espacio).
+    const indice = parte(main, '<nav aria-label="Espacios de la audioguía"', '</nav>')
+    assert.match(indice, /^<nav aria-label="Espacios de la audioguía" class="mt-10"><ul role="list" /)
+    const destinos = hrefs(indice)
+    assert.equal(destinos.length, 13)
+    assert.deepEqual(destinos, GRUPOS_DE_PRUEBA.map(([e], i) => (i === 12 ? `#espacio-${e}-fin` : `#espacio-${e}`)))
+    for (const href of [...destinos, '#espacio-sala-2']) {
+      const elemento = elementoConId(main, href.slice(1))
+      assert.ok(elemento?.startsWith('<h2 '), href)
+      assert.ok(elemento.includes('tabindex="-1"'), href)
+    }
+    assert.ok(indice.includes('>RECEPCIÓN, al final del recorrido</a>'))
+    // La bajada, en un párrafo; el role="status" vacío.
+    assert.ok(main.includes(`>${contenido.audioguia.bajada}</p>`))
+    assert.equal(cuantas(main, 'role="status"'), 1)
+    assert.ok(main.includes('<p role="status" class="sr-only"></p>'))
+    assert.equal(cuantas(main, 'aria-live'), 0)
+    // Sin espacio actual, sin «Ir a…».
+    const sinEspacio = delMain(paginaAudioguia(audioguiaCon({ espacioActual: null })))
+    assert.equal(cuantas(sinEspacio, '>Ir a '), 0)
+    assert.equal(cuantas(main, '>Ir a '), 1)
+    assert.deepEqual(hrefs(parte(sinEspacio, '<div id="audioguia-version"', '</div>')), ['/audioguia?v=ad#audioguia-version'])
+  })
+
+  test('la audioguía con acceso: el recorrido, los 13 h2 distintos, las listas y una estación completa (5.2)', () => {
+    const datos = audioguiaCon()
+    const main = delMain(paginaAudioguia(datos))
+    const recorrido = parte(main, '<ol role="list" aria-label="Recorrido de la audioguía"', '<details class="mt-20">')
+    assert.ok(recorrido.length > 0)
+    // Listas: el <ul> del índice, el <ol> del recorrido y un <ol> por espacio, todos con role="list".
+    assert.equal(cuantas(main, '<ol role="list"'), 14)
+    assert.equal(cuantas(main, '<ul role="list"'), 1)
+    assert.equal(cuantas(main, '<ol') + cuantas(main, '<ul'), 15)
+    // Los 13 h2: distintos, con «, estás en este espacio» (sr-only) solo en el actual y «, al final del recorrido» en la
+    // segunda Recepción.
+    const h2 = [...main.matchAll(/<h2 id="([^"]*)" tabindex="-1" class="([^"]*)">(.*?)<\/h2>/g)]
+    assert.equal(h2.length, 13)
+    const textosH2 = h2.map((m) => m[3].replace(/<[^>]+>/g, ''))
+    assert.equal(new Set(textosH2).size, 13)
+    assert.equal(textosH2[2], 'SALA 2, estás en este espacio')
+    assert.equal(h2[2][3], 'SALA 2<span class="sr-only">, estás en este espacio</span>')
+    assert.equal(textosH2[12], 'RECEPCIÓN, al final del recorrido')
+    assert.equal(cuantas(main, ', estás en este espacio'), 1)
+    for (const m of h2) assert.ok(m[2].split(' ').includes('scroll-mt-25') && m[2].split(' ').includes('lg:scroll-mt-29'), m[1])
+    // El espacio actual: aria-current="location", el borde, el rótulo visible aria-hidden con ROTULO_ACTUAL; los demás, nada.
+    assert.equal(cuantas(main, 'aria-current="location"'), 1)
+    assert.equal(cuantas(main, 'aria-current'), 1)
+    assert.ok(main.includes('<li class="border-l-2 border-naranja pl-4 lg:pl-6" aria-current="location"><p aria-hidden="true" class="font-mono text-sm leading-5 font-medium text-naranja uppercase">Estás en este espacio</p><h2 id="espacio-sala-2"'))
+    assert.equal(cuantas(main, 'border-naranja'), 1)
+    assert.equal(cuantas(main, 'target:'), 0)
+    assert.equal(cuantas(main, 'has-['), 0)
+    // El título y el lema del guion debajo del h2; Recepción, sin ninguno.
+    assert.ok(main.includes('>ISCHIGUALASTO · El origen de los dinosaurios</p>'))
+    assert.ok(main.includes('>Paisaje vivo</p>'))
+    // Una estación: el h3 con el número aria-hidden y «Estación N:» sr-only, la duración, el audio, el aviso y la transcripción.
+    const e7 = parte(main, '<li id="estacion-07">', '</details></li>')
+    assert.match(
+      e7,
+      /^<li id="estacion-07"><h3 id="estacion-07-titulo" class="[^"]*"><span aria-hidden="true" class="[^"]*">07<\/span><span class="sr-only">Estación 7: <\/span>Título de la estación 7<\/h3>/,
+    )
+    assert.match(e7, /<p class="[^"]*"><span aria-hidden="true">1:12<\/span><span class="sr-only">Duración: 1 minuto 12 segundos<\/span><\/p>/)
+    assert.match(
+      e7,
+      /<audio controls="" controlsList="nodownload" preload="none" src="\/audioguia\/pista\/07\?t=1\.2026-11-24\.firma" aria-labelledby="estacion-07-titulo" class="[^"]*">Tu navegador no puede reproducir este audio\.<\/audio><p data-aviso="" class="[^"]*"><\/p><details/,
+    )
+    assert.match(e7, /<summary class="min-h-11 [^"]*">Leer la transcripción<span class="sr-only">: Título de la estación 7<\/span><\/summary>/)
+    assert.ok(e7.includes('<p>Común 7, primero.</p><p>Común 7, segundo.</p>'))
+    assert.equal(cuantas(e7, '<details open'), 0)
+    // Las 35 estaciones: un audio con preload="none" cada una, un aviso sin aria-live, 35 summary distintos.
+    assert.equal(cuantas(main, '<audio '), 35)
+    assert.equal(cuantas(main, 'preload="none"'), 35)
+    assert.equal(cuantas(main, 'controlsList="nodownload"'), 35)
+    assert.equal(cuantas(main, '<p data-aviso=""'), 35)
+    const audios = [...main.matchAll(/<audio [^>]*aria-labelledby="([^"]*)"/g)].map((m) => m[1])
+    assert.equal(audios.length, 35)
+    for (const id of audios) assert.ok(elementoConId(main, id)?.startsWith('<h3 '), id)
+    const summaries = [...main.matchAll(/<summary [^>]*>(.*?)<\/summary>/g)].map((m) => m[1])
+    assert.equal(summaries.length, 36)
+    assert.equal(new Set(summaries.slice(0, 35)).size, 35)
+    // Al final, el <details> de los navegadores de las apps.
+    const final = main.slice(main.lastIndexOf('<details'))
+    assert.ok(final.startsWith('<details class="mt-20"><summary class="min-h-11 '), final)
+    assert.ok(final.includes(`>${contenido.audioguia.navegadorAppPregunta}</summary>`))
+    assert.ok(final.includes(`>${contenido.audioguia.navegadorApp}</p>`))
+    assert.ok(final.endsWith('</p></details></div></main>'))
+    // Ids únicos; ningún enlace sin destino.
+    const ids = [...main.matchAll(/ id="([^"]*)"/g)].map((m) => m[1])
+    assert.equal(new Set(ids).size, ids.length)
+    assert.equal(cuantas(main, 'href="#"'), 0)
+  })
+
+  test('la audioguía: los nombres de los espacios son los del plano de la Home (home.mapa.espacios), y el manifiesto real, si está, también', async () => {
+    const { validarManifiesto, ESPACIOS_DE_LA_AUDIOGUIA } = await import('../../compartido/esquemas/audioguias.js')
+    const nombresDelPlano = Object.fromEntries(SALAS_DEL_PLANO.map((s, i) => [s.id, contenido.home.mapa.espacios[i]]))
+    // Los de la tabla 1.2.1 de la especificación (los espacios del guion son los del plano: el desarrollador lo confirmó).
+    const NOMBRES = {
+      'sala-1': 'Sala 1', 'sala-2': 'Sala 2', 'sala-3': 'Sala 3', 'sala-4': 'Sala 4', 'sala-5': 'Sala 5', 'sala-6': 'Sala 6',
+      'sala-7': 'Sala 7', 'jardin-triasico': 'Jardín Triásico', 'sala-educativa': 'Sala Educativa', 'sala-8': 'Sala 8',
+      'sala-inmersiva': 'Sala Inmersiva',
+    }
+    for (const [id, nombre] of Object.entries(NOMBRES)) assert.equal(nombresDelPlano[id], nombre, id)
+    assert.deepEqual(ESPACIOS_DE_LA_AUDIOGUIA.filter((id) => id !== 'recepcion').sort(), Object.keys(NOMBRES).sort())
+    // Un manifiesto con un nombre que no es el del plano no pasa con los nombres de content.js.
+    const recorrido = GRUPOS_DE_PRUEBA.map(([espacio, nombreGuion, , , numeros]) => ({
+      espacio,
+      nombre: espacio === 'recepcion' ? 'Recepción' : NOMBRES[espacio],
+      nombreGuion,
+      estaciones: numeros.map((n) => ({ numero: n, titulo: `Título ${n}` })),
+    }))
+    assert.equal(validarManifiesto({ version: 1, recorrido }, { nombresDelPlano }).ok, true)
+    const mal = structuredClone(recorrido)
+    mal[10].nombre = 'Sala Gigantismo'
+    assert.equal(validarManifiesto({ version: 1, recorrido: mal }, { nombresDelPlano }).ok, false)
+    // La carpeta real (audioguias/pistas.json, en el repo desde el 24/11/2026 con las 35 estaciones del guion): el nombre
+    // de cada espacio, el del plano. Si algún día no está, no hay nada que comparar (audioguia.test.js, 9.2, lo avisa).
+    const { existsSync, readFileSync } = await import('node:fs')
+    const real = join(RAIZ, 'audioguias', 'pistas.json')
+    if (existsSync(real)) {
+      const r = validarManifiesto(JSON.parse(readFileSync(real, 'utf8').replace(/^﻿/, '')), { nombresDelPlano })
+      assert.equal(r.ok, true, r.problemas?.join('\n'))
+      for (const g of r.manifiesto.recorrido) {
+        assert.equal(g.nombre, g.espacio === 'recepcion' ? 'Recepción' : nombresDelPlano[g.espacio], `${g.espacio}: el nombre del plano`)
+      }
+    }
+  })
+
+  test('la audioguía con audiodescripción: el h1 con el guion blando, la frase, el enlace a la común y los src en -ad (5.3)', () => {
+    const datos = audioguiaCon({ version: 'ad', espacioActual: 'recepcion' })
+    const html = paginaAudioguia(datos)
+    const main = delMain(html)
+    assert.match(main, /<h1 class="[^"]*">Audioguía con audio­descripción<\/h1>/)
+    const bloque = parte(main, '<div id="audioguia-version"', '</div>')
+    assert.ok(bloque.includes(`>${contenido.audioguia.version.actualAd}</p>`))
+    assert.deepEqual(hrefs(bloque), ['/audioguia/recepcion?v=comun#audioguia-version'])
+    assert.ok(bloque.includes(`${contenido.audioguia.version.cambiarAComun}<svg`))
+    const srcs = [...main.matchAll(/<audio [^>]*src="([^"]*)"/g)].map((m) => m[1])
+    assert.equal(srcs.length, 35)
+    for (const src of srcs) assert.match(src, /^\/audioguia\/pista\/\d{2}-ad\?t=/)
+    // Los ids del DOM no cambian con la versión.
+    assert.ok(main.includes('<li id="estacion-07">'))
+    assert.ok(main.includes('<p>Con audiodescripción 7.</p>'))
+    assert.equal(cuantas(main, 'Común 7'), 0)
+    // Recepción actual: solo la primera (una sola marca), y «Ir a RECEPCIÓN…» a la primera.
+    assert.equal(cuantas(main, 'aria-current="location"'), 1)
+    assert.ok(main.includes('<a href="#espacio-recepcion" class="'))
+    assert.match(main, /<h2 id="espacio-recepcion" [^>]*>RECEPCIÓN<span class="sr-only">, estás en este espacio<\/span><\/h2>/)
+    assert.match(main, /<h2 id="espacio-recepcion-fin" [^>]*>RECEPCIÓN, al final del recorrido<\/h2>/)
+  })
+
+  test('la audioguía, en el código (AGP-NAV-01 y AGP-NAV-02): ningún load() y los <details> con suppressHydrationWarning', async () => {
+    // Lo que el HTML del servidor no muestra (en el navegador, tools/salida/audioguias/corr-1/herr/reintento.mjs e
+    // hidratacion.mjs). AGP-NAV-01: en Chrome un load() explícito pide el audio aunque tenga preload="none", y un load()
+    // en el error era un bucle sin fin; un audio que falló sin la señal vuelve a quedar listo sacándole el src y
+    // poniéndoselo otra vez. AGP-NAV-02: un <details> que la persona abre antes de hidratar no es una diferencia.
+    const { readFileSync } = await import('node:fs')
+    const fuente = readFileSync(join(RAIZ, 'src', 'paginas', 'Audioguia.jsx'), 'utf8')
+    const codigo = fuente
+      .split('\n')
+      .filter((renglon) => !/^\s*(\/\/|\/?\*)/.test(renglon))
+      .join('\n')
+    assert.doesNotMatch(codigo, /\.load\(/)
+    assert.match(
+      codigo,
+      /if \(mensaje === textos\.sinConexion && audio\.error\) \{\n\s+const srcDelAudio = audio\.getAttribute\('src'\)\n\s+audio\.removeAttribute\('src'\)\n\s+if \(srcDelAudio\) audio\.setAttribute\('src', srcDelAudio\)\n\s+\}/,
+    )
+    const detalles = codigo.match(/<details\b[^>]*>/g) ?? []
+    assert.equal(detalles.length, 2)
+    for (const d of detalles) assert.match(d, /\bsuppressHydrationWarning\b/)
+  })
+})
+
+describe('src/analitica.js: la audioguía no le dice a GA4 qué versión se escucha (especificación de las audioguías, 6)', () => {
+  test('page_location sin la consulta ni el fragmento y el título fijo, solo en la audioguía', () => {
+    const lugar = { origin: 'https://mupa.ar', pathname: '/audioguia/sala-2', search: '?v=ad', hash: '#espacio-sala-2' }
+    assert.deepEqual(paginaParaGa4({ pagina: 'audioguia' }, lugar), {
+      page_location: 'https://mupa.ar/audioguia/sala-2',
+      page_title: 'Audioguía · MuPa',
+    })
+    assert.equal(TITULO_AUDIOGUIA, 'Audioguía · MuPa')
+    const otra = { origin: 'https://mupa.ar', pathname: '/visitas', search: '?v=ad', hash: '' }
+    for (const pagina of ['home', 'visitas', 'no-encontrada', undefined]) assert.deepEqual(paginaParaGa4({ pagina }, otra), {})
+    // Lo mismo pasando el referrer: vacío, de otra página del sitio o de otro sitio con /audioguia, no cambia nada.
+    for (const referrer of ['', 'https://mupa.ar/visitas?v=ad', 'https://otro.example/audioguia/q/x', 'no es una URL'])
+      assert.deepEqual(paginaParaGa4({ pagina: 'visitas' }, otra, referrer), {})
+  })
+
+  test('la 404 en una dirección de la audioguía va como /audioguia: ni el código del QR, ni el espacio, ni ?v=ad (AGP-COD-01)', () => {
+    const codigo = 'sala-1.1.AAAAAAAAAAAAAAAAAAAAAA'
+    for (const pathname of [`/audioguia/q/${codigo}`, `/audioguia/q/${codigo}/`, '/audioguia', '/audioguia/', '/audioguia/sala-2', '/Audioguia/sala-2', '/AUDIOGUIA/q', '/audioguia/tienda/x']) {
+      const lugar = { origin: 'https://mupa.ar', pathname, search: '?v=ad&r=1', hash: '#espacio-sala-2' }
+      const r = paginaParaGa4({ pagina: 'no-encontrada' }, lugar, '')
+      assert.deepEqual(r, { page_location: 'https://mupa.ar/audioguia' }, pathname)
+    }
+    // Lo que solo empieza parecido no es de la audioguía.
+    for (const pathname of ['/audioguias', '/audioguiax/q', '/a/audioguia'])
+      assert.deepEqual(paginaParaGa4({ pagina: 'no-encontrada' }, { origin: 'https://mupa.ar', pathname }, ''), {}, pathname)
+  })
+
+  test('el referrer de una dirección de la audioguía del mismo sitio va recortado, en cualquier página', () => {
+    const lugar = { origin: 'https://mupa.ar', pathname: '/visitas' }
+    for (const referrer of ['https://mupa.ar/audioguia/q/sala-1.1.AAAA?v=ad', 'https://mupa.ar/Audioguia/sala-2?v=ad#x', 'https://mupa.ar/audioguia'])
+      assert.deepEqual(paginaParaGa4({ pagina: 'visitas' }, lugar, referrer), { page_referrer: 'https://mupa.ar/audioguia' }, referrer)
+    // En la propia audioguía, la dirección y el título como siempre, y el referrer recortado si viene de otra de sus direcciones.
+    assert.deepEqual(
+      paginaParaGa4({ pagina: 'audioguia' }, { origin: 'https://mupa.ar', pathname: '/audioguia/sala-2' }, 'https://mupa.ar/audioguia/recepcion?v=ad'),
+      { page_location: 'https://mupa.ar/audioguia/sala-2', page_title: 'Audioguía · MuPa', page_referrer: 'https://mupa.ar/audioguia' },
+    )
   })
 })
 

@@ -12,7 +12,9 @@
 //   internos de las fotos (id, peso, quién la subió).
 // - Escapes: </script> y $' $& $$ en los títulos no rompen el HTML ni el JSON-LD.
 // - El sitemap con las páginas fijas y lo publicado (también lo finalizado o realizado), sin borradores.
-// - Ninguna respuesta pública pone Set-Cookie aunque el pedido traiga la cookie de sesión (desde auth.test.js).
+// - Ninguna respuesta pública pone Set-Cookie aunque el pedido traiga la cookie de sesión (desde auth.test.js), salvo el
+//   QR válido y la página de la audioguía con el permiso y ?v= (especificación de las audioguías, 3.3 y 3.6): con la
+//   audioguía prendida, el resto del sitio y sus rutas sin la cookie de día tampoco la ponen (24/11/2026, 9.3).
 // - Sin base (sin la base de prueba también corre): con la base caída la Home sale (200, con el año del © del pie en el
 //   estado, que pone el servidor), como Divulgación, El Museo, Educación y Circuitos, y las demás, la 503 simple (con
 //   su <main>: BCOD-03 del cierre de E6.3); el cálculo de las precargas (modulepreload) a partir del
@@ -62,6 +64,7 @@
 //   celular y la apaisada, cada una con su media), las dos primeras en el <head> y ninguna en lo dibujado, iguales al
 //   <source> y a la <img> que precargan; el plano y sus capas, sin precargar; y separarPrecargasConPrioridad con dos.
 import assert from 'node:assert/strict'
+import { randomBytes } from 'node:crypto'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -69,18 +72,20 @@ import { after, before, describe, test } from 'node:test'
 import { urlPublica } from '../../compartido/contenidos.js'
 import { diaDeLaSemana, hoyEnSanJuan, localDeInstante } from '../../compartido/fechas.js'
 import { VARIANTES_FOTO } from '../../compartido/fotos.js'
+import { codigoDeQr, crearClaves, tokenDeDia } from '../audioguia/firma.js'
+import { PAGINAS_FUERA_DE_LA_TABLA } from '../audioguia/rutas.js'
 import { crearApp } from '../app.js'
 import { leerConfig } from '../config.js'
 import { crearLectorPublico, LECTOR_VACIO, TOPE_HOME_MS } from '../contenido-publico.js'
 import { crearConexion } from '../db/conexion.js'
 import { crearAlmacen } from '../fotos/almacen.js'
-import { crearMuseoPublico, MUSEO_MAXIMO, MUSEO_VACIO } from '../museo.js'
+import { crearMuseoPublico, MUSEO_MAXIMO, MUSEO_VACIO, TOPE_MUSEO_MS } from '../museo.js'
 import { cargarVisitas, horarioDeLaSemana } from '../paginas.js'
 import { RUTAS } from '../rutas-publicas.js'
 import { CSP_PANEL } from '../seguridad.js'
 import { cortarEnPalabra, entradasDelSitemap, horarioSchema, medidasOg } from '../seo.js'
 import { crearSsr, partir, precargasDePaginas, separarPrecargasConPrioridad } from '../ssr.js'
-import { cerrarBase, levantar, pedir, prepararBase, salteoVisible, sql } from './ayudas.js'
+import { carpetaDeAudioguia, cerrarBase, levantar, pedir, prepararBase, salteoVisible, sql } from './ayudas.js'
 
 const RAIZ = fileURLToPath(new URL('../../', import.meta.url))
 const PLANTILLA =
@@ -734,6 +739,8 @@ describe('las páginas internas con base', { skip: base.motivo ?? false }, () =>
     assert.ok(!r.texto.includes('borrador'))
     assert.ok(!r.texto.includes('administracion'))
     assert.ok(!r.texto.includes('#sala'))
+    // La audioguía, fuera del sitemap (especificación de las audioguías, 4.2).
+    assert.ok(!r.texto.includes('audioguia'))
     assert.match(r.texto, /<loc>https:\/\/mupa\.ar\/exposiciones<\/loc>\s*<lastmod>\d{4}-\d{2}-\d{2}<\/lastmod>/)
     assert.match(r.texto, /<loc>https:\/\/mupa\.ar\/visitas<\/loc>\s*<\/url>/)
   })
@@ -771,6 +778,46 @@ describe('las páginas internas con base', { skip: base.motivo ?? false }, () =>
     }
     const post = await s.pedir('POST', '/', { cookie, cuerpo: {} })
     assert.equal(post.h['set-cookie'], undefined)
+
+    // La audioguía prendida (especificación de las audioguías, 9.3), con una clave de prueba que vive solo acá: sus
+    // rutas, sin la cookie de día, tampoco ponen cookies (las dos que sí, el QR válido y la página con el permiso y ?v=,
+    // no van en la lista), y el resto del sitio, con ella prendida, tampoco.
+    const carpeta = carpetaDeAudioguia()
+    const clave = randomBytes(32).toString('base64url')
+    const claves = crearClaves(clave)
+    const prendida = await levantar({ AUDIOGUIA_CLAVE: clave, DIR_AUDIOGUIAS: carpeta.dir }, { almacen, obtener })
+    try {
+      const valido = codigoDeQr(claves, 'sala-1', 1)
+      const firmaMala = valido.slice(0, -1) + (valido.endsWith('A') ? 'B' : 'A')
+      const deLaAudioguia = [
+        '/audioguia',
+        '/audioguia/sala-1',
+        '/audioguia/sala-1?v=ad',
+        '/audioguia/q/basura',
+        '/audioguia/q/basura?v=ad',
+        `/audioguia/q/${firmaMala}`,
+        `/audioguia/q/${firmaMala}?v=ad`,
+        '/audioguia/pista/07',
+        '/audioguia/pista/07?t=mal',
+      ]
+      for (const ruta of [...rutas, ...deLaAudioguia]) {
+        const r = await prendida.pedir('GET', ruta, { cookie })
+        assert.ok(r.status < 500, `${ruta}: ${r.status}`)
+        assert.equal(r.h['set-cookie'], undefined, ruta)
+        if (r.h.location) assert.ok(r.h.location.startsWith('/') && !r.h.location.startsWith('//'), `${ruta}: ${r.h.location}`)
+      }
+      // Que esté prendida de verdad (apagada, todo eso es la 404 del sitio, sin cookies: no probaría nada): la página
+      // sin permiso da 403, el QR que no vale 303 y el audio sin token 403; y el QR válido, el control, sí la pone.
+      assert.equal((await prendida.pedir('GET', '/audioguia/sala-1')).status, 403)
+      assert.equal((await prendida.pedir('GET', '/audioguia/q/basura')).status, 303)
+      assert.equal((await prendida.pedir('GET', '/audioguia/pista/07')).status, 403)
+      const qr = await prendida.pedir('GET', `/audioguia/q/${valido}`)
+      assert.equal(qr.status, 303)
+      assert.match(String(qr.h['set-cookie']), /^__Secure-mupa_audioguia=/)
+    } finally {
+      await prendida.cerrar()
+      carpeta.borrar()
+    }
   })
 })
 
@@ -1097,6 +1144,83 @@ describe('sin base', () => {
       assert.equal((await pedir(puerto, 'GET', '/el-museo/algo')).status, 404)
     } finally {
       await new Promise((r) => servidor.close(r))
+    }
+  })
+
+  // La audioguía no lee la base para su contenido (especificación de las audioguías, 2.3): el QR, la página con el
+  // permiso y el audio andan igual con la base caída; con la base colgada, la página espera al museo común del marco
+  // («Tickets» y la barra de hoy: TOPE_MUSEO_MS) y sale en 200 antes de los 2,5 s.
+  test('la audioguía con la base caída y con la base colgada: el QR, la página en 200 (colgada, antes de 2,5 s) y el audio', async () => {
+    const carpeta = carpetaDeAudioguia()
+    const clave = randomBytes(32).toString('base64url')
+    const claves = crearClaves(clave)
+    // Las 12:00 del 20/11/2026 en San Juan: el token de ese día.
+    const reloj = () => new Date('2026-11-20T15:00:00Z')
+    const cookieDeDia = `__Secure-mupa_audioguia=${tokenDeDia(claves, 1, '2026-11-20')}`
+    const configCon = () =>
+      leerConfig({
+        NODE_ENV: 'production',
+        URL_PUBLICA: 'https://mupa.ar/',
+        DATABASE_URL: 'postgres://nadie:nada@127.0.0.1:1/no_existe',
+        AUDIOGUIA_CLAVE: clave,
+        DIR_AUDIOGUIAS: carpeta.dir,
+      })
+    const escuchar = async (app) => {
+      const servidor = app.listen(0, '127.0.0.1')
+      await new Promise((r) => servidor.once('listening', r))
+      return { puerto: servidor.address().port, cerrar: () => new Promise((r) => servidor.close(r)) }
+    }
+    const original = console.log
+    console.log = () => {}
+    const abiertos = []
+    try {
+      // Caída: cada consulta falla enseguida (ECONNREFUSED).
+      const config = configCon()
+      const caida = crearConexion(config)
+      abiertos.push(() => caida.close())
+      const ssr = crearSsr({ config, obtener, museoPublico: crearMuseoPublico(config, { sequelize: caida }), sequelize: caida, reloj })
+      const a = await escuchar(crearApp({ config, ssr, estaticos: () => {} }))
+      abiertos.push(a.cerrar)
+      const qr = await pedir(a.puerto, 'GET', `/audioguia/q/${codigoDeQr(claves, 'sala-1', 1)}`)
+      assert.equal(qr.status, 303)
+      assert.equal(qr.h.location, '/audioguia/sala-1?r=1#espacio-sala-1')
+      assert.match(String(qr.h['set-cookie']), /^__Secure-mupa_audioguia=/)
+      const pagina = await pedir(a.puerto, 'GET', '/audioguia/sala-1', { cookie: cookieDeDia })
+      assert.equal(pagina.status, 200)
+      assert.equal(estadoDe(pagina.texto).pagina, 'audioguia')
+      assert.equal(estadoDe(pagina.texto).datos.acceso, true)
+      assert.equal(cuantas(pagina.texto, '<h1'), 1)
+      assert.equal(cuantas(pagina.texto, '<audio '), 3)
+      assert.equal((await pedir(a.puerto, 'GET', '/audioguia/sala-1')).status, 403)
+      const audio = await pedir(a.puerto, 'GET', `/audioguia/pista/07?t=${encodeURIComponent(tokenDeDia(claves, 1, '2026-11-20'))}`)
+      assert.equal(audio.status, 200)
+      assert.match(audio.h['content-type'], /^audio\/mpeg/)
+
+      // Colgada: la base nunca contesta (el museo del marco corta a los TOPE_MUSEO_MS y sale con el vacío).
+      const colgada = { query: () => new Promise(() => {}) }
+      const ssrColgada = crearSsr({
+        config,
+        obtener,
+        museoPublico: crearMuseoPublico(config, { leer: () => new Promise(() => {}) }),
+        lector: crearLectorPublico(colgada),
+        reloj,
+      })
+      const b = await escuchar(crearApp({ config, ssr: ssrColgada, estaticos: () => {} }))
+      abiertos.push(b.cerrar)
+      const desde = performance.now()
+      const lenta = await pedir(b.puerto, 'GET', '/audioguia/sala-1?v=ad', { cookie: cookieDeDia })
+      const ms = performance.now() - desde
+      assert.equal(lenta.status, 200)
+      assert.equal(estadoDe(lenta.texto).datos.version, 'ad')
+      assert.ok(ms >= TOPE_MUSEO_MS - 50 && ms < 2500, `${Math.round(ms)} ms`)
+      // El QR no espera a la base: ni la toca.
+      const desdeQr = performance.now()
+      assert.equal((await pedir(b.puerto, 'GET', `/audioguia/q/${codigoDeQr(claves, 'recepcion', 1)}`)).status, 303)
+      assert.ok(performance.now() - desdeQr < 1000)
+    } finally {
+      console.log = original
+      for (const cerrar of abiertos.reverse()) await cerrar()
+      carpeta.borrar()
     }
   })
 
@@ -1612,9 +1736,12 @@ describe('sin base', () => {
     }
   })
 
+  // Las de la tabla de rutas y las que tienen su propio router (la audioguía: server/audioguia/rutas.js, desde el
+  // 24/11/2026), que con datos {} se dibujan igual, con un solo h1 (la audioguía, como sin código).
   test('cada página de la tabla de rutas tiene su archivo (src/Raiz.jsx) y se dibuja con un solo h1', async () => {
     const raiz = await vite.ssrLoadModule('/src/Raiz.jsx')
-    const paginas = RUTAS.map((r) => r.pagina)
+    const paginas = [...RUTAS.map((r) => r.pagina), ...PAGINAS_FUERA_DE_LA_TABLA]
+    assert.ok(!RUTAS.some((r) => PAGINAS_FUERA_DE_LA_TABLA.includes(r.pagina)))
     assert.deepEqual(Object.keys(raiz.ARCHIVOS_DE_PAGINAS).sort(), [...paginas].sort())
     for (const pagina of paginas) {
       const Pagina = await raiz.cargarPagina(pagina)

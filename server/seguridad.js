@@ -4,6 +4,9 @@
 //   terceros, para el panel. Fijas y obligatorias, sin report-only (plan 1, "CSP").
 // - noIndexarFueraDelHostPublico: X-Robots-Tag en todo host que no sea el público de producción.
 // - redireccionesPublicas: /index.html, /preview y las barras, sin dejar salir nunca un Location que empiece con //.
+//   Con la audioguía prendida, server/app.js monta antes antesDeLasRedirecciones (server/audioguia/rutas.js): las
+//   formas raras de las rutas con un secreto (/audioguia/q/<código> y /audioguia/pista/<n>?t=) no llegan acá, así el
+//   código o el token nunca salen en el Location de un 301; las demás rutas de /audioguia siguen con su 301, con no-store.
 // - crearControlDeOrigen / exigirJson: la CSRF de la API del panel (por Sec-Fetch-Site y Origin, plan 4.6) y el
 //   Content-Type de las rutas JSON (multipart en POST /fotos, MULTIPART); los monta server/api/indice.js. Desde E4.5
 //   la misma regla (crearVerificadorDeOrigen) vale también para POST /contacto (server/contacto.js).

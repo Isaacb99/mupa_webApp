@@ -1,0 +1,150 @@
+{
+  "version": 1,
+  "recorrido": [
+    {
+      "espacio": "recepcion",
+      "nombre": "Recepción",
+      "nombreGuion": "RECEPCIÓN",
+      "estaciones": [
+        { "numero": 1, "titulo": "Bienvenida al MUPA" }
+      ]
+    },
+    {
+      "espacio": "sala-1",
+      "nombre": "Sala 1",
+      "nombreGuion": "SALA 1",
+      "titulo": "EL CICLO DE LA VIDA",
+      "lema": "Empecemos desde cero",
+      "estaciones": [
+        { "numero": 2, "titulo": "Empecemos desde cero" },
+        { "numero": 3, "titulo": "Geología: una historia escrita en las rocas" },
+        { "numero": 4, "titulo": "Paleontología: tras las huellas del tiempo" },
+        { "numero": 5, "titulo": "Biología: los secretos de la vida" }
+      ]
+    },
+    {
+      "espacio": "sala-2",
+      "nombre": "Sala 2",
+      "nombreGuion": "SALA 2",
+      "titulo": "ISCHIGUALASTO",
+      "lema": "El origen de los dinosaurios",
+      "estaciones": [
+        { "numero": 6, "titulo": "Ischigualasto: Ecos de un mundo diverso" },
+        { "numero": 7, "titulo": "El origen de los dinosaurios" },
+        { "numero": 8, "titulo": "Taytalura: el antepasado de los lagartos" },
+        { "numero": 9, "titulo": "Sinápsidos: los ancestros de los mamíferos" },
+        { "numero": 10, "titulo": "Pterosaurios: los voladores del Triásico" },
+        { "numero": 11, "titulo": "Rincosaurios: los reptiles más abundantes de Ischigualasto" },
+        { "numero": 12, "titulo": "Crurotarsi: los antecesores de los cocodrilos" },
+        { "numero": 13, "titulo": "Fósiles icónicos de Ischigualasto" }
+      ]
+    },
+    {
+      "espacio": "sala-3",
+      "nombre": "Sala 3",
+      "nombreGuion": "SALA 3",
+      "titulo": "EL LABORATORIO",
+      "lema": "Donde los fósiles se transforman en conocimiento",
+      "estaciones": [
+        { "numero": 14, "titulo": "EL LABORATORIO", "tituloProvisorio": true }
+      ]
+    },
+    {
+      "espacio": "sala-4",
+      "nombre": "Sala 4",
+      "nombreGuion": "SALA 4",
+      "titulo": "LA CAMPAÑA",
+      "lema": "Tras las huellas del pasado",
+      "estaciones": [
+        { "numero": 15, "titulo": "LA CAMPAÑA", "tituloProvisorio": true }
+      ]
+    },
+    {
+      "espacio": "sala-5",
+      "nombre": "Sala 5",
+      "nombreGuion": "SALA 5",
+      "titulo": "GEOLOGÍA",
+      "lema": "La historia escrita en rocas",
+      "estaciones": [
+        { "numero": 16, "titulo": "GEOLOGÍA", "tituloProvisorio": true },
+        { "numero": 17, "titulo": "Ciclo de las rocas: una historia sin fin" },
+        { "numero": 18, "titulo": "Estratigrafía: aprender a leer los paisajes" }
+      ]
+    },
+    {
+      "espacio": "sala-6",
+      "nombre": "Sala 6",
+      "nombreGuion": "SALA 6",
+      "titulo": "PALEOBOTÁNICA",
+      "lema": "Las plantas nos cuentan el pasado",
+      "estaciones": [
+        { "numero": 19, "titulo": "PALEOBOTÁNICA", "tituloProvisorio": true },
+        { "numero": 20, "titulo": "Plantas primitivas, las primeras en conquistar la Tierra" },
+        { "numero": 21, "titulo": "Los bosques gigantes del Carbonífero" },
+        { "numero": 22, "titulo": "La flora triásica" },
+        { "numero": 23, "titulo": "La llegada de las flores" }
+      ]
+    },
+    {
+      "espacio": "sala-7",
+      "nombre": "Sala 7",
+      "nombreGuion": "SALA 7",
+      "titulo": "UN VIAJE AL TRIÁSICO",
+      "lema": "El fin de un mundo, el inicio de otro",
+      "estaciones": [
+        { "numero": 24, "titulo": "UN VIAJE AL TRIÁSICO", "tituloProvisorio": true },
+        { "numero": 25, "titulo": "Ischigualasto en tiempos del Triásico" },
+        { "numero": 26, "titulo": "Quebrada del Barro: nuevos protagonistas del Triásico" },
+        { "numero": 27, "titulo": "Extinción Triásica: una crisis que transformó la vida" }
+      ]
+    },
+    {
+      "espacio": "jardin-triasico",
+      "nombre": "Jardín Triásico",
+      "nombreGuion": "JARDÍN TRIÁSICO",
+      "lema": "Paisaje vivo",
+      "estaciones": [
+        { "numero": 28, "titulo": "Paisaje vivo", "tituloProvisorio": true }
+      ]
+    },
+    {
+      "espacio": "sala-educativa",
+      "nombre": "Sala Educativa",
+      "nombreGuion": "PLAZA INTERACTIVA",
+      "lema": "Aprender jugando",
+      "estaciones": [
+        { "numero": 29, "titulo": "Aprender jugando", "tituloProvisorio": true }
+      ]
+    },
+    {
+      "espacio": "sala-8",
+      "nombre": "Sala 8",
+      "nombreGuion": "SALA GIGANTISMO",
+      "titulo": "GIGANTISMO",
+      "lema": "La grandeza del pasado",
+      "estaciones": [
+        { "numero": 30, "titulo": "GIGANTISMO", "tituloProvisorio": true },
+        { "numero": 31, "titulo": "Patagotitán, la grúa viviente" },
+        { "numero": 32, "titulo": "Mapusaurus, el cazador en equipo" },
+        { "numero": 33, "titulo": "Quetzacoatlus, el rey de los cielos" }
+      ]
+    },
+    {
+      "espacio": "sala-inmersiva",
+      "nombre": "Sala Inmersiva",
+      "nombreGuion": "SALA INMERSIVA",
+      "lema": "La memoria del tiempo",
+      "estaciones": [
+        { "numero": 34, "titulo": "La memoria del tiempo", "tituloProvisorio": true }
+      ]
+    },
+    {
+      "espacio": "recepcion",
+      "nombre": "Recepción",
+      "nombreGuion": "RECEPCIÓN",
+      "estaciones": [
+        { "numero": 35, "titulo": "Despedida MUPA" }
+      ]
+    }
+  ]
+}

@@ -18,8 +18,12 @@
 //   prueba elige la IP con X-Forwarded-For) sobre un build falso, en un puerto libre y con los límites en cero.
 //   Devuelve pedir(), crearUsuario(rol), cookiePara(rol) y cerrar(). levantar(env, { registroTareas }) le pasa a la
 //   app un registro de tareas diarias (server/tareas.js) para GET /estado; { almacen } le pasa el de las fotos y
-//   { obtener } otra plantilla y otro render (ssr.test.js: el de verdad) y { correo } el correo del formulario de
-//   contacto (contacto.test.js: en memoria).
+//   { obtener } otra plantilla y otro render (ssr.test.js: el de verdad), { correo } el correo del formulario de
+//   contacto (contacto.test.js: en memoria) y, desde la audioguía (24/11/2026, especificación de las audioguías, 9.3),
+//   { reloj } la hora de cada pedido (crearSsr: el token de día y la cookie de la audioguía salen de ahí).
+// - carpetaDeAudioguia(): una carpeta temporal de audioguías (DIR_AUDIOGUIAS) con su manifiesto y sus MP3 armados a
+//   mano (cuadros de silencio de 64 kbps, mono, 44,1 kHz), para las pruebas que levantan la app con el módulo prendido.
+//   El validador y todo lo demás de la audioguía se prueban en audioguia.test.js; esto es solo lo mínimo que lo prende.
 // - multipart(): un cuerpo multipart/form-data para POST /fotos (E3.1).
 // - escucharLogs() y contarConsultas(): lo que el servicio escribe en el log y las consultas a la base.
 // Las contraseñas de las cuentas de prueba se generan al azar y viven solo en memoria.
@@ -44,6 +48,42 @@ import { crearMuseoPublico } from '../museo.js'
 import { cargarBuild, crearSsr } from '../ssr.js'
 
 export const PREFIJO_API = '/administracion/api'
+
+/**
+ * Un MP3 de silencio: cuadros MPEG-1 Layer III de 64 kbps, 44,1 kHz y mono (la cabecera FF FB 50 C4, 208 bytes, el
+ * resto en ceros), de tantos segundos (el validador pide de 20 s a 5 minutos).
+ */
+export function mp3DeSilencio(segundos = 30) {
+  const cuadro = Buffer.alloc(208)
+  Buffer.from([0xff, 0xfb, 0x50, 0xc4]).copy(cuadro)
+  return Buffer.concat(Array.from({ length: Math.round((segundos * 8000) / 208) }, () => cuadro))
+}
+
+/**
+ * Una carpeta de audioguías de prueba: Recepción (01), la Sala 1 (07) y Recepción al final (35), cada estación con sus
+ * cuatro archivos. Las anclas de los h2: espacio-recepcion, espacio-sala-1 y espacio-recepcion-fin.
+ * @returns {{ dir: string, borrar: () => void }}
+ */
+export function carpetaDeAudioguia() {
+  const dir = mkdtempSync(join(tmpdir(), 'mupa-audioguia-prueba-'))
+  const estacion = (numero, titulo) => ({ numero, titulo })
+  const manifiesto = {
+    version: 1,
+    recorrido: [
+      { espacio: 'recepcion', nombre: 'Recepción', nombreGuion: 'RECEPCIÓN', estaciones: [estacion(1, 'Bienvenida al MUPA')] },
+      { espacio: 'sala-1', nombre: 'Sala 1', nombreGuion: 'SALA 1', titulo: 'EL CICLO DE LA VIDA', estaciones: [estacion(7, 'Una estación')] },
+      { espacio: 'recepcion', nombre: 'Recepción', nombreGuion: 'RECEPCIÓN', estaciones: [estacion(35, 'Despedida MUPA')] },
+    ],
+  }
+  writeFileSync(join(dir, 'pistas.json'), JSON.stringify(manifiesto))
+  for (const nn of ['01', '07', '35']) {
+    writeFileSync(join(dir, `${nn}.mp3`), mp3DeSilencio(30))
+    writeFileSync(join(dir, `${nn}-ad.mp3`), mp3DeSilencio(40))
+    writeFileSync(join(dir, `${nn}.txt`), `La estación ${nn}.\n`)
+    writeFileSync(join(dir, `${nn}-ad.txt`), `La estación ${nn}, con audiodescripción.\n`)
+  }
+  return { dir, borrar: () => rmSync(dir, { recursive: true, force: true }) }
+}
 const URL_PRUEBA = process.env.DATABASE_URL_TEST
 
 /** @type {import('sequelize').Sequelize | null} */
@@ -284,7 +324,7 @@ export function cookieDe(respuesta, nombre) {
  */
 export async function levantar(
   env = {},
-  { registroTareas = null, almacen = null, obtener = null, correo = null, topesContacto = {} } = {},
+  { registroTareas = null, almacen = null, obtener = null, correo = null, topesContacto = {}, reloj = undefined } = {},
 ) {
   const dir = buildFalso()
   const variables = {
@@ -307,6 +347,7 @@ export async function levantar(
     museoPublico: crearMuseoPublico(config, { sequelize }),
     sequelize,
     contacto: crearContacto({ config, sequelize, correo: elCorreo, topes: topesContacto }),
+    ...(reloj ? { reloj } : {}),
   })
   const app = crearApp({
     config,

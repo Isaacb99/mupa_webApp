@@ -4,8 +4,9 @@
 // (AUDIOGUIA_CLAVE y una carpeta con alguna estación válida), después del control de host, la CSP pública y las
 // redirecciones públicas, y antes de las páginas: hereda todo eso.
 //
-// - express.Router({ caseSensitive: true, strict: true }): /Audioguia o /audioguia/Q/<código> no son de acá (dan la 404
-//   del sitio), porque el Path de las cookies distingue mayúsculas.
+// - express.Router({ caseSensitive: true, strict: true }): /Audioguia o /Audioguia/sala-1 no son de acá (dan la 404 del
+//   sitio), porque el Path de las cookies distingue mayúsculas. Las formas raras de las rutas con un secreto
+//   (/audioguia/Q/<código>, la barra final…) las responde antesDeLasRedirecciones, más abajo.
 // - GET /audioguia/q/:codigo (el QR impreso): responde SIEMPRE 303, nunca un 200 ni un 301 (V1: el código permanente
 //   no llega a GA4, al historial ni a la página siguiente como referrer). Válido: la cookie de día y el destino de
 //   destinoDelQr (la página del espacio, con ?r=1 y, si el QR trae v=ad, &v=ad). Inválido, de otra versión o con un
@@ -20,10 +21,22 @@
 // - GET /audioguia y /audioguia/:espacio (la página, 5.1): 403 sin un permiso de día que valga (con el motivo), 200 con
 //   él, en la versión que piden v o la cookie de preferencia, y la cookie de preferencia si la consulta trae v. Las dos,
 //   private, no-store y Vary: Cookie. Un espacio que no está en el recorrido sigue a la 404 del sitio.
-//   MIENTRAS NO EXISTA LA PÁGINA (src/paginas/Audioguia.jsx en PAGINAS de src/tablaDePaginas.js), estas dos rutas NO
-//   se montan: /audioguia y /audioguia/<espacio> dan la 404 del sitio, como con el módulo apagado (con el render de
-//   verdad, una página que no está en la tabla saldría rota). Se prenden solas el día que la etapa de la página suma
-//   'audioguia' a PAGINAS (existePagina, la misma tabla que decide el menú). Las pruebas la prenden con conPagina.
+//   Estas dos rutas se montan solo si la página existe (src/paginas/Audioguia.jsx en PAGINAS de src/tablaDePaginas.js:
+//   existePagina, la misma tabla que decide el menú). Desde la etapa de la página (24/11/2026) existe, así que se
+//   montan siempre que el módulo está prendido; sin la página, /audioguia y /audioguia/<espacio> darían la 404 del
+//   sitio, como con el módulo apagado (con el render de verdad, una página que no está en la tabla saldría rota), y el
+//   QR válido manda igual con 303 a /audioguia?motivo=codigo, SIN la cookie de día (no deja a nadie con un permiso y
+//   una 404: AG-SEG-07). Las pruebas prueban las dos cosas con conPagina (true y false). Que la página esté en la tabla
+//   va atado a src/analitica.js (paginaParaGa4: page_location sin ?v= ni el fragmento y el título fijo, especificación
+//   6): lo prueban server/pruebas/layout.test.js y, junto con la tabla, audioguia.test.js (AG-COD-07).
+// - antesDeLasRedirecciones (lo monta server/app.js ANTES de las redirecciones públicas: AG-SEG-02, AG-SEG-03 y
+//   AG-COD-03): las rutas con un secreto, /audioguia/q/<algo> (el código) y /audioguia/pista/<algo> (con ?t=), en
+//   cualquier forma que no sea la exacta (la barra final, barras dobles o invertidas, mayúsculas, un segmento de más, un
+//   request-target absoluto, %71 por la q) no llegan ni al 301 de las barras (con el código o el token en el Location y
+//   sin no-store) ni a la 404 del sitio (que GA4 mide, con el código en page_location): el QR da el 303 de un código
+//   que no vale y el audio, el 404 en texto, los dos con no-store y las cabeceras de acá. Lo demás de /audioguia que el
+//   sitio redirige por las barras (/audioguia/, /audioguia/sala-1/?v=ad) sigue con su 301, pero con no-store y las
+//   cabeceras de acá. /Audioguia sola, /audioguia/q y /audioguia/pista (sin nada después) siguen en la 404 del sitio.
 // - En TODAS las respuestas de acá: X-Robots-Tag: noindex, nofollow (también en mupa.ar) y Referrer-Policy: no-referrer
 //   (la URL con ?v= no llega como referrer a la página siguiente).
 // - Los logs, solo con el motivo y, como mucho, el espacio o la estación: nunca el código, la firma, t, la IP, la URL
@@ -33,6 +46,7 @@ import { ipKeyGenerator, rateLimit } from 'express-rate-limit'
 import { hoyEnSanJuan } from '../../compartido/fechas.js'
 import { existePagina } from '../../src/tablaDePaginas.js'
 import { log as logDelServicio } from '../log.js'
+import { destinoPublico, rutaNormalizada } from '../normalizar.js'
 import {
   accesoDeLaPagina,
   cookieDeVersion,
@@ -49,7 +63,7 @@ import { SUFIJOS } from './pistas.js'
 export const PAGINA_AUDIOGUIA = 'audioguia'
 /**
  * Las páginas de src/tablaDePaginas.js que no están en la tabla de rutas del servidor (server/rutas-publicas.js): la
- * audioguía tiene su router. Para la prueba de la tabla de páginas de ssr.test.js (9.3), el día que la página exista.
+ * audioguía tiene su router. Para la prueba de la tabla de páginas de ssr.test.js (9.3).
  */
 export const PAGINAS_FUERA_DE_LA_TABLA = Object.freeze([PAGINA_AUDIOGUIA])
 /** El límite del audio: 3.000 pedidos cada 15 minutos por IP (4.1; una compañía detrás de un CGNAT sigue lejos). */
@@ -66,6 +80,17 @@ export const ANCLA_VERSION = 'audioguia-version'
 const FORMA_DE_LA_ESTACION = /^\d{2}(-ad)?$/
 /** /audioguia/q/<algo>, sin decodificar (para el 303 de un código mal codificado, que Express no llega a leer). */
 const ES_QR = /^\/audioguia\/q\/[^/]+$/
+/** /audioguia/pista/<algo>, sin decodificar (el 404 en texto de un audio mal codificado, %zz: AG-COD-04). */
+const ES_PISTA = /^\/audioguia\/pista\/[^/]+$/
+/**
+ * Las rutas con un secreto, en cualquier forma (sobre la ruta decodificada y normalizada, sin distinguir mayúsculas):
+ * el código del QR o el pedido de un audio, con algo después de q/ o pista/. Sin nada después no hay secreto.
+ */
+const FAMILIA_CON_SECRETO = /^\/audioguia\/(q|pista)\/./i
+/** La forma exacta de cada una, la que atiende el router: sin decodificar, en minúsculas y sin barras invertidas. */
+const FORMA_EXACTA = { q: /^\/audioguia\/q\/[^/\\]+$/, pista: /^\/audioguia\/pista\/[^/\\]+$/ }
+/** Cualquier ruta de la audioguía (sin distinguir mayúsculas), para las cabeceras de un 301 de las barras. */
+const ES_DE_LA_AUDIOGUIA = /^\/audioguia(\/|$)/i
 
 /** Las cabeceras de toda respuesta de la audioguía (4). */
 function cabecerasDeAudioguia(res) {
@@ -128,7 +153,8 @@ export function datosDeLaPagina({ audioguia, version, espacioActual, token }) {
  * @param {ReturnType<import('../ssr.js').crearSsr>} opciones.ssr  dibujarPagina y reloj
  * @param {ReturnType<typeof import('./pistas.js').cargarPistas>} opciones.audioguia  lo que leyó cargarPistas, con
  *   alguna estación
- * @param {boolean} [opciones.conPagina]  montar la página; por defecto, si src/tablaDePaginas.js ya la tiene
+ * @param {boolean} [opciones.conPagina]  montar la página; por defecto, si src/tablaDePaginas.js la tiene (desde el
+ *   24/11/2026, sí)
  * @param {number} [opciones.limitePistas]  otro tope del audio (las pruebas, para no hacer 3.000 pedidos)
  * @param {typeof logDelServicio} [opciones.log]
  */
@@ -161,6 +187,8 @@ export function crearRutasDeAudioguia({
     cabecerasDeAudioguia(res)
     const leido = leerCodigoDeQr(claves, req.params.codigo, { version, espacios })
     if (!leido.ok) return codigoInvalido(req, res, leido.motivo)
+    // Sin la página no hay adónde mandar a nadie con el permiso: el 303 de siempre, sin la cookie (AG-SEG-07).
+    if (!conPagina) return res.set('Cache-Control', 'no-store').redirect(303, DESTINO_CODIGO_INVALIDO)
     const { cookie } = permisoDeDia({ urlPublica, claves, version, reloj })
     res.append('Set-Cookie', cookie)
     res.set('Cache-Control', 'no-store').redirect(303, destinoDelQr(leido.espacio, req.query))
@@ -251,14 +279,52 @@ export function crearRutasDeAudioguia({
   }
 
   // Un código mal codificado (/audioguia/q/%zz): Express no lo puede decodificar y manda un 400 antes del handler. El
-  // QR responde siempre 303, así que va como un código que no vale. Lo demás sigue al manejador de errores.
+  // QR responde siempre 303, así que va como un código que no vale; un audio mal codificado (/audioguia/pista/%zz), el
+  // 404 en texto de una estación que no existe, con las cabeceras de acá (AG-COD-04). Lo demás sigue al manejador de
+  // errores.
   router.use((err, req, res, next) => {
-    if (err?.status === 400 && (req.method === 'GET' || req.method === 'HEAD') && ES_QR.test(req.path)) {
-      cabecerasDeAudioguia(res)
-      return codigoInvalido(req, res, 'forma')
+    if (err?.status === 400 && (req.method === 'GET' || req.method === 'HEAD')) {
+      if (ES_QR.test(req.path)) {
+        cabecerasDeAudioguia(res)
+        return codigoInvalido(req, res, 'forma')
+      }
+      if (ES_PISTA.test(req.path)) {
+        cabecerasDeAudioguia(res)
+        return texto(res, 404, 'No encontrado.')
+      }
     }
     next(err)
   })
+
+  /**
+   * Lo que va ANTES de las redirecciones públicas (server/app.js; el porqué, en el encabezado): las rutas con un
+   * secreto que no tienen la forma exacta se responden acá (el QR, el 303 de un código que no vale; el audio, el 404 en
+   * texto), y a las de /audioguia que el sitio va a redirigir por las barras se les pone no-store y las cabeceras de la
+   * audioguía. Con la forma exacta, o fuera de la audioguía, no hace nada.
+   * @type {import('express').RequestHandler}
+   */
+  router.antesDeLasRedirecciones = function antesDeLasRedirecciones(req, res, next) {
+    if (req.method !== 'GET' && req.method !== 'HEAD') return next()
+    const ruta = req.path
+    let leida = ruta
+    try {
+      leida = decodeURIComponent(ruta)
+    } catch {
+      // Mal codificada: se mira tal cual (con la forma exacta, la responde el router).
+    }
+    const normal = rutaNormalizada(leida)
+    const familia = FAMILIA_CON_SECRETO.exec(normal)?.[1].toLowerCase()
+    if (familia) {
+      if (FORMA_EXACTA[familia].test(ruta)) return next()
+      cabecerasDeAudioguia(res)
+      return familia === 'q' ? codigoInvalido(req, res, 'forma') : texto(res, 404, 'No encontrado.')
+    }
+    if (ES_DE_LA_AUDIOGUIA.test(normal) && destinoPublico(ruta) !== ruta) {
+      cabecerasDeAudioguia(res)
+      res.set('Cache-Control', 'no-store')
+    }
+    next()
+  }
 
   return router
 }

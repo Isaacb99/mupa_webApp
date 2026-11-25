@@ -46,8 +46,15 @@
 // - Antes de imprimir comprueba en Chrome que en cada hoja nada se salga de la página, que nada caiga encima de un
 //   código ni de su zona de silencio y que cada código mida lo que tiene que medir. Después, en cada PDF, con pdfjs-dist
 //   (ya en devDependencies): la cantidad y el tamaño de las páginas, que no haya ninguna imagen rasterizada (el código
-//   queda vectorial) y el ancho de cada código medido en el PDF (el trazado de sus módulos), contra el pedido, con una
-//   tolerancia de 0,05 mm. Si algo falla, no escribe nada y sale con 1.
+//   queda vectorial), el ancho de cada código medido en el PDF (el trazado de sus módulos), contra el pedido, con una
+//   tolerancia de 0,05 mm; y, desde la corrección de los detalles (24/11/2026), que ese trazado sea negro, a tope y de un
+//   módulo de ancho, que sus módulos sean los del símbolo armado (AG-QR-07) y que entre dos códigos de una hoja quede el
+//   silencio del más grande más medio milímetro (AG-QR-03). El SVG, antes, contra el símbolo armado (AG-QR-08). Si algo
+//   falla, no escribe nada y sale con 1.
+// - Las hojas, desde el mismo día: el pie y la regla a 18 y 11 mm del borde de abajo (AG-QR-05), la versión del
+//   QR en cada rótulo de la hoja de prueba (AG-QR-04), las marcas de las esquinas en el A5 y el A6, la indicación
+//   balanceada y espacios que no cortan en «versión 6» o «corrección Q» (AG-QR-10). Las URL, solo en su forma canónica
+//   (AG-QR-06).
 // Sale con 0 si dejó todo; con 1 ante cualquier problema (los dice en castellano); con 130 si la cortan con Ctrl+C.
 // - La carpeta de salida: vacía o nueva, o una que dejó esta herramienta (su resumen.json, con generadoPor y la lista de
 //   archivos). En esa, borra SOLO lo que la corrida anterior dejó y esta no vuelve a escribir (un espacio que salió del
@@ -168,6 +175,13 @@ export function validarCarteles(renglones, manifiesto, { prueba = false, host = 
       continue
     }
     const u = new URL(url)
+    // Lo que se imprime es la URL tal cual vino: tiene que ser ya su forma canónica (AG-QR-06). Sin esto pasaban, por
+    // ejemplo, «HTTPS://MUPA.AR/…», «https://mupa.ar:443/…», las barras invertidas o «/./», que new URL() acomoda.
+    // El mensaje no repite la URL (lleva el código).
+    if (u.href !== url) {
+      problemas.push(`${donde}: la URL no está escrita en su forma canónica (mayúsculas en el esquema o el host, un puerto de más, barras invertidas, /./ o /../): copiá la que imprimió audioguia-urls`)
+      continue
+    }
     if (prueba) {
       if (!/^https?:$/.test(u.protocol)) problemas.push(`${donde}: la URL tiene que ser http o https`)
       if (host && u.host.toLowerCase() !== host) problemas.push(`${donde}: el host es ${u.host} y se esperaba ${host}`)
@@ -256,10 +270,55 @@ export function armarSimbolos(carteles, { prueba = false } = {}) {
 
 const primerRenglon = (err) => String(err?.message ?? err).trim().split(/\r?\n/).filter(Boolean).join(' ')
 
-/** El SVG de un símbolo (sin ancho): un solo trazado de módulos negros sobre el fondo blanco, con la zona de silencio. */
+/**
+ * Los módulos negros que dibuja el trazado del SVG de qrcode (el renderer svg-tag: «M<col> <fila+0,5>» al empezar un
+ * renglón, «m<dx> 0» para saltar módulos blancos y «h<n>» por cada tramo negro, todo corrido por la zona de silencio),
+ * como una matriz de booleanos de `tamano` x `tamano`. Tira si el trazado tiene otra cosa.
+ * @param {string} svg
+ * @param {number} tamano  los módulos por lado
+ * @returns {boolean[][]}
+ */
+export function matrizDelSvg(svg, tamano) {
+  const d = /<path[^>]*\sstroke="[^"]*"[^>]*\sd="([^"]*)"/.exec(svg)?.[1] ?? /<path[^>]*\sd="([^"]*)"[^>]*\sstroke="/.exec(svg)?.[1]
+  if (d == null) throw new Error('el SVG no tiene el trazado de los módulos')
+  const M = Array.from({ length: tamano }, () => new Array(tamano).fill(false))
+  let x = 0
+  let y = 0
+  for (const [, cmd, resto] of d.matchAll(/([MmHh])([^MmHh]*)/g)) {
+    const n = resto.trim().split(/[\s,]+/).filter(Boolean).map(Number)
+    if (n.some((v) => !Number.isFinite(v))) throw new Error(`el trazado tiene un número que no se entiende (${cmd}${resto})`)
+    if (cmd === 'M') [x, y] = [n[0], n[1] ?? 0]
+    else if (cmd === 'm') [x, y] = [x + n[0], y + (n[1] ?? 0)]
+    else {
+      const hasta = cmd === 'h' ? x + n[0] : n[0]
+      const fila = y - 0.5 - SILENCIO
+      if (!Number.isInteger(fila) || fila < 0 || fila >= tamano) throw new Error(`un tramo cae fuera de los renglones (y = ${y})`)
+      for (let col = x - SILENCIO; col < hasta - SILENCIO; col++) {
+        if (!Number.isInteger(col) || col < 0 || col >= tamano) throw new Error(`un tramo cae fuera de las columnas (x = ${x})`)
+        M[fila][col] = true
+      }
+      x = hasta
+    }
+  }
+  return M
+}
+
+/** La matriz del símbolo ya armado (qrcode: modules.data, de a renglones), como la de matrizDelSvg. */
+export function matrizDelSimbolo(qr) {
+  const n = qr.modules.size
+  return Array.from({ length: n }, (_, fila) => Array.from({ length: n }, (_, col) => Boolean(qr.modules.get(fila, col))))
+}
+
+/** ¿Son la misma matriz? (para las comprobaciones: el SVG y el PDF contra el símbolo armado). */
+const mismaMatriz = (a, b) => a.length === b.length && a.every((fila, i) => fila.length === b[i].length && fila.every((v, j) => v === b[i][j]))
+
+/**
+ * El SVG de un símbolo (sin ancho): un solo trazado de módulos negros sobre el fondo blanco, con la zona de silencio.
+ * Lo dibuja el renderer de qrcode a partir de la URL otra vez (qrcode no dibuja un símbolo ya armado): por eso, antes de
+ * devolverlo, el trazado se vuelve a leer y se compara módulo por módulo con simbolo.qr, el símbolo que se armó y del
+ * que salen la versión y los módulos del resumen. Si difieren, tira (AG-QR-08).
+ */
 export function svgDe(simbolo) {
-  // qrcode resuelve toString sincrónico por dentro con un callback; acá, con su renderer de SVG sobre el símbolo ya
-  // armado, así el SVG es exactamente el del símbolo que se midió (la misma versión y la misma máscara).
   let svg = null
   QRCode.toString(segmentosDe(simbolo.url), {
     type: 'svg',
@@ -272,6 +331,9 @@ export function svgDe(simbolo) {
     svg = texto
   })
   if (!svg) throw new Error('qrcode no devolvió el SVG')
+  if (simbolo.qr && !mismaMatriz(matrizDelSvg(svg, simbolo.qr.modules.size), matrizDelSimbolo(simbolo.qr))) {
+    throw new Error(`${simbolo.id}: el SVG que dibujó qrcode no es el símbolo armado (otros módulos)`)
+  }
   return svg.trim()
 }
 
@@ -334,7 +396,9 @@ body { font-family: 'GSF', sans-serif; color: #010101; background: #ffffff; }
 .rotulo { font-weight: 700; line-height: 1.05; letter-spacing: 0.01em; }
 .titulo { font-weight: 600; line-height: 1.2; }
 .lema { font-weight: 300; line-height: 1.25; }
-.indicacion { font-weight: 400; line-height: 1.3; }
+.indicacion { font-weight: 400; line-height: 1.3; text-wrap: balance; }
+.esquina { position: absolute; height: 0.3mm; background: #6b6b6b; }
+.esquina.vertical { width: 0.3mm; }
 .chico { font-weight: 400; line-height: 1.3; font-size: 2.6mm; }
 .corte { position: absolute; height: 0; border-top: 0.3mm dashed #6b6b6b; }
 .corte.vertical { width: 0; border-top: 0; border-left: 0.3mm dashed #6b6b6b; }
@@ -368,15 +432,45 @@ function regla(x, y) {
   return `<div class="regla" style="left:${x}mm; top:${y}mm; width:50mm">${`<div class="barra"></div>${marcas}`}</div>`
 }
 
+/**
+ * El pie de toda hoja, a esta distancia del borde de abajo (mm): el texto arriba y la regla abajo, con sus números a
+ * más de 6 mm del borde. La mayoría de las impresoras no imprime en los 3 a 5 mm del borde, y con el pie a 13 y la
+ * regla a 6,5 los números quedaban a 2,1 mm (AG-QR-05).
+ */
+const ALTO_PIE = 18
+const ALTO_REGLA = 11
+
 /** El pie de toda hoja: imprimir al 100 % y la regla. */
 function pie(ancho, alto, extra) {
-  const y = alto - 13
+  const y = alto - ALTO_PIE
   return (
     `<div class="texto chico" style="left:6mm; top:${y}mm; width:${ancho - 12}mm; text-align:left">` +
     `Imprimir al 100 % («Tamaño real»), nunca «Ajustar a la página». La regla de abajo mide 5 cm.${extra ? ` ${escapar(extra)}` : ''}</div>` +
-    regla(6, alto - 6.5)
+    regla(6, alto - ALTO_REGLA)
   )
 }
+
+/**
+ * Las marcas de corte de las esquinas (AG-QR-10): un A5 o un A6 impreso al 100 % en un A4 queda con un margen blanco
+ * alrededor, y estas L de 5 mm en cada esquina de la hoja dicen por dónde cortar. Van en el borde de la hoja, lejos de
+ * los códigos y de sus silencios (la revisión de las hojas lo controla); impresas en su papel, no se ven.
+ */
+function marcasDeEsquina(ancho, alto) {
+  const L = 5
+  const lineas = [
+    [0, 0, L, false], [0, 0, L, true],
+    [ancho - L, 0, L, false], [ancho - 0.3, 0, L, true],
+    [0, alto - 0.3, L, false], [0, alto - L, L, true],
+    [ancho - L, alto - 0.3, L, false], [ancho - 0.3, alto - L, L, true],
+  ]
+  return lineas
+    .map(([x, y, largo, vertical]) =>
+      `<div class="esquina${vertical ? ' vertical' : ''}" data-esquina style="left:${redondear(x, 3)}mm; top:${redondear(y, 3)}mm; ${vertical ? 'height' : 'width'}:${largo}mm"></div>`)
+    .join('')
+}
+
+/** Un espacio que no corta: «QR versión 6», «corrección Q» (AG-QR-10). */
+const NBSP = ' '
 
 function marca(x, y, alto, logos) {
   // La marca (131,8 x 43,6) y el texto (253,7 x 38,8), a la misma altura de letra que en el header.
@@ -400,21 +494,23 @@ const marcaCentrada = (anchoHoja, y, alto, logos) => {
 }
 
 const datosDelCodigo = (s, cm) =>
-  `QR versión ${s.version}, corrección ${s.correccion}, ${s.modulos} módulos de ${coma(moduloMm(cm, s.modulos), 2)} mm: ${coma(cm, cm % 1 ? 1 : 0)} cm.`
+  `QR versión${NBSP}${s.version}, corrección${NBSP}${s.correccion}, ${s.modulos}${NBSP}módulos de ${coma(moduloMm(cm, s.modulos), 2)}${NBSP}mm: ${coma(cm, cm % 1 ? 1 : 0)}${NBSP}cm.`
 
 /** El cartel de una puerta: A5 vertical, el rótulo del guion arriba, el código en el medio y la indicación abajo. */
 function hojaPuerta(s, cm, logos) {
   const [ancho, alto] = HOJAS.puerta
   const lado = ladoConSilencioMm(cm, s.modulos)
-  // Lo de arriba se achica si el código crece (con --cm 12 el código y su silencio ocupan 143 mm de 210).
+  // Lo de arriba se achica si el código crece (con --cm 12 el código y su silencio ocupan 143 mm de 210). Abajo, el
+  // pie a ALTO_PIE del borde y, entre el pie y el código, la indicación en dos renglones (AG-QR-05).
   const grande = cm <= 10.5
   const altoMarca = grande ? 7.5 : 5.5
+  const yMarca = grande ? 8 : 6
   const tRotulo = grande ? 12 : 9
   const tTitulo = grande ? 5.2 : 4.2
   const tLema = grande ? 4.6 : 3.8
-  const yRotulo = 8 + altoMarca + (grande ? 6 : 3.5)
+  const yRotulo = yMarca + altoMarca + (grande ? 6 : 2.5)
   const subtitulo = [s.titulo, s.lema].filter(Boolean)
-  const yQr = alto - 13 - (grande ? 18 : 13) - lado
+  const yQr = alto - ALTO_PIE - (grande ? 15 : 12) - lado
   const textos =
     `<div class="texto" style="left:6mm; top:${yRotulo}mm; width:${ancho - 12}mm">` +
     `<div class="rotulo" style="font-size:${tRotulo}mm">${escapar(s.nombreGuion)}</div>` +
@@ -423,7 +519,8 @@ function hojaPuerta(s, cm, logos) {
     `</div>`
   return (
     `<section class="hoja puerta" data-hoja="${escapar(s.id)}" data-subtitulo="${subtitulo.length}">` +
-    marcaCentrada(ancho, 8, altoMarca, logos) +
+    marcasDeEsquina(ancho, alto) +
+    marcaCentrada(ancho, yMarca, altoMarca, logos) +
     textos +
     bloqueQr(s, cm, (ancho - lado) / 2, yQr) +
     `<div class="texto indicacion" style="left:10mm; top:${yQr + lado + (grande ? 3 : 1.5)}mm; width:${ancho - 20}mm; font-size:${grande ? 4.4 : 3.8}mm">` +
@@ -440,6 +537,7 @@ function hojaTarjeta(s, logos) {
   const yQr = 36
   return (
     `<section class="hoja tarjeta" data-hoja="${ID_AD}">` +
+    marcasDeEsquina(ancho, alto) +
     marcaCentrada(ancho, 6, 5, logos) +
     `<div class="texto" style="left:6mm; top:14mm; width:${ancho - 12}mm">` +
     `<div class="titulo" style="font-size:4.2mm">Audioguía con audiodescripción</div>` +
@@ -454,8 +552,18 @@ function hojaTarjeta(s, logos) {
 }
 
 /**
+ * Lo que se deja entre dos símbolos de una fila además de la zona de silencio más ancha de los dos (mm): Chrome corre
+ * las posiciones unos 0,05 a 0,1 mm al imprimir, y sin margen el silencio del de 10 cm quedaba 0,05 mm más angosto de lo
+ * que pide la norma (AG-QR-03). Con 1,5, el de 10 y el de 8 siguen entrando en un A4.
+ */
+export const MARGEN_ENTRE_CODIGOS_MM = 1.5
+/** Lo mínimo que tiene que medir en el PDF, entre dos símbolos, lo que sobra del silencio del más grande (mm). */
+export const MARGEN_MINIMO_EN_EL_PDF_MM = 0.5
+
+/**
  * Una fila de códigos, de izquierda a derecha desde x0: entre dos símbolos queda la zona de silencio más ancha de los
- * dos (los cuadrados blancos se pisan, los módulos nunca), así entran 10 y 8 cm uno al lado del otro en un A4.
+ * dos más MARGEN_ENTRE_CODIGOS_MM (los cuadrados blancos se pisan, los módulos nunca), así entran 10 y 8 cm uno al lado
+ * del otro en un A4.
  * @returns {{ html: string, posiciones: { x: number, lado: number, simboloX: number }[] }}
  */
 function filaDeCodigos(lista, x0, y) {
@@ -466,7 +574,7 @@ function filaDeCodigos(lista, x0, y) {
   for (const { simbolo, cm } of lista) {
     const q = silencioMm(cm, simbolo.modulos)
     const lado = ladoConSilencioMm(cm, simbolo.modulos)
-    const simboloX = finDelAnterior === null ? x0 + q : finDelAnterior + Math.max(q, silencioAnterior)
+    const simboloX = finDelAnterior === null ? x0 + q : finDelAnterior + Math.max(q, silencioAnterior) + MARGEN_ENTRE_CODIGOS_MM
     html += bloqueQr(simbolo, cm, simboloX - q, y)
     posiciones.push({ x: simboloX - q, lado, simboloX, silencio: q })
     finDelAnterior = simboloX + cm * 10
@@ -497,11 +605,13 @@ export const TAPAR_LOS_OTROS =
 function hojasDePrueba(comun, ad, prueba) {
   const [ancho, alto] = HOJAS.a4
   const n = comun.modulos
-  const modulo = (cm, m = n) => `${coma(cm, 0)} cm, módulo de ${coma(moduloMm(cm, m), 2)} mm`
+  // Cada código con su medida y la versión del QR al lado (8.4; AG-QR-04: si las hojas se recortan, cada recorte la lleva).
+  const modulo = (cm, m = n, s = comun) =>
+    `${coma(cm, 0)}${NBSP}cm, módulo de ${coma(moduloMm(cm, m), 2)}${NBSP}mm, QR${NBSP}versión${NBSP}${s.version}-${s.correccion}`
   const tipo = prueba ? 'de prueba' : 'definitivos'
   const cabecera = (pagina) =>
     `Hoja de prueba de los QR de la audioguía (${tipo}), página ${pagina} de 2. ` +
-    `QR versión ${comun.version}, corrección ${comun.correccion}, ${n} módulos, modo byte.`
+    `QR versión${NBSP}${comun.version}, corrección${NBSP}${comun.correccion}, ${n}${NBSP}módulos, modo byte.`
   const aviso = `<div class="chico" style="margin-top:2mm; font-size:2.9mm; font-weight:700">${escapar(TAPAR_LOS_OTROS)}</div>`
 
   // Página 1: 12 cm arriba a la izquierda (el texto a su derecha); una línea de corte; abajo, 10 y 8 cm uno al lado del
@@ -570,7 +680,7 @@ function hojasDePrueba(comun, ad, prueba) {
     corte(3, yFila + lado6 + separacion, ancho - 6) +
     filaAd.html +
     `<div class="texto chico" style="left:${redondear(xExplicacion, 3)}mm; top:${redondear(yAd + 2, 3)}mm; width:${redondear(ancho - xExplicacion - 3, 3)}mm; text-align:left; font-size:2.9mm">` +
-    `A la izquierda: ${modulo(CM_TARJETA, ad.modulos)}. Con audiodescripción (la tarjeta del mostrador).<br><br>` +
+    `A la izquierda: ${modulo(CM_TARJETA, ad.modulos, ad)}. Con audiodescripción (la tarjeta del mostrador).<br><br>` +
     `Un renglón por intento. «Espacio correcto»: la página abre en el espacio del cartel. «Versión correcta»: la común con los códigos comunes y la de audiodescripción con el de 7 cm.</div>` +
     tabla +
     pie(ancho, alto, '') +
@@ -589,7 +699,11 @@ export function trabajos(simbolos, { cm, prueba }) {
   const comun = simbolos.find((s) => s.id === ESPACIO_QUE_SE_REPITE) ?? simbolos.find((s) => !s.ad)
   const ad = simbolos.find((s) => s.ad) ?? comun
   const hojaDe = (s) => (s.ad ? hojaTarjeta(s, logos) : hojaPuerta(s, cm, logos))
-  const paginaDe = (s) => (s.ad ? { hoja: HOJAS.tarjeta, codigos: [CM_TARJETA] } : { hoja: HOJAS.puerta, codigos: [cm] })
+  // Las matrices de los símbolos de cada página, para comparar con los módulos del PDF (AG-QR-07).
+  const matriz = (s) => (s.qr ? matrizDelSimbolo(s.qr) : null)
+  const conMatrices = (pagina, lista) => (lista.every(Boolean) ? { ...pagina, matrices: lista } : pagina)
+  const paginaDe = (s) =>
+    conMatrices(s.ad ? { hoja: HOJAS.tarjeta, codigos: [CM_TARJETA] } : { hoja: HOJAS.puerta, codigos: [cm] }, [matriz(s)])
   const lista = simbolos.map((s) => ({ archivo: `${s.id}.pdf`, html: documento(hojaDe(s)), paginas: [paginaDe(s)], modulos: s.modulos }))
   lista.push({
     archivo: 'todos.pdf',
@@ -601,8 +715,8 @@ export function trabajos(simbolos, { cm, prueba }) {
     archivo: 'prueba.pdf',
     html: documento(hojasDePrueba(comun, ad, prueba)),
     paginas: [
-      { hoja: HOJAS.a4, codigos: CM_PRUEBA_1 },
-      { hoja: HOJAS.a4, codigos: [...CM_PRUEBA_2, CM_TARJETA] },
+      conMatrices({ hoja: HOJAS.a4, codigos: CM_PRUEBA_1 }, CM_PRUEBA_1.map(() => matriz(comun))),
+      conMatrices({ hoja: HOJAS.a4, codigos: [...CM_PRUEBA_2, CM_TARJETA] }, [...CM_PRUEBA_2.map(() => matriz(comun)), matriz(ad)]),
     ],
     modulos: comun.modulos,
   })
@@ -876,6 +990,10 @@ export async function leerPdf(pdf) {
       const pt = 25.4 / 72
       const { fnArray, argsArray } = await pagina.getOperatorList()
       let ctm = [1, 0, 0, 1, 0, 0]
+      // El estado del trazo (AG-QR-07): el ancho de la línea, sus extremos (0, a tope) y el color. Chrome lo pone con
+      // setGState (LW, LC); pdfjs da también setLineWidth y setLineCap.
+      let trazo = { ancho: 1, extremo: 0, color: null }
+      const pilaTrazo = []
       const pila = []
       const por = (m, n) => [
         m[0] * n[0] + m[1] * n[2], m[0] * n[1] + m[1] * n[3],
@@ -889,9 +1007,22 @@ export async function leerPdf(pdf) {
         const fn = fnArray[i]
         const args = argsArray[i]
         if (IMAGENES.has(fn)) imagenes++
-        else if (fn === OPS.save) pila.push(ctm)
-        else if (fn === OPS.restore) ctm = pila.pop() ?? ctm
-        else if (fn === OPS.transform) ctm = por(args, ctm)
+        else if (fn === OPS.save) {
+          pila.push(ctm)
+          pilaTrazo.push(trazo)
+        } else if (fn === OPS.restore) {
+          ctm = pila.pop() ?? ctm
+          trazo = pilaTrazo.pop() ?? trazo
+        } else if (fn === OPS.transform) ctm = por(args, ctm)
+        else if (fn === OPS.setLineWidth) trazo = { ...trazo, ancho: args[0] }
+        else if (fn === OPS.setLineCap) trazo = { ...trazo, extremo: args[0] }
+        else if (fn === OPS.setStrokeRGBColor) trazo = { ...trazo, color: String(args[0]).toLowerCase() }
+        else if (fn === OPS.setGState) {
+          for (const [clave, valor] of args?.[0] ?? []) {
+            if (clave === 'LW') trazo = { ...trazo, ancho: valor }
+            else if (clave === 'LC') trazo = { ...trazo, extremo: valor }
+          }
+        }
         else if (fn === OPS.paintFormXObjectBegin) {
           pila.push(ctm)
           if (Array.isArray(args?.[0]) || ArrayBuffer.isView(args?.[0])) ctm = por([...args[0]], ctm)
@@ -934,7 +1065,19 @@ export async function leerPdf(pdf) {
           const ancho = Math.max(...xs) - Math.min(...xs)
           const alto = Math.max(...ys) - Math.min(...ys)
           if (ancho < 10 || alto < ancho * 0.8 || alto > ancho * 1.05) continue
-          codigos.push({ anchoMm: ancho, izquierdaMm: Math.min(...xs), arribaMm: Math.min(...ys), tramos: enMm, pintura: args[0] })
+          // El ancho del trazo en mm, con la escala de la transformación (los módulos son trazos de 1 unidad).
+          const escala = Math.sqrt(Math.abs(ctm[0] * ctm[3] - ctm[1] * ctm[2]))
+          codigos.push({
+            anchoMm: ancho,
+            izquierdaMm: Math.min(...xs),
+            arribaMm: Math.min(...ys),
+            tramos: enMm,
+            pintura: args[0],
+            trazado: args[0] === OPS.stroke || args[0] === OPS.closeStroke,
+            trazoMm: trazo.ancho * escala * pt,
+            extremo: trazo.extremo,
+            color: trazo.color,
+          })
         }
       }
       paginas.push({ anchoMm: (x1 - x0) * pt, altoMm: (y1 - y0) * pt, imagenes, codigos })
@@ -946,7 +1089,40 @@ export async function leerPdf(pdf) {
   return paginas
 }
 
-/** Compara un PDF con lo pedido: las páginas, su tamaño, sin imágenes y el ancho de cada código. */
+/**
+ * La matriz de un código desde los tramos de su trazado en el PDF (en mm, en la página): los tramos del trazado de
+ * qrcode son horizontales, por el centro de cada renglón de módulos. Tira si un tramo no lo es o cae fuera.
+ * @param {{ anchoMm: number, izquierdaMm: number, arribaMm: number, tramos: number[][][] }} codigo  uno de leerPdf
+ * @param {number} tamano  los módulos por lado
+ */
+export function matrizDelPdf(codigo, tamano) {
+  const m = codigo.anchoMm / tamano
+  const M = Array.from({ length: tamano }, () => new Array(tamano).fill(false))
+  for (const [a, b] of codigo.tramos) {
+    if (Math.abs(a[1] - b[1]) > m * 0.01) throw new Error('un tramo del código no es horizontal')
+    const fila = Math.round((a[1] - codigo.arribaMm) / m)
+    const desde = Math.round((Math.min(a[0], b[0]) - codigo.izquierdaMm) / m)
+    const hasta = Math.round((Math.max(a[0], b[0]) - codigo.izquierdaMm) / m)
+    if (fila < 0 || fila >= tamano || desde < 0 || hasta > tamano) throw new Error('un tramo cae fuera del código')
+    for (let col = desde; col < hasta; col++) M[fila][col] = true
+  }
+  return M
+}
+
+/** Cuánto hay entre dos cajas (mm): lo que las separa a lo ancho o a lo alto, lo que sea más; 0 si se tocan o se pisan. */
+function separacion(a, b) {
+  const dx = Math.max(0, b.izquierdaMm - (a.izquierdaMm + a.anchoMm), a.izquierdaMm - (b.izquierdaMm + b.anchoMm))
+  const dy = Math.max(0, b.arribaMm - (a.arribaMm + a.anchoMm), a.arribaMm - (b.arribaMm + b.anchoMm))
+  return Math.max(dx, dy)
+}
+
+/**
+ * Compara un PDF con lo pedido: las páginas, su tamaño, sin imágenes y el ancho de cada código. Con trabajo.modulos,
+ * además (AG-QR-03 y AG-QR-07): que cada código sea un trazo negro, a tope, de un módulo de ancho (±1 %: si Chrome
+ * cambiara cómo convierte el trazo, el ancho medido seguiría bien y el código saldría roto), y que entre dos códigos de
+ * la misma página haya al menos la zona de silencio del más grande más MARGEN_MINIMO_EN_EL_PDF_MM. Con las matrices de
+ * cada página (pagina.matrices, en el orden de pagina.codigos), que los módulos del PDF sean los del símbolo armado.
+ */
 export function revisarPdf(paginas, trabajo) {
   const problemas = []
   const { archivo } = trabajo
@@ -967,6 +1143,39 @@ export function revisarPdf(paginas, trabajo) {
     }
     esperados.forEach((e, j) => {
       if (Math.abs(medidos[j] - e) > TOLERANCIA_MM) problemas.push(`${donde}: un código mide ${coma(medidos[j], 3)} mm y tenía que medir ${coma(e, 0)}`)
+    })
+    const n = trabajo.modulos
+    if (!n) return
+    const porAncho = [...p.codigos].sort((a, b) => b.anchoMm - a.anchoMm)
+    for (const c of porAncho) {
+      const modulo = c.anchoMm / n
+      const cual = `${donde}, el código de ${coma(c.anchoMm / 10, 0)} cm`
+      if (!c.trazado) problemas.push(`${cual}: no es un trazo (la pintura del PDF es otra)`)
+      if (!(Math.abs(c.trazoMm - modulo) <= modulo * 0.01)) problemas.push(`${cual}: el trazo mide ${coma(c.trazoMm, 3)} mm y el módulo ${coma(modulo, 3)}`)
+      if (c.extremo !== 0) problemas.push(`${cual}: los extremos del trazo no son a tope (LC ${c.extremo})`)
+      if (c.color !== '#000000') problemas.push(`${cual}: el trazo no es negro (${c.color})`)
+    }
+    for (let a = 0; a < porAncho.length; a++) {
+      for (let b = a + 1; b < porAncho.length; b++) {
+        const silencio = (porAncho[a].anchoMm * SILENCIO) / n
+        const hay = separacion(porAncho[a], porAncho[b])
+        if (hay < silencio + MARGEN_MINIMO_EN_EL_PDF_MM) {
+          problemas.push(`${donde}: entre los códigos de ${coma(porAncho[a].anchoMm / 10, 0)} y ${coma(porAncho[b].anchoMm / 10, 0)} cm hay ${coma(hay, 2)} mm y tenía que haber al menos ${coma(silencio + MARGEN_MINIMO_EN_EL_PDF_MM, 2)} (el silencio del más grande y ${coma(MARGEN_MINIMO_EN_EL_PDF_MM, 1)} mm)`)
+        }
+      }
+    }
+    if (!pedido.matrices) return
+    const pedidos = pedido.codigos.map((cm, j) => ({ cm, matriz: pedido.matrices[j] })).sort((x, y) => y.cm - x.cm)
+    porAncho.forEach((c, j) => {
+      const { cm, matriz } = pedidos[j]
+      let leida
+      try {
+        leida = matrizDelPdf(c, matriz.length)
+      } catch (err) {
+        problemas.push(`${donde}, el código de ${coma(cm, 0)} cm: ${err.message}`)
+        return
+      }
+      if (!mismaMatriz(leida, matriz)) problemas.push(`${donde}, el código de ${coma(cm, 0)} cm: sus módulos en el PDF no son los del símbolo`)
     })
   })
   return problemas
@@ -1208,7 +1417,12 @@ async function principal() {
     console.log(`  ${c.id.padEnd(16)} ${String(c.largo).padStart(3)} caracteres  QR ${c.versionDelQr}-${c.correccion}  ${coma(c.codigoCm, c.codigoCm % 1 ? 1 : 0)} cm (${coma(c.conSilencioMm)} mm con el silencio; módulo de ${coma(c.moduloMm, 2)} mm)  ${c.hoja}`)
   }
   console.log(`En ${args.salida}: ${armados.simbolos.length} SVG, ${pdfs.size} PDF (${[...pdfs.keys()].filter((a) => !/^(todos|prueba)\.pdf$/.test(a)).length} carteles, todos.pdf y prueba.pdf) y resumen.json (con las URL: no se versiona).`)
-  console.log('Los PDF se comprobaron: el tamaño de las hojas, sin imágenes rasterizadas y el ancho de cada código medido en el PDF.')
+  console.log(
+    'Los PDF se comprobaron: el tamaño de las hojas, sin imágenes rasterizadas, el ancho de cada código medido en el PDF, ' +
+      'el trazo de sus módulos, los módulos contra el símbolo y el silencio entre dos códigos.',
+  )
+  // todos.pdf mezcla hojas A5 y A6: algunos controladores ajustan cada página a un solo papel (AG-QR-10).
+  console.log(`Para imprimir: la tarjeta del mostrador (${ID_AD}.pdf, A6) conviene mandarla aparte; todos.pdf mezcla A5 y A6.`)
   return 0
 }
 

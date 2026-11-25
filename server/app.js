@@ -8,7 +8,8 @@
 //  3. host aceptado o redirección canónica (server/hosts.js)
 //  4. X-Robots-Tag: noindex fuera del host público de producción
 //  5. el panel en /administracion (dist/panel y su API), con su CSP (server/panel.js), antes de las redirecciones públicas
-//  6. redirecciones públicas: /index.html, /preview, barras (server/seguridad.js)
+//  6. redirecciones públicas: /index.html, /preview, barras (server/seguridad.js); con la audioguía prendida, antes, las
+//     formas raras de sus rutas con un secreto (antesDeLasRedirecciones de server/audioguia/rutas.js)
 //  7. estáticos públicos con la CSP pública: /assets un año e immutable; la raíz de dist/client (favicon, og.jpg,
 //     el .html de Search Console) un día, por nombre exacto: ni la plantilla del SSR ni los dotfiles (los .htaccess
 //     de public/ nunca salen)
@@ -18,11 +19,11 @@
 //     con un pistas.json que deja alguna estación válida. Las pistas se leen una vez, al armar la app (cargarPistas,
 //     sincrónica); apagada, nada cambia: ni rutas, ni cabeceras, ni cookies (especificación de las audioguías, 2.2)
 //  9. errores (server/errores.js)
-import { existsSync, readdirSync } from 'node:fs'
-import { join, resolve } from 'node:path'
+import { readdirSync } from 'node:fs'
+import { resolve } from 'node:path'
 import express from 'express'
 import { RUTA_PANEL } from '../compartido/panel.js'
-import { cargarPistas, MANIFIESTO } from './audioguia/pistas.js'
+import { cargarPistas, hayGrabaciones } from './audioguia/pistas.js'
 import { crearRutasDeAudioguia } from './audioguia/rutas.js'
 import { esBaseNoDisponible } from './contenido-publico.js'
 import { probarBase } from './db/conexion.js'
@@ -81,15 +82,23 @@ export function estaticosDelBuild(dirBuild) {
 
 /**
  * La audioguía de esta app (especificación de las audioguías, 1.4 y 2.2): sin AUDIOGUIA_CLAVE, null (y, en producción,
- * un aviso si hay pistas en la carpeta: quedaron sin clave); con ella, lo que leyó cargarPistas, que loguea por su
+ * un aviso si hay algún MP3 en la carpeta: quedaron sin clave); con ella, lo que leyó cargarPistas, que loguea por su
  * cuenta lo que se salteó (audioguia_pista_invalida, audioguia_sin_pistas). Prendida (con alguna estación), una línea
  * con cuántas quedaron y, en Render con TRUST_PROXY=0, un error (audioguia_limite_global). El sitio nunca deja de
  * arrancar por la audioguía.
  * @param {ReturnType<import('./config.js').leerConfig>} config
  */
 export function audioguiaDeLaApp(config) {
+  // Una clave mal pegada (con espacios en el medio, corta, con otros caracteres) no frena el sitio (1.4): el módulo
+  // queda apagado y lo dice el log, nunca con el valor (AG-SEG-05 y AG-COD-08; server/config.js).
+  if (config.audioguiaClaveInvalida) {
+    log('error', 'audioguia_clave_invalida', { detalle: 'AUDIOGUIA_CLAVE mal formada: la audioguía queda apagada' })
+    return null
+  }
   if (!config.AUDIOGUIA_CLAVE) {
-    if (config.produccion && existsSync(join(config.dirAudioguias, MANIFIESTO))) {
+    // Con algún MP3 en la carpeta: el manifiesto solo no es una audioguía sin clave (el real está desde antes de las
+    // grabaciones, 24/11/2026).
+    if (config.produccion && hayGrabaciones(config.dirAudioguias)) {
       log('aviso', 'audioguia_apagada', { detalle: 'hay pistas y falta AUDIOGUIA_CLAVE' })
     }
     return null
@@ -197,8 +206,12 @@ export function crearApp({
     }),
   )
 
-  // 6 a 8. Sitio público.
+  // 6 a 8. Sitio público. La audioguía prendida (server/audioguia/rutas.js) mira antes de las redirecciones las rutas
+  // con un secreto (el código del QR, el ?t= del audio): en una forma rara no llegan al 301 de las barras ni a la 404
+  // del sitio (AG-SEG-02, AG-SEG-03 y AG-COD-03 de la verificación del servidor).
+  const rutasDeAudioguia = audioguia?.estaciones.size ? crearRutasDeAudioguia({ config, ssr, audioguia }) : null
   app.use(cspPublica(config, { desarrollo }))
+  if (rutasDeAudioguia) app.use(rutasDeAudioguia.antesDeLasRedirecciones)
   app.use(redireccionesPublicas)
   estaticos(app)
   app.get('/robots.txt', (req, res) => {
@@ -227,7 +240,7 @@ export function crearApp({
   // El formulario de contacto (plan 8): sin JavaScript, CSRF por origen, límites y la página otra vez con lo escrito.
   if (contacto) app.post('/contacto', ...crearRecepcion({ config, contacto, ssr }))
   // La audioguía (server/audioguia/rutas.js), solo prendida: apagada, /audioguia/… da la 404 del sitio.
-  if (audioguia?.estaciones.size) app.use(crearRutasDeAudioguia({ config, ssr, audioguia }))
+  if (rutasDeAudioguia) app.use(rutasDeAudioguia)
   app.use(crearRutasPublicas({ ssr }))
 
   // 9.

@@ -96,11 +96,10 @@ const esquema = z.object({
     .regex(/^[A-Za-z0-9-]{8,128}$/, { error: 'de 8 a 128 letras, números o guiones' })
     .optional(),
   // La audioguía (2.1). La clave se genera en el Shell de Render (randomBytes(32) en base64url, 43 caracteres) y no sale
-  // de ahí; el mensaje de error nunca muestra el valor.
-  AUDIOGUIA_CLAVE: z
-    .string()
-    .regex(FORMA_DE_LA_CLAVE, { error: 'de 32 a 128 letras, números, - o _ (base64url)' })
-    .optional(),
+  // de ahí. Los espacios de los bordes (un salto de línea al pegarla) se sacan; sin la forma de FORMA_DE_LA_CLAVE NO
+  // tira: el sitio nunca deja de arrancar por la audioguía (1.4), así que queda apagada con audioguiaClaveInvalida
+  // (server/app.js lo anota en el log, nunca el valor; el script de las URL se niega). AG-SEG-05 y AG-COD-08.
+  AUDIOGUIA_CLAVE: z.preprocess((v) => (typeof v === 'string' ? v.trim() : v), z.string().optional()),
   DIR_AUDIOGUIAS: z.string().min(1).optional(),
 })
 
@@ -158,8 +157,12 @@ export function leerConfig(env = process.env) {
   if (problemas.length) throw new Error(`Configuración inválida:\n- ${problemas.join('\n- ')}`)
 
   const urlPublica = v.URL_PUBLICA ?? `http://localhost:${v.PORT}/`
+  // La clave de la audioguía, solo si tiene la forma (si no, apagada: arriba, en el esquema).
+  const claveAudioguia = v.AUDIOGUIA_CLAVE && FORMA_DE_LA_CLAVE.test(v.AUDIOGUIA_CLAVE) ? v.AUDIOGUIA_CLAVE : undefined
   return Object.freeze({
     ...v,
+    AUDIOGUIA_CLAVE: claveAudioguia,
+    audioguiaClaveInvalida: Boolean(v.AUDIOGUIA_CLAVE) && !claveAudioguia,
     produccion,
     desarrollo: v.NODE_ENV === 'development',
     sinBase,

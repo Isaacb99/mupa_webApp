@@ -26,6 +26,13 @@ export const SECCION_TABLERO = 'py-16 lg:py-20'
  */
 export const ROTULO_SECCION = 'font-mono text-sm leading-5 font-medium text-paper uppercase'
 
+/**
+ * El rótulo «Estás en este espacio» de la audioguía (src/paginas/Audioguia.jsx; especificación de las audioguías, 5.2),
+ * arriba del h2 del espacio actual: el de ROTULO_SECCION en naranja (6,28:1 sobre #010101). Escrita entera, sin armarla
+ * con ROTULO_SECCION, así el escáner de Tailwind la ve tal cual.
+ */
+export const ROTULO_ACTUAL = 'font-mono text-sm leading-5 font-medium text-naranja uppercase'
+
 /** El rótulo de una tarjeta ("Dirección", "Director"): Roboto Mono Medium 12/16, mayúsculas, crema. */
 export const ROTULO_TARJETA = 'font-mono text-xs leading-4 font-medium text-paper uppercase'
 

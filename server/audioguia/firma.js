@@ -1,7 +1,8 @@
 // Las firmas de la audioguía (especificación de las audioguías, versión 2, secciones 3.1 a 3.3): el código impreso en
 // cada QR y el token de día, que viaja en la cookie de la página y en el ?t= del audio. Código puro, sin Express: recibe
 // la clave (AUDIOGUIA_CLAVE), la versión de los códigos (la de audioguias/pistas.json) y el día de San Juan como
-// argumentos; la conexión con server/config.js y con las rutas es de la etapa siguiente.
+// argumentos. Lo usan las rutas (server/audioguia/rutas.js), server/config.js (FORMA_DE_LA_CLAVE) y el script de las URL
+// de los QR (server/scripts/audioguia-urls.js).
 //
 // - Dos claves derivadas, una por uso (3.1): kQR = HMAC-SHA256(clave, 'mupa-audioguia-qr') firma los códigos de los QR y
 //   kDia = HMAC-SHA256(clave, 'mupa-audioguia-dia') los tokens de día. Así un token de día nunca pasa por un código de
@@ -19,7 +20,7 @@
 //   código, la firma ni el token (sección 4).
 import { createHmac, timingSafeEqual } from 'node:crypto'
 
-/** La forma de AUDIOGUIA_CLAVE (la misma regla que va a validar server/config.js, 2.1). */
+/** La forma de AUDIOGUIA_CLAVE (2.1: la regla que mira server/config.js; sin ella, la audioguía queda apagada). */
 export const FORMA_DE_LA_CLAVE = /^[A-Za-z0-9_-]{32,128}$/
 /** Cuántos caracteres de base64url lleva cada firma (132 bits). */
 export const LARGO_FIRMA = 22

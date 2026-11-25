@@ -632,6 +632,8 @@ await sequelize.close()
 
 **Cuando se contrate:** el SVG en `src/assets/plano.svg` con `id="sala-<plano_ref>"`, la tabla `galeria_salas` (migración aditiva), una página o sección que cruce las salas publicadas con el SVG y un `<select>` de `plano_ref` en la ficha de la sala. Para varios pisos, `salas.piso smallint`.
 
+**La audioguía (módulo opcional, 24/11/2026; 12.1)** usa como id de cada espacio el del plano de la Home (`SALAS_DEL_PLANO` de `src/components/mapaSalas.js`, más `recepcion`, que no está en el plano): es el mismo vocabulario que `plano_ref`. **No se asocia a la tabla `salas`** (sus 35 estaciones y sus 12 espacios van en `audioguias/pistas.json`, en git, sin migración): el día que exista el módulo del plano, `plano_ref` cruza las salas del panel con los espacios de la audioguía sin tocar ninguna de las dos.
+
 ### 3.6 Preparado para la venta de entradas (módulo 5)
 
 **Ya queda hecho:** `tarifas` con id estable, roles como `varchar`, `correo.js` (separa el armado del mail del transporte), el patrón de transacción con lock y el CSRF con lista de excepciones (hoy vacía).
@@ -1029,7 +1031,7 @@ Todas se arman en el servidor en cada pedido y se hidratan en el navegador.
 ### 6.3 "Los cambios se ven al instante"
 
 - **Sin caché de HTML:** cada pedido lee la base y renderiza. Lo que se guarda en el panel se ve en el pedido siguiente, y lo que cambia solo con el tiempo ("Próxima" → "Actual"; hasta el 03/11/2026, también el día de hoy en Visitas) también.
-- **Cabeceras:** HTML con `Cache-Control: no-cache` y ETag (304). **Nunca se cachea en el borde:** Edge Caching de Render en "Common static files", que deja afuera el HTML ([web-service-caching](https://render.com/docs/web-service-caching), 08/10/2026). Las respuestas públicas **nunca ponen cookies**.
+- **Cabeceras:** HTML con `Cache-Control: no-cache` y ETag (304). **Nunca se cachea en el borde:** Edge Caching de Render en "Common static files", que deja afuera el HTML ([web-service-caching](https://render.com/docs/web-service-caching), 08/10/2026). Las respuestas públicas **nunca ponen cookies**, salvo dos de la audioguía prendida (24/11/2026, 9): el 303 de un QR válido y la página de la audioguía con `?v=`.
 - **Si la base falla:** la Home sale con el último `museo` bueno o con el pie mínimo; las demás rutas, una página 503 simple. **Cómo quedó (E4):** la 503 simple lleva `no-store` y `Retry-After: 60`; lo publicado espera la base 4 s como mucho y el museo 2 (con la base colgada, medido por la verificación de E4 con un proxy TCP delante de Postgres: la Home en 2 s como mucho y las internas y el sitemap en 503 en 4 s, y todo vuelve solo cuando la base contesta). Desde el 06/11/2026 también sale Divulgación, sin "Últimas noticias" (6.1).
 - **Lo que cambia con el tiempo** (una muestra que pasa de "Próxima" a "Actual", una actividad "Realizada"; hasta el 03/11/2026, también el "Hoy (lunes)" de Visitas) se calcula con "hoy" y "ahora" de San Juan una vez por pedido, en el servidor; la verificación lo probó con el proceso en UTC+14 y con el reloj corrido a las 23:30 y a las 00:30 de San Juan.
 - **Si hiciera falta caché** (CPU alta en Metrics o TTFB peor que el criterio de 10.1): una caché corta de la Home, de pocos segundos (ver 14).
@@ -1302,6 +1304,7 @@ export async function enviarContacto({ nombre, email, mensaje }, destino) {
 
 **El panel en el mismo origen que el sitio**
 - [ ] El panel, su API y la cookie viven solo bajo `/administracion`. La cookie lleva `Path=/administracion`: ninguna respuesta pública la pone ni la recibe (prueba en `ssr.test.js`).
+- [ ] **La audioguía** (módulo opcional, 24/11/2026; apagada sin `AUDIOGUIA_CLAVE`) pone **las únicas dos cookies del sitio público**, las dos con `Path=/audioguia`, `HttpOnly`, `SameSite=Lax`, `Secure` con https y sin `Domain`: **el permiso del día** (`__Secure-mupa_audioguia`, o `mupa_audioguia` con `URL_PUBLICA` en http), solo en el 303 de un QR válido, que vence a la medianoche de San Juan y lleva una firma HMAC-SHA256 con la versión de los códigos; y **la preferencia de la versión** (`mupa_audioguia_version`, `ad` o `comun`, 180 días), solo en el 200 de la página cuando la consulta trae `v=ad` o `v=comun`. Ninguna es la de la sesión ni viaja a `/administracion`, y ninguna identifica a nadie. Todo lo demás de `/audioguia` va sin cookies, con `no-store`, `noindex` y `Referrer-Policy: no-referrer`; el código del QR nunca sale en un `Location` ni llega a GA4 (con el módulo prendido); el audio pide el permiso del día en `?t=` y tiene un límite de 3.000 pedidos cada 15 minutos por IP. Lo prueban `audioguia.test.js` y `ssr.test.js` (las rutas de la audioguía, con el módulo prendido, sin `Set-Cookie` fuera de esos dos casos), y `tools/rutas-check.mjs` en su sección «Audioguía».
 - [ ] `/administracion/*` no carga scripts de terceros: CSP propia con `script-src 'self'`, `connect-src 'self'` y `frame-ancestors 'none'`, y el bundle del panel no importa `analitica.js` ni UserWay. GA4 y UserWay van solo en las páginas públicas.
 - [ ] El panel no guarda nada en `localStorage` ni en `sessionStorage`: se comparten con las páginas públicas.
 - [ ] Sesión de 2 h sin actividad y 12 h como máximo, Salir siempre visible y, en el manual y la capacitación, la recomendación de cerrar sesión al terminar.
@@ -1707,6 +1710,7 @@ Además: un mail a la casilla del museo y otro desde ella; un envío del formula
 | C2 | Dos rondas de revisión después de la entrega | 6 | — | |
 | C3 | Reserva para la garantía de 60 días | 4 | — | |
 | | **Total** | **113** | | |
+| **AG** | **Audioguías (módulo opcional, fuera de las 113 h)**: 35 estaciones en 12 espacios, cada una en dos versiones (la común y con audiodescripción: 70 pistas), un QR firmado por espacio y una tarjeta de mostrador, transcripciones y los 13 PDF para imprimir. Se cotiza el rango con el techo del plan B de los lectores de pantalla (CLAUDE.md, Pendiente, «La audioguía») | 32 – 44,5 | Audioguía | `npm test`, `rutas-check --audioguia-codigo-archivo`, VoiceOver y TalkBack, la hoja de prueba de los QR con 2 o 3 teléfonos |
 
 **Cambio del 15/10/2026 (decisiones del desarrollador): −2 h netas.** Con las fotos en Postgres (16.1) se fue E3.6 ("Descargar copia de las fotos", `restaurar-fotos.js` y fotos faltantes: −3 h), y el achique en el navegador pasó a ser estándar (E3.1: +1 h). Total: de 115 a 113 h.
 
@@ -1730,6 +1734,8 @@ Además: un mail a la casilla del museo y otro desde ella; un envío del formula
 
 **Avance al 12/11/2026: la versión de celular, primera parte.** El cierre de E6.3 y el `npm audit fix`, commiteados (`345a3ce`). Entre el 10 y el 12/11 (con tres pausas a pedido del desarrollador), hecho y verificado, sin commitear: lo que la diseñadora dibujó en "Web Mobile" (el marco, la Home y El Museo), con cinco decisiones del desarrollador (M1 a M5 en CLAUDE.md: solo lo dibujado, sin «Tienda virtual», la barra de hoy, la franja apilada y el plano sin nombres) y lo que resolvió el orquestador (O1 a O9 y D1 a D5, a confirmar, salvo D1 —en las tablets, lo que quedaría estirado va como en escritorio— y D2 —el manual—, que el desarrollador confirmó el 11/11): 6.7. Un relevamiento de solo lectura (Figma, el código y una línea de base medida sobre el build de `345a3ce`), la implementación en tres partes, de a una (la base y el marco; la Home; El Museo), una verificación del marco y cinco más (la Home y El Museo contra sus cuadros, la regresión, la accesibilidad y el rendimiento con los altos del iPhone), con 19 hallazgos (2 medios: la Home se corría al llegar la fuente en las tablets de 805 a 817 px y Divulgación en los iPhone de 390 a 428 px; ninguno alto); una ronda de corrección (17 corregidos, uno en parte y una decisión: el costo de El Museo en el celular) y su re-verificación en dos lentes, que encontró uno medio (la bajada de Divulgación con «Juan» sola en los teléfonos, corregido en una segunda ronda) y cinco bajos. La ayuda del horario semanal del panel (pedida por el desarrollador el 11/11) y el manual dicen que el horario decide también la barra y cómo hacer con un feriado: el manual, regenerado (37 páginas, 58 marcadores). `npm test`, 476 de 476 con base; la Home baja 322.504 B de JS (tope de 6.2: 342 kB). Desde lg no cambió nada, salvo el botón del menú entre lg y xl. **Lo que sigue:** que el desarrollador revise y commitee; el resto de la versión de celular (las demás páginas, cuando la diseñadora las dibuje), antes del corte; el contenido de las cuatro páginas con relleno (12.6); y E5.1 con la cuenta del museo y E6.1.
 
+**Avance al 24/11/2026: la tanda 1 y la audioguía.** La versión de celular, primera parte, commiteada el 16/11 (`6dcd89a`), y la tanda 1 (los detalles que estaban a decidir, las flechas del carrusel de Novedades, el título en 3 renglones y el toque en el plano del celular, 16 a 19/11), el 24/11 (`1fa5359`). **La audioguía**, un módulo opcional fuera de las 113 h (la fila AG de arriba; 3.5, 6.3 y 9): el servidor, las firmas, el validador de MP3 y los QR, commiteados el 24/11 (`5bdd39b`, apagado por defecto); la página del reproductor, el manifiesto real (`audioguias/pistas.json`, con las 35 estaciones sin grabar), las pruebas, las recetas y los arreglos de la verificación, hechos el 24/11, y la documentación, el 25/11, sin commitear. Apagada hasta que haya grabaciones y la clave en Render (E5.1); los carteles definitivos, después del corte (E5.4). `npm test`, 617 de 617 con base; la Home baja 331.509 B de JS (tope de 6.2: 342 kB; el principal suma 2.149 B por los textos de la audioguía). Lo que falta: la prueba con VoiceOver y TalkBack en la red local, las grabaciones, la herramienta que las codifica, Render y las decisiones (CLAUDE.md, Pendiente, «La audioguía»).
+
 ### 12.2 Horas por módulo
 
 | Módulo | Tareas | h |
@@ -1739,12 +1745,14 @@ Además: un mail a la casilla del museo y otro desde ella; un envío del formula
 | Panel | E1, E2, E3, E6.1, E6.2 | 45 |
 | Coordinación, revisiones y garantía | C1-C3 | 13,5 |
 | **Total** | | **113** |
+| Audioguías (opcional, fuera del total; 12.1, AG) | AG | 32 – 44,5 |
 
 - La Base incluye lo que la landing no tenía: el servidor con SSR, el deploy, el corte de DNS y la regresión de la Home.
 - **Cambio de la versión 3: +2 h, todas en E5.4.** Que el corte lo haga una persona del museo guiada por el desarrollador suma el instructivo y dos llamadas. Pasar el panel a `/administracion` no cambia las horas: lo que se ahorra en DNS del panel (E5.1) se va en el instructivo de la casilla, y el reparto por ruta, la cookie y el CSRF cuestan lo mismo que por host (E0.3, E1.2).
 - **Cambio del 15/10/2026: −2 h, todas en el Panel.** Sin disco (16.1) se va E3.6 (−3 h) y el achique en el navegador suma 1 h a E3.1.
 - Con acceso delegado a Hostinger (10.6), E5.4 vuelve a unas 2 h.
 - 6 de las 20 h del Sitio dependen de que el diseño llegue antes del 06/11 (E6.3).
+- **Las audioguías** (24/11/2026) son un módulo opcional, con su propia cotización: 32 a 41,5 h (USD 990 a 1.290) si los controles de audio del teléfono andan bien con VoiceOver y TalkBack, y hasta 44,5 h (USD 1.380) si hace falta un botón propio por estación (el plan B). Incluye como mucho dos entregas de audio y una ronda de reemplazo (+0,5 h cada entrega más); no incluye la grabación, la locución, escribir los guiones de la audiodescripción, el diseño gráfico de los carteles más allá de los PDF, la impresión ni pegarlos.
 
 ### 12.3 Fase 2: lo que sale del alcance
 

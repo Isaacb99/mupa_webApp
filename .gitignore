@@ -14,3 +14,5 @@ dist-dev
 .claude/worktrees/
 design/
 tools/salida/
+# los másters de la audioguía nunca entran al repo (especificación de las audioguías, 1.1)
+audioguias/**/*.wav

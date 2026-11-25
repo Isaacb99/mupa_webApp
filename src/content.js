@@ -245,6 +245,51 @@ export const noEncontrada = {
   secciones: 'Secciones del sitio',
 }
 
+// La audioguía (src/paginas/Audioguia.jsx; especificación de las audioguías, versión 2, 5.4): textos de interfaz
+// nuestros, neutros y a validar con el museo (D13). Ninguno describe un espacio: los títulos de las estaciones y de los
+// espacios son del guion del museo y llegan del manifiesto (audioguias/pistas.json) en estado.datos, tal cual.
+// - tituloAd: «audio» y «descripción» con un guion blando (U+00AD) en el medio: a 320 px con la letra del navegador en
+//   20 o 24 la palabra no entra, y así se parte «audio-/descripción», con el guion a la vista (5.2).
+// - irA e irAlEspacio arman «Ir a SALA 2, el espacio en el que estás»; estasAcaLector y alFinal van adentro del h2
+//   (el primero solo para el lector, el segundo a la vista); estacion y duracion, solo para el lector.
+// - motivos: el párrafo de la página sin acceso, por el motivo que da el servidor (server/audioguia/acceso.js).
+export const audioguia = {
+  titulo: 'Audioguía',
+  tituloAd: 'Audioguía con audio­descripción', // el guion blando: 5.2
+  version: {
+    actualComun: 'Estás escuchando la versión sin audiodescripción.',
+    actualAd: 'Estás escuchando la versión con audiodescripción.',
+    cambiarAAd: 'Cambiar a la versión con audiodescripción (para personas ciegas o con baja visión)',
+    cambiarAComun: 'Cambiar a la versión sin audiodescripción',
+  },
+  irAlEspacio: ', el espacio en el que estás', // «Ir a SALA 2, el espacio en el que estás»
+  irA: 'Ir a',
+  bajada:
+    'Elegí el espacio en el que estás y escuchá sus estaciones en orden. El museo no presta auriculares: usá los tuyos o escuchá con el volumen bajo.',
+  navegadorAppPregunta: '¿El audio se corta al bloquear el teléfono?',
+  navegadorApp:
+    'Si abriste esta página desde WhatsApp o Instagram, abrila en Safari o Chrome: los navegadores de adentro de las apps pueden cortar el audio con la pantalla bloqueada.',
+  etiquetaIndice: 'Espacios de la audioguía',
+  etiquetaRecorrido: 'Recorrido de la audioguía',
+  estasAca: 'Estás en este espacio', // el rótulo visible (aria-hidden)
+  estasAcaLector: ', estás en este espacio', // adentro del h2, sr-only
+  alFinal: ', al final del recorrido', // adentro del h2 de la segunda Recepción, a la vista
+  estacion: 'Estación', // «Estación 7: …», solo para el lector
+  duracion: 'Duración:', // «Duración: 1 minuto 12 segundos», solo para el lector
+  transcripcion: 'Leer la transcripción',
+  sinSoporte: 'Tu navegador no puede reproducir este audio.',
+  sinConexion: 'No se pudo cargar el audio. Revisá la señal y probá de nuevo.',
+  artista: 'MuPa · Audioguía', // Media Session
+  motivos: {
+    'sin-codigo': 'La audioguía se escucha en el museo. Escaneá el código QR de cualquier espacio para empezar.',
+    'sin-cookie':
+      'Tu navegador no guardó el permiso para escuchar la audioguía. Permití las cookies de este sitio, o abrí el código en Safari o Chrome, y volvé a escanearlo.',
+    codigo: 'Este código ya no funciona. Escaneá el código QR del espacio en el que estás, o pedilo en recepción.',
+    vencido:
+      'El permiso para escuchar la audioguía venció. Volvé a escanear el código QR del espacio en el que estás, o pedilo en recepción.',
+  },
+}
+
 // Páginas internas (E4.2 a E4.4: Exposiciones, una muestra, Visitas, Novedades y una novedad): solo textos de interfaz
 // (títulos de sección, rótulos, botones), neutros y mínimos. Todo lo demás es lo que carga el museo en el panel y llega
 // en estado.datos; lo que no está cargado no se dibuja, ni su título (plan 6.1). Las fechas ("Del 1 de octubre al 30 de

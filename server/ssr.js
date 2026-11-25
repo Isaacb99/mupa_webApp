@@ -9,7 +9,9 @@
 // - Se renderiza JSON.parse(json), lo mismo que el navegador lee de #estado: el servidor dibuja exactamente lo que el
 //   cliente hidrata (sin Date, sin getters de Sequelize).
 // - HTML con Cache-Control: no-cache; Express agrega el ETag y responde 304 si no cambió.
-// - Las respuestas públicas nunca ponen cookies.
+// - Las respuestas públicas nunca ponen cookies, salvo dos de la audioguía prendida (server/audioguia/rutas.js;
+//   especificación de las audioguías, 3.3 y 3.6): el 303 de un QR válido (la cookie de día) y la página de la
+//   audioguía con ?v=ad o ?v=comun (la cookie de preferencia de la versión), las dos con Path=/audioguia.
 // - Desde E4 (plan 6.1 a 6.3): cada pedido calcula "hoy" y "ahora" una vez; el museo y los datos de la página se leen
 //   a la vez (cargar() recibe la lectura del museo, que esperan solo Visitas y Contacto). El estado común lleva solo
 //   lo del museo que usa el sitio (museoComun, server/museo.js, una lista blanca: ninguno de los tres textos con

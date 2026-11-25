@@ -13,9 +13,10 @@
 // - --url (o --host, el mismo valor): el origen de las URL, con o sin la barra final; sin él, URL_PUBLICA. Sin --prueba
 //   tiene que ser https://mupa.ar/ (los carteles definitivos, después del corte del dominio); con --prueba, cualquier
 //   otro origen http(s) (mupa-web.onrender.com, la red local), nunca mupa.ar.
-// - Sale con 1: sin clave, sin ninguna estación válida, con una opción que no conoce o, para los definitivos, con
-//   alguna estación con tituloProvisorio o salteada (no se imprimen carteles definitivos con un título provisorio ni
-//   con un espacio a medias). Con --prueba, esas dos van como aviso.
+// - Sale con 1: sin clave o con una mal formada (server/config.js la deja apagada sin tirar: acá se dice, sin el
+//   valor), sin ninguna estación válida, con una opción que no conoce o, para los definitivos, con
+//   alguna estación con tituloProvisorio, salteada o sin grabar (no se imprimen carteles definitivos con un título
+//   provisorio ni con un espacio a medias). Con --prueba, esas tres van como aviso.
 // No usa la base ni la red.
 import { esPrincipal } from '../principal.js'
 
@@ -93,6 +94,9 @@ if (esPrincipal(import.meta)) {
   const { cargarPistas } = await import('../audioguia/pistas.js')
   const { codigoDeQr, crearClaves } = await import('../audioguia/firma.js')
   const config = configDelProceso()
+  if (config.audioguiaClaveInvalida) {
+    fallar('AUDIOGUIA_CLAVE está mal formada (de 32 a 128 letras, números, - o _, sin espacios): generala otra vez en el Shell de Render.')
+  }
   if (!config.AUDIOGUIA_CLAVE) fallar('Falta AUDIOGUIA_CLAVE en el entorno: sin ella no hay QR (se genera en el Shell de Render).')
   const origen = origenDe(args.url ?? config.urlPublica, args.prueba)
   if (!origen.ok) fallar(origen.error)
@@ -107,6 +111,9 @@ if (esPrincipal(import.meta)) {
   const bloqueos = []
   if (audioguia.provisorias.length) bloqueos.push(`estaciones con tituloProvisorio: ${audioguia.provisorias.join(', ')}`)
   if (audioguia.problemas.length) bloqueos.push(`estaciones salteadas: ${audioguia.problemas.length} (arriba, por qué)`)
+  // Las que el manifiesto lista y no tienen ningún archivo (24/11/2026): con alguna, el recorrido está a medias y faltaría
+  // el QR de los espacios que se quedan sin estaciones.
+  if (audioguia.sinGrabar.length) bloqueos.push(`estaciones sin grabar: ${audioguia.sinGrabar.join(', ')}`)
   if (bloqueos.length && definitivos) {
     fallar(`No se generan los QR definitivos con ${bloqueos.join(' y ')}. Para probar, --prueba con el host de prueba.`)
   }

@@ -43,6 +43,14 @@ Una fila por cuenta. "Recuperación" es el correo secundario de recuperación, *
 - ☐ El ensayo de restauración hecho (plan 10.3) y el primer export mensual guardado en el Drive del museo, en la carpeta ______________________________.
 - ☐ El recordatorio mensual del export y de la revisión mensual en el calendario de ______________________________.
 
+### 2.1 La audioguía (solo si se contrató; si no, ☐ No aplica)
+
+- ☐ **`AUDIOGUIA_CLAVE`** cargada en Render → servicio `mupa-web` → *Environment* (**nunca se escribe acá ni en ningún otro lado**: vive solo en Render; si se pierde o se filtra, se genera otra y se reimprimen los carteles, `docs/operacion.md` 8 bis).
+- ☐ Las grabaciones publicadas: ____ estaciones de 35, con sus dos versiones (la común y la de audiodescripción) y sus transcripciones, en el commit `__________`.
+- ☐ **Los 13 carteles entregados** (12 de las puertas, A5 con el código a ____ cm, y la tarjeta del mostrador con audiodescripción, A6), hechos con la **versión ____ de los códigos** (`audioguias/pistas.json`) y la dirección `https://mupa.ar/`. Los PDF, en ______________________________.
+- ☐ **La hoja de prueba** escaneada con los códigos definitivos con ____ teléfonos (cuáles: ______________________________): el de 10 cm se leyó a 1 m con todos ☐, el de 4 cm de cerca ☐. Firmada al pie por las dos partes.
+- **Lo que el museo sabe** (va también en una hoja con los PDF): ☐ que cada cartel abre la audioguía en su espacio y que cualquiera de ellos habilita todas las estaciones hasta la medianoche; ☐ que la tarjeta del mostrador la escanea el personal con el teléfono de una persona ciega o con baja visión, y abre directo la versión con audiodescripción (la audioguía no la guía por el edificio: el acompañamiento es del museo); ☐ que la audioguía **no se administra desde el panel**; ☐ que cualquiera que haya tenido un QR (una foto, el historial del teléfono) puede usarla desde cualquier lado hasta que se cambien los códigos, y que cambiarlos anula los 13 carteles a la vez y obliga a reimprimirlos; ☐ a quién se le piden carteles nuevos, un cambio de códigos o una grabación nueva: ______________________________.
+
 ---
 
 ## 3. Garantía y mantenimiento

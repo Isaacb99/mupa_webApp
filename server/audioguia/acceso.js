@@ -1,7 +1,7 @@
 // El permiso de la audioguía en el navegador (especificación de las audioguías, versión 2, secciones 3.3, 3.6, 4 y
 // 5.3): las dos cookies, cómo se leen y qué decide cada pedido. Código puro, sin Express: recibe la cabecera Cookie, la
-// consulta, URL_PUBLICA, las claves, la versión y el reloj como argumentos; las rutas (server/audioguia/rutas.js) y el
-// montaje en server/app.js son de la etapa siguiente.
+// consulta, URL_PUBLICA, las claves, la versión y el reloj como argumentos. Lo usan las rutas
+// (server/audioguia/rutas.js), que monta server/app.js con el módulo prendido.
 //
 // - La cookie de día (3.3): __Secure-mupa_audioguia, o mupa_audioguia con URL_PUBLICA en http (esta PC y la red local),
 //   como nombreCookie de server/auth/sesiones.js: el navegador no guarda una cookie Secure ni una __Secure- que llega

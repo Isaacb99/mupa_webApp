@@ -7,7 +7,8 @@
 // las internas ni las internas el de la Home; el servidor pide de antemano el archivo de la página con
 // <link rel="modulepreload"> (server/ssr.js, con el manifiesto del build). La 404 va en el bundle principal (src/Raiz.jsx).
 // Una página nueva va acá (en PAGINAS y en ARCHIVOS_DE_PAGINAS) y en la tabla de rutas del servidor; ssr.test.js falla
-// si falta en alguna.
+// si falta en alguna. La excepción es la audioguía (desde el 24/11/2026): tiene su propio router, server/audioguia/rutas.js,
+// y la nombra PAGINAS_FUERA_DE_LA_TABLA de ese archivo.
 //
 // Desde el diseño del tablero "Web" (02/11/2026) esta tabla es también la que decide qué secciones van en el menú y en el
 // pie (src/components/navegacion.js): cada sección de navegacion en src/content.js nombra su página y se dibuja solo si
@@ -27,6 +28,9 @@ export const PAGINAS = {
   novedades: () => import('./paginas/Novedades.jsx'),
   novedad: () => import('./paginas/Novedad.jsx'),
   contacto: () => import('./paginas/Contacto.jsx'),
+  // La audioguía (server/audioguia/rutas.js): fuera de la tabla de rutas del servidor, del sitemap y de navegacion (ni
+  // menú, ni pie, ni 404). Su router la prende solo con esta entrada (existePagina('audioguia')).
+  audioguia: () => import('./paginas/Audioguia.jsx'),
 }
 
 /**
@@ -45,6 +49,7 @@ export const ARCHIVOS_DE_PAGINAS = {
   novedades: 'src/paginas/Novedades.jsx',
   novedad: 'src/paginas/Novedad.jsx',
   contacto: 'src/paginas/Contacto.jsx',
+  audioguia: 'src/paginas/Audioguia.jsx',
 }
 
 /** ¿El sitio tiene esta página? (la misma respuesta en el servidor y en el navegador: es una tabla fija). */

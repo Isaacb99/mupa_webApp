@@ -1,8 +1,14 @@
 // La lectura de audioguias/ al arrancar (especificación de las audioguías, versión 2, secciones 1.2 y 1.4):
 // cargarPistas(dir) lee el manifiesto (pistas.json), valida la cabecera y el final de cada MP3 (server/audioguia/mp3.js,
 // de a una pista por vez y unos pocos kB cada una: el audio lo sirve send desde el disco) y lee cada transcripción.
-// Sincrónica, una vez, al armar la app (server/app.js, si hay AUDIOGUIA_CLAVE: es de la etapa siguiente). El sitio
+// Sincrónica, una vez, al armar la app (la llama audioguiaDeLaApp de server/app.js, si hay AUDIOGUIA_CLAVE). El sitio
 // NUNCA deja de arrancar por la audioguía: lo que no anda se anota y se saltea.
+//
+// Una estación del manifiesto SIN NINGUNO de sus cuatro archivos (07.mp3, 07-ad.mp3, 07.txt y 07-ad.txt) está «sin
+// grabar» (24/11/2026, la etapa de las recetas): el manifiesto real lleva las 35 estaciones del guion desde antes de que
+// lleguen las grabaciones, y una entrega parcial (de la 01 a la 18) deja así las demás. Se saltea sin un error: va a
+// sinGrabar y, si hay alguna, una sola línea de aviso, audioguia_sin_grabar, con cuántas. Con uno solo de los cuatro
+// archivos ya no está sin grabar: lo que falta es un error, como sigue.
 //
 // Si algo falla:
 // - una versión de una estación que no anda (falta el MP3 o el .txt, el MP3 no pasa leerMp3, el bitrate no es el que
@@ -18,7 +24,7 @@
 // separados por una línea en blanco y las líneas de un párrafo juntadas con un espacio. Da lo mismo si el .txt salió
 // del Bloc de notas, de Word o de git con CRLF. El manifiesto, igual: con BOM y CRLF se lee.
 // Los nombres de los archivos salen del número de la estación (A11), nunca de algo que llega de un pedido.
-import { readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { log as logDelServicio } from '../log.js'
 import { KBPS_COMUN, numeroEnDosCifras, validarManifiesto } from '../../compartido/esquemas/audioguias.js'
@@ -30,6 +36,25 @@ export const MANIFIESTO = 'pistas.json'
 export const TRANSCRIPCION_MAX = 20_000
 /** Las dos versiones de cada estación y el sufijo de sus archivos. */
 export const SUFIJOS = Object.freeze({ comun: '', ad: '-ad' })
+
+/** Los cuatro archivos de una estación (A11): 7 → ['07.mp3', '07.txt', '07-ad.mp3', '07-ad.txt']. */
+export const archivosDeLaEstacion = (numero) => {
+  const nn = numeroEnDosCifras(numero)
+  return Object.values(SUFIJOS).flatMap((sufijo) => [`${nn}${sufijo}.mp3`, `${nn}${sufijo}.txt`])
+}
+
+/**
+ * Si la carpeta tiene algún MP3: para el aviso de server/app.js («hay pistas y falta AUDIOGUIA_CLAVE»). El manifiesto
+ * solo, sin grabaciones, no es una audioguía que quedó sin clave. Sin la carpeta, false.
+ * @param {string} dir
+ */
+export function hayGrabaciones(dir) {
+  try {
+    return readdirSync(dir).some((nombre) => nombre.toLowerCase().endsWith('.mp3'))
+  } catch {
+    return false
+  }
+}
 
 const sinBom = (texto) => (texto.charCodeAt(0) === 0xfeff ? texto.slice(1) : texto)
 
@@ -124,12 +149,13 @@ function leerVersion(dir, estacion, version) {
  * @param {{ log?: typeof logDelServicio, nombresDelPlano?: Record<string, string> }} [opciones]
  *   log: el del servicio (las pruebas pasan uno que anota); nombresDelPlano: ver compartido/esquemas/audioguias.js
  * @returns {{ dir: string, version: number | null, grupos: object[], espacios: Set<string>,
- *   estaciones: Map<string, object>, provisorias: string[], problemas: string[] }}
+ *   estaciones: Map<string, object>, provisorias: string[], sinGrabar: string[], problemas: string[] }}
  *   grupos: el recorrido que quedó, en orden, cada uno con su ancla (el id de su h2: espacio-<id>, y espacio-<id>-fin
  *   en la segunda aparición de Recepción, con alFinal) y sus estaciones ({ id: '07', numero, titulo,
  *   tituloProvisorio }); espacios: los ids que quedaron (para validar un QR); estaciones: '07' y '07-ad' → sus datos
  *   (lo único que consulta la ruta del audio); provisorias: las estaciones con tituloProvisorio (npm test avisa y el
- *   script de las URL se niega con mupa.ar); problemas: lo que se salteó, como texto para npm test
+ *   script de las URL se niega con mupa.ar); sinGrabar: las estaciones sin ninguno de sus cuatro archivos ('19'),
+ *   salteadas sin un error; problemas: lo que se salteó por un error, como texto para npm test
  */
 export function cargarPistas(dir, { log = logDelServicio, nombresDelPlano } = {}) {
   const vacia = (problemas) => ({
@@ -139,6 +165,7 @@ export function cargarPistas(dir, { log = logDelServicio, nombresDelPlano } = {}
     espacios: new Set(),
     estaciones: new Map(),
     provisorias: [],
+    sinGrabar: [],
     problemas,
   })
 
@@ -161,6 +188,7 @@ export function cargarPistas(dir, { log = logDelServicio, nombresDelPlano } = {}
   const estaciones = new Map()
   const grupos = []
   const provisorias = []
+  const sinGrabar = []
   const problemas = []
   const apariciones = new Map()
   for (const grupo of recorrido) {
@@ -168,6 +196,10 @@ export function cargarPistas(dir, { log = logDelServicio, nombresDelPlano } = {}
     apariciones.set(grupo.espacio, vez)
     const suyas = []
     for (const estacion of grupo.estaciones) {
+      if (!archivosDeLaEstacion(estacion.numero).some((nombre) => existsSync(join(dir, nombre)))) {
+        sinGrabar.push(numeroEnDosCifras(estacion.numero))
+        continue
+      }
       const leidas = []
       try {
         for (const v of Object.keys(SUFIJOS)) {
@@ -201,9 +233,10 @@ export function cargarPistas(dir, { log = logDelServicio, nombresDelPlano } = {}
     })
   }
 
+  if (sinGrabar.length) log('aviso', 'audioguia_sin_grabar', { estaciones: sinGrabar.length })
   if (!estaciones.size) {
     log('aviso', 'audioguia_sin_pistas', { motivo: 'ninguna estación válida' })
-    return { ...vacia(problemas), version }
+    return { ...vacia(problemas), version, sinGrabar }
   }
-  return { dir, version, grupos, espacios: new Set(grupos.map((g) => g.espacio)), estaciones, provisorias, problemas }
+  return { dir, version, grupos, espacios: new Set(grupos.map((g) => g.espacio)), estaciones, provisorias, sinGrabar, problemas }
 }

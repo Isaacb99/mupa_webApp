@@ -17,9 +17,19 @@
 // otro sitio (COD-02 de la verificación de Visitas). Ahora lo cuenta aparte (mapa) y falla si alguno llegó a tener
 // respuesta. Los envíos de --ver-envios a www.google.com (/g/collect) se leen igual: Fetch los frena antes de resolver
 // el nombre.
+// La audioguía (24/11/2026, especificación de las audioguías, 6): en una página de la audioguía (estado.pagina
+// 'audioguia') la configuración tiene que mandar page_location sin la consulta ni el fragmento (la dirección de --url,
+// sin ?v=ad) y page_title fijo, «Audioguía · MuPa», y nada de lo que va a la cola de gtag (ni, con --ver-envios, a los
+// envíos: dl y dt) puede decir qué versión se eligió (v=ad, «audiodescripción»): es un dato sobre una discapacidad. Sin
+// un QR se prueba la página sin permiso (el 403, que mide igual); con --audioguia-codigo-archivo ARCHIVO (la URL de un QR
+// de verdad, en un archivo, como rutas-check: nunca en la línea de comandos), Chrome pasa antes por el QR (la cookie de
+// día) y se prueba la página con el permiso. Por ejemplo, --url http://127.0.0.1:5183/audioguia/sala-2?v=ad.
+// Con una URL local, Chrome no resuelve ningún otro nombre (MAP * ~NOTFOUND, como measure.mjs): Google, bloqueado por
+// Network.setBlockedURLs, ni se resuelve. Por eso --ver-envios necesita la URL del sitio publicado (la etiqueta real).
 // Uso: node tools/analitica-check.mjs [--url http://127.0.0.1:5183/] [--ancho 1440] [--alto 900] [--ver-envios]
-import { spawn } from 'node:child_process'
-import { mkdtempSync, rmSync } from 'node:fs'
+//        [--audioguia-codigo-archivo ARCHIVO]
+import { spawn, spawnSync } from 'node:child_process'
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -33,9 +43,31 @@ const url = opt('--url', 'http://127.0.0.1:5183/')
 const ancho = Number(opt('--ancho', 1440))
 const alto = Number(opt('--alto', 900))
 const verEnvios = argv.includes('--ver-envios')
+// El QR de la audioguía, de un archivo (o - por la entrada): la ruta /audioguia/q/<código>, sin el origen.
+const archivoQr = opt('--audioguia-codigo-archivo', null)
+if (archivoQr && (/^https?:\/\//i.test(archivoQr) || archivoQr.includes('/audioguia/q/'))) {
+  console.error('--audioguia-codigo-archivo recibe un ARCHIVO con la URL del QR, nunca la URL (quedaría en el historial).')
+  process.exit(1)
+}
+const rutaDelQr = (() => {
+  if (!archivoQr) return null
+  const contenido = readFileSync(archivoQr === '-' ? 0 : archivoQr, 'utf8')
+  const rutas = [...contenido.matchAll(/\/audioguia\/q\/[^\s?#/]+/g)].map((m) => m[0])
+  const ruta = rutas.find((r) => r.includes('/q/recepcion.')) ?? rutas[0]
+  if (!ruta) {
+    console.error('--audioguia-codigo-archivo: el archivo no trae la URL de un QR de la audioguía.')
+    process.exit(1)
+  }
+  return ruta
+})()
+const TITULO_AUDIOGUIA = 'Audioguía · MuPa'
+const esLocal = /^(localhost|127\.\d+\.\d+\.\d+|\[::1\])$/i.test(new URL(url).hostname)
 const BLOQUEADOS = ['*googletagmanager.com*', '*google-analytics.com*', '*analytics.google.com*', '*doubleclick.net*']
 // El mapa: el host que Chrome no resuelve y cómo se reconoce un pedido suyo.
-const SIN_RESOLVER = '--host-resolver-rules=MAP www.google.com ~NOTFOUND, MAP maps.google.com ~NOTFOUND'
+// Con una URL local, ningún otro nombre (como measure.mjs); contra el sitio publicado, solo el mapa.
+const SIN_RESOLVER = esLocal
+  ? '--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1, EXCLUDE ::1, EXCLUDE localhost'
+  : '--host-resolver-rules=MAP www.google.com ~NOTFOUND, MAP maps.google.com ~NOTFOUND'
 const esDelMapa = (u) => /(^|\.)google\.com$/.test(u.hostname) && u.pathname.startsWith('/maps')
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
@@ -65,7 +97,8 @@ const RECORRIDO = `(async () => {
   scrollTo({ top: total(), behavior: 'instant' })
   await espera(1200)
   window.addEventListener('click', (e) => { if (e.target.closest?.('a[data-entradas]')) e.preventDefault() })
-  const pagina = JSON.parse(document.getElementById('estado')?.textContent ?? '{}').pagina ?? null
+  const estadoDeLaPagina = JSON.parse(document.getElementById('estado')?.textContent ?? '{}')
+  const pagina = estadoDeLaPagina.pagina ?? null
   const clics = []
   // El de adentro de la página: "home" en la franja de la Home y "pagina" en las demás (hoy ninguna: desde la Visitas
   // del tablero, 03/11/2026, Visitas ya no tiene su "Comprar entradas", V9).
@@ -80,6 +113,10 @@ const RECORRIDO = `(async () => {
   return {
     activa: true,
     pagina,
+    // La audioguía: si la página tiene el permiso (con --audioguia-codigo-archivo, tiene que tenerlo).
+    acceso: estadoDeLaPagina.datos?.acceso ?? null,
+    // Lo que hay en la cola, como texto (para buscar la versión de la audioguía: no puede estar).
+    colaComoTexto: JSON.stringify(cola),
     clics,
     config: cola.filter((a) => a[0] === 'config').map((a) => ({ id: a[1], opciones: a[2] })),
     eventos: cola.filter((a) => a[0] === 'event').map((a) => ({ nombre: a[1], datos: a[2] })),
@@ -165,6 +202,12 @@ async function probar() {
     else await send('Network.setBlockedURLs', { urls: BLOQUEADOS })
     await send('Emulation.setDeviceMetricsOverride', { width: ancho, height: alto, deviceScaleFactor: 1, mobile: ancho < 768 })
     if (ancho < 768) await send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 })
+    // La audioguía con permiso: primero el QR (303 con la cookie de día a la página de su espacio).
+    if (rutaDelQr) {
+      await send('Page.navigate', { url: new URL(rutaDelQr, url).href })
+      for (let i = 0; i < 300 && !eventos.includes('Page.loadEventFired'); i++) await sleep(100)
+      eventos.length = 0
+    }
     await send('Page.navigate', { url })
     for (let i = 0; i < 300 && !eventos.includes('Page.loadEventFired'); i++) await sleep(100)
     // La medición arranca con la página cargada y el navegador en reposo (hasta 4 s después del load).
@@ -176,7 +219,9 @@ async function probar() {
     ws.close()
     return { ...r.result.result.value, aGoogle, mapa: mapa.map(({ url, respuesta }) => ({ url, respuesta })), envios }
   } finally {
-    chrome.kill()
+    // Con sus hijos (el árbol de procesos de Chrome), por su PID: kill() deja vivos los de los renderizadores.
+    if (chrome.pid) spawnSync('taskkill', ['/T', '/F', '/PID', String(chrome.pid)], { stdio: 'ignore' })
+    else chrome.kill()
     await sleep(300)
     try {
       rmSync(profile, { recursive: true, force: true })
@@ -223,7 +268,7 @@ if (verEnvios) {
     return cuerpo.map((l) => {
       const p = new URLSearchParams(e.consulta)
       for (const [k, v] of new URLSearchParams(l)) p.set(k, v)
-      return { tid: p.get('tid') ?? base.get('tid'), en: p.get('en'), dl: p.get('dl'), destino: e.host + e.ruta, claves: [...p.keys()] }
+      return { tid: p.get('tid') ?? base.get('tid'), en: p.get('en'), dl: p.get('dl'), dt: p.get('dt'), destino: e.host + e.ruta, claves: [...p.keys()] }
     })
   })
   const ids = [...new Set(lineas.map((l) => l.tid).filter(Boolean))]
@@ -246,11 +291,53 @@ if (verEnvios) {
   if (ids.length !== 1 || ids[0] !== r.config[0]?.id) fallas.push(`los envíos van con el ID ${ids.join(', ') || '(ninguno)'}`)
   if (!nombresEnviados.includes('page_view')) fallas.push('no se envió la vista de página (page_view)')
   if (r.pagina === 'home' && !nombresEnviados.includes('ver_pie')) fallas.push('no se envió ver_pie')
+  if (r.pagina === 'audioguia') {
+    for (const l of lineas.filter((l) => l.dl)) {
+      if (/[?#]/.test(l.dl)) fallas.push('audioguía: un envío lleva la dirección con la consulta o el fragmento (dl)')
+      if (l.dt && l.dt !== TITULO_AUDIOGUIA) fallas.push(`audioguía: un envío lleva otro título (dt): ${l.dt}`)
+    }
+    if (r.envios.some((e) => /v%3Dad|v=ad|audiodescrip/i.test(e.consulta + e.cuerpo))) fallas.push('audioguía: un envío dice la versión elegida')
+  }
+}
+// La audioguía (especificación de las audioguías, 6): la dirección sin la consulta ni el fragmento, el título fijo y
+// ningún rastro de la versión elegida en la cola de gtag.
+let audioguia = null
+if (r.pagina === 'audioguia') {
+  const pedida = new URL(url)
+  const esperada = pedida.origin + pedida.pathname
+  const opciones = r.config[0]?.opciones ?? {}
+  audioguia = { pageLocation: opciones.page_location ?? null, pageTitle: opciones.page_title ?? null, conPermiso: r.acceso === true }
+  if (rutaDelQr && r.acceso !== true) fallas.push('audioguía: con el QR, la página no tiene el permiso (¿la cookie de día no llegó?)')
+  if (opciones.page_location !== esperada) fallas.push(`audioguía: page_location ${opciones.page_location ?? '(nada)'} (se esperaba ${esperada})`)
+  if (opciones.page_title !== TITULO_AUDIOGUIA) fallas.push(`audioguía: page_title ${opciones.page_title ?? '(nada)'}`)
+  if (/v=ad|audiodescrip|[?&]r=1|motivo=/i.test(r.colaComoTexto)) fallas.push('audioguía: la cola de gtag dice la versión elegida o la consulta')
+} else if (rutaDelQr) {
+  fallas.push(`con --audioguia-codigo-archivo, la página no es la audioguía (es ${r.pagina ?? 'otra'})`)
+} else if (/^\/audioguia(\/|$)/i.test(new URL(url).pathname)) {
+  // Otra página (la 404) en una dirección de la audioguía: con el módulo apagado, un QR escaneado cae ahí. Va como
+  // <origen>/audioguia, sin el código, el espacio ni la consulta (AGP-COD-01, 25/11/2026).
+  const pedida = new URL(url)
+  const opciones = r.config[0]?.opciones ?? {}
+  audioguia = { pageLocation: opciones.page_location ?? null, pageTitle: opciones.page_title ?? null, conPermiso: false }
+  if (opciones.page_location !== `${pedida.origin}/audioguia`) {
+    fallas.push(`dirección de la audioguía (${r.pagina ?? 'otra'}): page_location ${opciones.page_location ?? '(nada)'} (se esperaba ${pedida.origin}/audioguia)`)
+  }
+  if (/\/audioguia\/q\/|v=ad|[?&]r=1|motivo=/i.test(r.colaComoTexto)) fallas.push('dirección de la audioguía: la cola de gtag lleva el código o la consulta')
+  // Con --ver-envios, lo que mandaría la etiqueta: ni el resto de la ruta ni la consulta (con o sin codificar).
+  const decodificar = (t) => {
+    try {
+      return decodeURIComponent(t)
+    } catch {
+      return t
+    }
+  }
+  const enviado = (r.envios ?? []).map((e) => decodificar(`${e.consulta ?? ''} ${e.cuerpo ?? ''}`)).join(' ')
+  if (/\/audioguia\/[^\s&]|\/audioguia\?|v=ad/i.test(enviado)) fallas.push('dirección de la audioguía: un envío lleva la dirección entera')
 }
 
 console.log(
   JSON.stringify(
-    { ok: fallas.length === 0, url, tamano: `${ancho}x${alto}`, fallas, id: r.config[0]?.id, pagina: r.pagina, secciones, entradas, pedidosAGoogle: r.aGoogle, mapa: r.mapa, envios: resumenEnvios },
+    { ok: fallas.length === 0, url, tamano: `${ancho}x${alto}`, fallas, id: r.config[0]?.id, pagina: r.pagina, secciones, entradas, audioguia, pedidosAGoogle: r.aGoogle, mapa: r.mapa, envios: resumenEnvios },
     null,
     2,
   ),

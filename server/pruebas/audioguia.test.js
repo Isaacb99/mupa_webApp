@@ -5,16 +5,23 @@
 // (rutas.js: el 303 del QR, el audio con su token y su límite, y la página, que todavía no existe en
 // src/tablaDePaginas.js y se prueba con el router suelto y conPagina), el montaje en server/app.js (apagado, el sitio
 // responde igual: las mismas cabeceras, la 404 en /audioguia/… y ninguna cookie) y el script de las URL de los QR
-// (server/scripts/audioguia-urls.js). La app va armada a mano, sin base (SIN_BASE=maximo) y con un build falso, porque
-// levantar() de ayudas.js no recibe el reloj. Desde la etapa de los QR (23/11/2026), también la parte de
+// (server/scripts/audioguia-urls.js). La app va armada a mano, sin base (SIN_BASE=maximo) y con un build falso
+// (levantar() de ayudas.js, que desde el 24/11/2026 recibe el reloj, necesita la base de prueba). Desde la etapa de los QR (23/11/2026), también la parte de
 // tools/audioguia-qr.mjs que valida las URL y arma los símbolos (la versión 6 con mupa.ar, la 7 con el host de prueba,
 // la misma para los 13), importada y sin Chrome: los PDF los comprueba la propia herramienta al correr. Desde la
 // corrección de la verificación (23/11/2026): que un pedido de audio rechazado no gaste el límite (AG-SEG-01), el
 // error audioguia_limite_global en Render con TRUST_PROXY=0, que la herramienta nunca borre un archivo ajeno en la
 // carpeta de salida (AG-QR-01) y la hoja de prueba con un código por intento (AG-QR-02); y el fs.deny de los dos Vite de
 // npm run dev (server/denegados-dev.js: AG-SEG-04 y AG-COD-02), comparado con la lista que trae el Vite instalado y
-// probado con un Vite de verdad sobre una carpeta temporal. La página (src/) y la carpeta real (9.2) son de la etapa
-// siguiente.
+// probado con un Vite de verdad sobre una carpeta temporal. Desde la etapa de la página (24/11/2026,
+// src/paginas/Audioguia.jsx en src/tablaDePaginas.js): el router la prende solo (y sin ella, conPagina: false, la 404),
+// la app prendida la sirve, y con el render de verdad (src/entry-server.jsx con el Vite del proyecto) el h1 de cada
+// versión, los src, la frase y el enlace de versión y las anclas; el HTML entero de la página lo prueba layout.test.js.
+// Desde la etapa de las recetas (24/11/2026): la carpeta real, audioguias/ (9.2: el manifiesto contra el esquema y
+// contra TEXTOS_DEL_GUION, los cuatro archivos de cada estación grabada, ningún archivo de más, cada MP3 y cada
+// transcripción, y los avisos de lo provisorio y lo sin grabar), y las estaciones «sin grabar» de pistas.js (ninguno de
+// sus cuatro archivos: se saltean sin un error, con un solo aviso) con hayGrabaciones (el aviso de server/app.js sin la
+// clave, solo con algún MP3).
 //
 // Los MP3 se arman acá, en memoria: cuadros MPEG-1 Layer III con la cabecera FF FB 50 C4 (64 kbps, 44,1 kHz, mono, 208
 // bytes) y el resto en ceros, que es silencio; con otros bytes de cabecera, los de 80 kbps, estéreo o 48 kHz. Nunca un
@@ -22,11 +29,11 @@
 // El reloj va fijo (la medianoche de San Juan, 03:00 UTC: San Juan no tiene horario de verano).
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, sep } from 'node:path'
 import { after, describe, test } from 'node:test'
-import { pathToFileURL } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import express from 'express'
 import { SALAS_DEL_PLANO } from '../../src/components/mapaSalas.js'
 import {
@@ -50,7 +57,7 @@ import {
 } from '../../compartido/esquemas/audioguias.js'
 import { codigoDeQr, crearClaves, firmar, leerCodigoDeQr, leerTokenDeDia, tokenDeDia } from '../audioguia/firma.js'
 import { BYTES_MAX, leerMp3, leerMp3DeArchivo, lectorDeBuffer } from '../audioguia/mp3.js'
-import { cargarPistas, duracionCorta, duracionLarga, parrafosDe } from '../audioguia/pistas.js'
+import { archivosDeLaEstacion, cargarPistas, duracionCorta, duracionLarga, hayGrabaciones, parrafosDe, SUFIJOS } from '../audioguia/pistas.js'
 import { crearRutasDeAudioguia, LIMITE_PISTAS, VENTANA_PISTAS_MS } from '../audioguia/rutas.js'
 import { audioguiaDeLaApp, crearApp, estaticosDelBuild } from '../app.js'
 import { DENEGADOS_EN_DESARROLLO } from '../denegados-dev.js'
@@ -59,7 +66,7 @@ import { manejadorDeErrores } from '../errores.js'
 import { crearMuseoPublico } from '../museo.js'
 import { crearRutasPublicas } from '../rutas-publicas.js'
 import { leerArgumentos, origenDe, renglones } from '../scripts/audioguia-urls.js'
-import { cargarBuild, crearSsr } from '../ssr.js'
+import { cargarBuild, crearSsr, partir } from '../ssr.js'
 import * as qr from '../../tools/audioguia-qr.mjs'
 import { escucharLogs, pedir } from './ayudas.js'
 
@@ -756,13 +763,55 @@ describe('la lectura de la carpeta (pistas.js)', () => {
     assert.match(anotado.lineas[0].problemas.join('\n'), /tienda no lleva pistas/)
     assert.equal(r.estaciones.size, 0)
 
+    // El manifiesto solo, sin ningún archivo: las cuatro están sin grabar (sin errores) y no queda ninguna.
     anotado = anotador()
     r = cargarPistas(carpeta(RECORRIDO), { log: anotado.log })
-    assert.equal(anotado.lineas.filter((l) => l.evento === 'audioguia_pista_invalida').length, 4)
-    assert.deepEqual(anotado.lineas.at(-1), { nivel: 'aviso', evento: 'audioguia_sin_pistas', motivo: 'ninguna estación válida' })
+    assert.deepEqual(anotado.lineas, [
+      { nivel: 'aviso', evento: 'audioguia_sin_grabar', estaciones: 4 },
+      { nivel: 'aviso', evento: 'audioguia_sin_pistas', motivo: 'ninguna estación válida' },
+    ])
     assert.equal(r.version, 1)
     assert.equal(r.estaciones.size, 0)
+    assert.deepEqual(r.problemas, [])
+    assert.deepEqual(r.sinGrabar, ['01', '02', '03', '04'])
+
+    // Con un solo archivo por estación (la transcripción), ya no están sin grabar: falta el MP3, un error por estación.
+    anotado = anotador()
+    r = cargarPistas(carpeta(RECORRIDO, { '01.txt': 'a', '02.txt': 'b', '03-ad.txt': 'c', '04.txt': 'd' }), { log: anotado.log })
+    assert.equal(anotado.lineas.filter((l) => l.evento === 'audioguia_pista_invalida').length, 4)
+    assert.deepEqual(anotado.lineas.at(-1), { nivel: 'aviso', evento: 'audioguia_sin_pistas', motivo: 'ninguna estación válida' })
+    assert.equal(r.estaciones.size, 0)
     assert.equal(r.problemas.length, 4)
+    assert.deepEqual(r.sinGrabar, [])
+  })
+
+  test('sin grabar (24/11/2026): una estación sin ninguno de sus cuatro archivos se saltea sin error, con un solo aviso', () => {
+    // La 02 y la 04 sin ningún archivo; la 01 y la 03, enteras; la 03-ad sin su .txt sería un error (abajo).
+    const archivos = { ...archivosDe(1), ...archivosDe(3) }
+    const { log, lineas } = anotador()
+    const r = cargarPistas(carpeta(RECORRIDO, archivos), { log })
+    assert.deepEqual(lineas, [{ nivel: 'aviso', evento: 'audioguia_sin_grabar', estaciones: 2 }])
+    assert.deepEqual(r.sinGrabar, ['02', '04'])
+    assert.deepEqual(r.problemas, [])
+    assert.deepEqual([...r.estaciones.keys()].sort(), ['01', '01-ad', '03', '03-ad'])
+    // El grupo que se queda sin estaciones (la Sala 1, la segunda Recepción) no va: ni su h2 ni su QR.
+    assert.deepEqual(r.grupos.map((g) => g.ancla), ['espacio-recepcion', 'espacio-sala-3'])
+    assert.deepEqual(r.provisorias, ['03'])
+    // Uno solo de los cuatro (el 02-ad.mp3) ya es una estación a medias: un error, no un aviso.
+    const aMedias = { ...archivos, '02-ad.mp3': armarMp3({ segundos: 45 }) }
+    const otro = anotador()
+    const r2 = cargarPistas(carpeta(RECORRIDO, aMedias), { log: otro.log })
+    assert.deepEqual(otro.lineas, [
+      { nivel: 'error', evento: 'audioguia_pista_invalida', estacion: '02', motivo: 'falta 02.mp3' },
+      { nivel: 'aviso', evento: 'audioguia_sin_grabar', estaciones: 1 },
+    ])
+    assert.deepEqual(r2.sinGrabar, ['04'])
+    // hayGrabaciones: algún MP3 en la carpeta (el aviso de server/app.js sin la clave), no el manifiesto solo.
+    assert.equal(hayGrabaciones(carpeta(RECORRIDO)), false)
+    assert.equal(hayGrabaciones(carpeta(RECORRIDO, { '01.txt': 'a' })), false)
+    assert.equal(hayGrabaciones(carpeta(RECORRIDO, { '07.MP3': armarMp3() })), true)
+    assert.equal(hayGrabaciones(join(tmpdir(), 'mupa-audioguia-no-existe-')), false)
+    assert.deepEqual(archivosDeLaEstacion(7), ['07.mp3', '07.txt', '07-ad.mp3', '07-ad.txt'])
   })
 })
 
@@ -967,10 +1016,11 @@ async function escuchar(app, config) {
 }
 
 /**
- * Solo el router de la audioguía, con la página prendida (todavía no está en src/tablaDePaginas.js) y otro límite si
- * se pide, con las páginas del sitio y el manejador de errores detrás, como en server/app.js.
+ * Solo el router de la audioguía, con otro límite si se pide, con las páginas del sitio y el manejador de errores
+ * detrás, como en server/app.js. La página la prende sola (existePagina('audioguia'): desde el 24/11/2026 está en
+ * src/tablaDePaginas.js); conPagina: false prueba el router sin ella.
  */
-async function levantarRouter({ limitePistas, reloj = { ahora: MEDIODIA }, log, urlPublica = URL_HTTPS } = {}) {
+async function levantarRouter({ limitePistas, reloj = { ahora: MEDIODIA }, log, urlPublica = URL_HTTPS, conPagina, obtener } = {}) {
   const config = leerConfig({
     NODE_ENV: 'production',
     URL_PUBLICA: urlPublica,
@@ -980,11 +1030,13 @@ async function levantarRouter({ limitePistas, reloj = { ahora: MEDIODIA }, log, 
     DIR_AUDIOGUIAS: DIR_AUDIOGUIA,
   })
   const build = await cargarBuild(config.DIR_BUILD)
-  const ssr = crearSsr({ config, obtener: build.obtener, museoPublico: crearMuseoPublico(config), reloj: () => reloj.ahora })
+  const ssr = crearSsr({ config, obtener: obtener ?? build.obtener, museoPublico: crearMuseoPublico(config), reloj: () => reloj.ahora })
   const audioguia = cargarPistas(config.dirAudioguias, { log: () => {} })
   const app = express()
   app.set('trust proxy', 1)
-  app.use(crearRutasDeAudioguia({ config, ssr, audioguia, conPagina: true, limitePistas, ...(log ? { log } : {}) }))
+  app.use(
+    crearRutasDeAudioguia({ config, ssr, audioguia, limitePistas, ...(log ? { log } : {}), ...(conPagina === undefined ? {} : { conPagina }) }),
+  )
   app.use(crearRutasPublicas({ ssr }))
   app.use(manejadorDeErrores())
   return escuchar(app, config)
@@ -1076,25 +1128,110 @@ describe('el servidor: el QR (GET /audioguia/q/:codigo)', () => {
     }
   })
 
-  test('distingue mayúsculas: /Audioguia, /audioguia/Q y /audioguia/q sin código no son de la audioguía', async () => {
-    for (const ruta of [`/Audioguia/q/${codigoDe('sala-1')}`, `/audioguia/Q/${codigoDe('sala-1')}`, '/audioguia/q', `/AUDIOGUIA/pista/02?t=${tokenDe()}`]) {
+  test('distingue mayúsculas: /Audioguia, /audioguia/q y /audioguia/pista sin nada después son la 404 del sitio', async () => {
+    for (const ruta of ['/Audioguia', '/Audioguia/sala-1', '/audioguia/q', '/audioguia/pista']) {
       const r = await s.pedir('GET', ruta)
       assert.equal(r.status, 404, ruta)
       assert.equal(r.h['set-cookie'], undefined, ruta)
       assert.match(r.texto, /data-pagina="no-encontrada"/, ruta)
     }
-    // Con la barra final, la redirección de barras del sitio (que va antes) la saca y conserva la consulta.
-    const barra = await s.pedir('GET', `/audioguia/q/${codigoDe('sala-1')}/?v=ad`)
-    assert.equal(barra.status, 301)
-    assert.equal(barra.h.location, `/audioguia/q/${codigoDe('sala-1')}?v=ad`)
-    assert.equal(barra.h['set-cookie'], undefined)
   })
 
-  test('mientras la página no exista en src/tablaDePaginas.js, /audioguia y /audioguia/<espacio> dan la 404 del sitio', async () => {
-    for (const ruta of ['/audioguia', '/audioguia/sala-1?r=1', '/audioguia/recepcion?v=ad']) {
-      const r = await s.pedir('GET', ruta, { cookie: cookieDiaHttps() })
-      assert.equal(r.status, 404, ruta)
+  // AG-SEG-02, AG-SEG-03 y AG-COD-03 de la verificación del servidor: una ruta con un secreto en una forma que no es la
+  // exacta no llega al 301 de las barras (con el código o el token en el Location y sin no-store) ni a la 404 del sitio
+  // (que GA4 mide con el código en page_location): el QR responde el 303 de un código que no vale, el audio un 404 en
+  // texto, los dos con no-store y las cabeceras de la audioguía, y nunca con el código ni el token en el cuerpo.
+  test('las formas raras de las rutas con un secreto: el QR, 303 de código inválido; el audio, 404 en texto', async () => {
+    const codigo = codigoDe('sala-1')
+    const t = tokenDe()
+    const qrs = [
+      `/Audioguia/q/${codigo}`,
+      `/audioguia/Q/${codigo}`,
+      `/AUDIOGUIA/Q/${codigo}?v=ad`,
+      `/audioguia/q/${codigo}/`,
+      `/audioguia/q/${codigo}/?v=ad`,
+      `//audioguia/q/${codigo}`,
+      `/audioguia//q/${codigo}`,
+      `/audioguia/q//${codigo}`,
+      `/audioguia\\q\\${codigo}`,
+      `/audioguia/q/${codigo}/algo`,
+      `/audioguia/%71/${codigo}`,
+      `http://evil.com//audioguia/q/${codigo}`,
+    ]
+    for (const ruta of qrs) {
+      for (const metodo of ['GET', 'HEAD']) {
+        const r = await s.pedir(metodo, ruta)
+        assert.equal(r.status, 303, `${metodo} ${ruta}`)
+        assert.equal(r.h.location, '/audioguia?motivo=codigo', ruta)
+        assert.equal(r.h['cache-control'], 'no-store', ruta)
+        assert.equal(r.h['set-cookie'], undefined, ruta)
+        assert.equal(r.h['referrer-policy'], 'no-referrer', ruta)
+        assert.equal(r.h['x-robots-tag'], 'noindex, nofollow', ruta)
+        assert.ok(!r.texto.includes(codigo.split('.')[2]) && !r.texto.includes('"medir":true'), ruta)
+      }
+    }
+    const audios = [
+      `/audioguia/pista/02/?t=${t}`,
+      `/audioguia/pista//02?t=${t}`,
+      `/audioguia//pista/02?t=${t}`,
+      `/AUDIOGUIA/pista/02?t=${t}`,
+      `/audioguia/Pista/02?t=${t}`,
+      `/audioguia/pista/02/algo?t=${t}`,
+      `/audioguia\\pista\\02?t=${t}`,
+      `http://evil.com//audioguia/pista/02?t=${t}`,
+    ]
+    for (const ruta of audios) {
+      for (const metodo of ['GET', 'HEAD']) {
+        const r = await s.pedir(metodo, ruta)
+        assert.equal(r.status, 404, `${metodo} ${ruta}`)
+        assert.equal(r.h['cache-control'], 'no-store', ruta)
+        assert.equal(r.h.location, undefined, ruta)
+        assert.match(r.h['content-type'], /^text\/plain/, ruta)
+        assert.equal(r.h['referrer-policy'], 'no-referrer', ruta)
+        assert.equal(r.h['x-robots-tag'], 'noindex, nofollow', ruta)
+        assert.ok(!r.texto.includes(t.split('.')[2]), ruta)
+      }
+    }
+    // La forma exacta sigue andando, también un audio mal codificado (el 404 en texto del router: AG-COD-04).
+    assert.equal((await s.pedir('GET', `/audioguia/q/${codigo}`)).status, 303)
+    assert.equal((await s.pedir('GET', `/audioguia/pista/02?t=${t}`)).status, 200)
+    const malCodificado = await s.pedir('GET', `/audioguia/pista/%zz?t=${t}`)
+    assert.equal(malCodificado.status, 404)
+    assert.equal(malCodificado.h['cache-control'], 'no-store')
+    assert.equal(malCodificado.h['x-robots-tag'], 'noindex, nofollow')
+    assert.equal(malCodificado.h['referrer-policy'], 'no-referrer')
+  })
+
+  test('lo demás de /audioguia que el sitio redirige por las barras: el 301 de siempre, con no-store y las cabeceras de acá', async () => {
+    for (const [ruta, destino] of [
+      ['/audioguia/', '/audioguia'],
+      ['/audioguia/sala-1/?v=ad', '/audioguia/sala-1?v=ad'],
+      ['//audioguia/sala-1', '/audioguia/sala-1'],
+    ]) {
+      const r = await s.pedir('GET', ruta)
+      assert.equal(r.status, 301, ruta)
+      assert.equal(r.h.location, destino, ruta)
+      assert.equal(r.h['cache-control'], 'no-store', ruta)
+      assert.equal(r.h['referrer-policy'], 'no-referrer', ruta)
+      assert.equal(r.h['x-robots-tag'], 'noindex, nofollow', ruta)
       assert.equal(r.h['set-cookie'], undefined, ruta)
+    }
+  })
+
+  // Hasta la etapa de la página, en la app entera estas rutas daban la 404 del sitio; desde que la página está en
+  // src/tablaDePaginas.js (24/11/2026), la app prendida la sirve: el destino del 303 se abre con la cookie que puso.
+  test('la app prendida sirve la página: el destino del 303 se abre con la cookie del QR (y la de preferencia con v=ad)', async () => {
+    for (const [espacio, v] of [['sala-1', ''], ['recepcion', '?v=ad']]) {
+      const qr = await s.pedir('GET', `/audioguia/q/${codigoDe(espacio)}${v}`)
+      assert.equal(qr.status, 303)
+      const cookie = qr.h['set-cookie'][0].split(';')[0]
+      const r = await s.pedir('GET', qr.h.location.replace(/#.*$/, ''), { cookie })
+      assert.equal(r.status, 200, qr.h.location)
+      assert.match(r.texto, /data-pagina="audioguia"/)
+      assert.equal(estadoDe(r.texto).datos.espacioActual, espacio)
+      assert.equal(estadoDe(r.texto).datos.version, v ? 'ad' : 'comun')
+      if (v) assert.match(r.h['set-cookie'][0], /^mupa_audioguia_version=ad;/)
+      else assert.equal(r.h['set-cookie'], undefined)
     }
   })
 })
@@ -1343,7 +1480,7 @@ describe('el servidor: el límite del audio', () => {
   })
 })
 
-describe('el servidor: la página (preparada para la etapa de la página)', () => {
+describe('el servidor: la página', () => {
   let s
   test('arranca', async () => {
     s = await levantarRouter()
@@ -1465,6 +1602,38 @@ describe('el servidor: la página (preparada para la etapa de la página)', () =
     }
   })
 
+  test('la página se prende sola (existePagina); sin ella (conPagina: false), la 404 del sitio, sin cookies', async () => {
+    const { existePagina } = await import('../../src/tablaDePaginas.js')
+    assert.equal(existePagina('audioguia'), true)
+    // La página prendida va atada a la analítica (AG-COD-07): con ella en la tabla, GA4 no recibe ?v= ni el fragmento
+    // (especificación de las audioguías, 6). Si alguien la suma a la tabla sin eso, falla acá.
+    const { paginaParaGa4, TITULO_AUDIOGUIA } = await import('../../src/analitica.js')
+    const lugar = { origin: 'https://mupa.ar', pathname: '/audioguia/sala-2', search: '?v=ad', hash: '#espacio-sala-2' }
+    assert.deepEqual(paginaParaGa4({ pagina: 'audioguia' }, lugar), { page_location: 'https://mupa.ar/audioguia/sala-2', page_title: TITULO_AUDIOGUIA })
+    assert.equal(TITULO_AUDIOGUIA, 'Audioguía · MuPa')
+    const sinPagina = await levantarRouter({ conPagina: false })
+    try {
+      for (const ruta of ['/audioguia', '/audioguia/sala-1', '/audioguia/sala-1?v=ad']) {
+        const r = await sinPagina.pedir('GET', ruta, { cookie: cookieDiaHttps() })
+        assert.equal(r.status, 404, ruta)
+        assert.match(r.texto, /data-pagina="no-encontrada"/, ruta)
+        assert.equal(r.h['set-cookie'], undefined, ruta)
+        // Con la página, la misma ruta es la audioguía.
+        assert.equal((await s.pedir('GET', ruta, { cookie: cookieDiaHttps() })).status, 200, ruta)
+      }
+      // El QR válido sin la página: el 303 de siempre, pero sin la cookie de día y no a la página del espacio (que sería
+      // una 404 con un permiso: AG-SEG-07). El audio no depende de la página.
+      const qr = await sinPagina.pedir('GET', `/audioguia/q/${codigoDe('sala-1')}`)
+      assert.equal(qr.status, 303)
+      assert.equal(qr.h.location, '/audioguia?motivo=codigo')
+      assert.equal(qr.h['cache-control'], 'no-store')
+      assert.equal(qr.h['set-cookie'], undefined)
+      assert.equal((await sinPagina.pedir('GET', `/audioguia/pista/02?t=${tokenDe()}`)).status, 200)
+    } finally {
+      await sinPagina.cerrar()
+    }
+  })
+
   test('con URL_PUBLICA en http (la red local): las cookies sin Secure, y la de día sin __Secure-', async () => {
     const local = await levantarRouter({ urlPublica: URL_HTTP })
     try {
@@ -1478,6 +1647,86 @@ describe('el servidor: la página (preparada para la etapa de la página)', () =
     } finally {
       await local.cerrar()
     }
+  })
+})
+
+describe('el servidor: la página con el render de verdad (src/entry-server.jsx, 9.1)', () => {
+  // El render de verdad, con el Vite del proyecto (su propia caché, en el temporal del sistema), como ssr.test.js.
+  let vite
+  let s
+  const PLANTILLA =
+    '<!doctype html><html lang="es"><head><meta charset="UTF-8" /><!--head--></head>' +
+    '<body><div id="root"><!--app--></div><!--estado--></body></html>\n'
+  test('arranca', async () => {
+    const { createServer } = await import('vite')
+    vite = await createServer({
+      root: join(import.meta.dirname, '..', '..'),
+      configFile: false,
+      cacheDir: join(tmpdir(), 'mupa-vite-pruebas-audioguia'),
+      logLevel: 'silent',
+      appType: 'custom',
+      server: { middlewareMode: true, hmr: false, ws: false, watch: null },
+      optimizeDeps: { noDiscovery: true, include: [] },
+    })
+    const entrada = await vite.ssrLoadModule('/src/entry-server.jsx')
+    s = await levantarRouter({ obtener: async () => ({ partes: partir(PLANTILLA), render: entrada.render }) })
+  })
+  after(async () => {
+    await s?.cerrar()
+    await vite?.close()
+  })
+  const cuantas = (html, texto) => html.split(texto).length - 1
+  const delMain = (html) => html.slice(html.indexOf('<main'), html.indexOf('</main>') + 7)
+
+  test('sin la cookie de día: 403 con el h1, el motivo y el enlace a Visitas, sin ningún <audio>', async () => {
+    for (const [ruta, motivo] of [['/audioguia', 'sin-codigo'], ['/audioguia/sala-1?r=1&v=ad', 'sin-cookie'], ['/audioguia?motivo=codigo', 'codigo']]) {
+      const r = await s.pedir('GET', ruta)
+      assert.equal(r.status, 403, ruta)
+      assert.equal(r.h['set-cookie'], undefined, ruta)
+      const main = delMain(r.texto)
+      assert.match(main, /<h1 class="[^"]*">Audioguía<\/h1>/, ruta)
+      assert.ok(main.includes('href="/visitas"'), ruta)
+      assert.equal(cuantas(r.texto, '<audio'), 0, ruta)
+      assert.equal(cuantas(r.texto, '/audioguia/pista/'), 0, ruta)
+      assert.equal(estadoDe(r.texto).datos.motivo, motivo, ruta)
+    }
+  })
+
+  test('con ?v=ad: el h1 con el guion blando, los src y las transcripciones de -ad, la frase y un solo enlace de versión', async () => {
+    const r = await s.pedir('GET', '/audioguia/sala-1?v=ad', { cookie: cookieDiaHttps() })
+    assert.equal(r.status, 200)
+    assert.match(r.h['set-cookie'][0], /^mupa_audioguia_version=ad; Path=\/audioguia; Max-Age=15552000; HttpOnly; Secure; SameSite=Lax$/)
+    assert.match(r.texto, /<title>Audioguía · MuPa<\/title>/)
+    const main = delMain(r.texto)
+    assert.match(main, /<h1 class="[^"]*">Audioguía con audio­descripción<\/h1>/)
+    const bloque = main.slice(main.indexOf('<div id="audioguia-version"'), main.indexOf('</div>', main.indexOf('<div id="audioguia-version"')))
+    assert.ok(bloque.includes('>Estás escuchando la versión con audiodescripción.</p>'))
+    assert.deepEqual([...bloque.matchAll(/<a href="([^"]*)"/g)].map((m) => m[1]), ['/audioguia/sala-1?v=comun#audioguia-version'])
+    assert.equal(cuantas(bloque, 'aria-current'), 0)
+    const srcs = [...main.matchAll(/<audio [^>]*src="([^"]*)"/g)].map((m) => m[1].replace(/&amp;/g, '&'))
+    assert.equal(srcs.length, 4)
+    for (const src of srcs) assert.match(src, /^\/audioguia\/pista\/\d{2}-ad\?t=/)
+    assert.ok(main.includes('<p>Estación 2, con audiodescripción.</p>'))
+    assert.equal(cuantas(main, 'preload="none"'), 4)
+    // El mismo src del HTML trae el audio (el token de hoy).
+    assert.equal((await s.pedir('GET', srcs[0])).status, 200)
+  })
+
+  test('la común: las anclas de Recepción una vez cada una en los h2, y los corchetes de la transcripción como texto', async () => {
+    const r = await s.pedir('GET', '/audioguia/sala-1', { cookie: cookieDiaHttps() })
+    assert.equal(r.status, 200)
+    const main = delMain(r.texto)
+    assert.match(main, /<h1 class="[^"]*">Audioguía<\/h1>/)
+    assert.ok(main.includes('>Estás escuchando la versión sin audiodescripción.</p>'))
+    assert.equal(cuantas(main, 'id="espacio-recepcion"'), 1)
+    assert.equal(cuantas(main, 'id="espacio-recepcion-fin"'), 1)
+    assert.match(main, /<h2 id="espacio-recepcion" tabindex="-1"/)
+    assert.match(main, /<h2 id="espacio-recepcion-fin" tabindex="-1" [^>]*>RECEPCIÓN, al final del recorrido<\/h2>/)
+    assert.match(main, /<h2 id="espacio-sala-1" tabindex="-1" [^>]*>SALA 1<span class="sr-only">, estás en este espacio<\/span><\/h2>/)
+    assert.ok(main.includes('<p>Primer párrafo de la estación 2.</p><p>[Suena una tormenta]</p>'))
+    assert.ok(main.includes('href="#espacio-sala-1"'))
+    // Ninguna dirección de la otra versión.
+    assert.equal(cuantas(main, '-ad?t='), 0)
   })
 })
 
@@ -1517,6 +1766,19 @@ describe('el servidor: apagado, el sitio no cambia', () => {
     }
   })
 
+  test('sin AUDIOGUIA_CLAVE y con el manifiesto solo (sin grabaciones, como la carpeta real hoy): ningún aviso', async () => {
+    const logs = escucharLogs()
+    let s
+    try {
+      s = await levantarAudioguia({ AUDIOGUIA_CLAVE: undefined, DIR_AUDIOGUIAS: carpeta(RECORRIDO_DEL_SERVIDOR) })
+      assert.equal((await s.pedir('GET', '/audioguia')).status, 404)
+      assert.deepEqual(logs.eventos().filter((e) => e.evento.startsWith('audioguia')), [])
+    } finally {
+      logs.detener()
+      await s?.cerrar()
+    }
+  })
+
   test('con la clave y sin pistas (sin manifiesto o sin ninguna estación válida): apagada, con su aviso', async () => {
     for (const dir of [carpeta(null), carpeta(RECORRIDO_DEL_SERVIDOR)]) {
       const logs = escucharLogs()
@@ -1542,12 +1804,23 @@ describe('el servidor: apagado, el sitio no cambia', () => {
       apps.push(await levantarAudioguia({ AUDIOGUIA_CLAVE: undefined }))
       apps.push(await levantarAudioguia())
       assert.ok(logs.eventos().some((e) => e.evento === 'audioguia_prendida' && e.estaciones === 4 && e.espacios === 3))
-      for (const ruta of [...RUTAS_DEL_SITIO, '/audioguia', '/audioguia/sala-1', '/audioguia/pista']) {
+      for (const ruta of [...RUTAS_DEL_SITIO, '/audioguia/pista', '/audioguia/sala-5', '/Audioguia']) {
         const [sinNada, apagada, prendida] = await Promise.all(apps.map((s) => s.pedir('GET', ruta, { cookie: cookieDiaHttps() })))
         assert.deepEqual(cabeceras(apagada), cabeceras(sinNada), ruta)
         assert.deepEqual(cabeceras(prendida), cabeceras(sinNada), ruta)
         assert.equal(prendida.status, sinNada.status, ruta)
         assert.equal(prendida.texto, sinNada.texto, ruta)
+      }
+      // La página de la audioguía: desde que existe (src/tablaDePaginas.js, 24/11/2026), prendida es la página (403 sin
+      // el permiso de hoy, 200 con él); apagada, la 404 del sitio, igual que sin nada.
+      for (const ruta of ['/audioguia', '/audioguia/sala-1']) {
+        const [sinNada, apagada, prendida] = await Promise.all(apps.map((s) => s.pedir('GET', ruta, { cookie: cookieDiaHttps(tokenDe('2026-11-19')) })))
+        assert.equal(sinNada.status, 404, ruta)
+        assert.deepEqual(cabeceras(apagada), cabeceras(sinNada), ruta)
+        assert.equal(apagada.texto, sinNada.texto, ruta)
+        assert.equal(prendida.status, 403, ruta)
+        assert.match(prendida.texto, /data-pagina="audioguia"/, ruta)
+        assert.equal((await apps[2].pedir('GET', ruta, { cookie: cookieDiaHttps() })).status, 200, ruta)
       }
     } finally {
       logs.detener()
@@ -1555,18 +1828,50 @@ describe('el servidor: apagado, el sitio no cambia', () => {
     }
   })
 
-  test('una clave mal formada no arranca, y el error no muestra el valor; vacía, apagada', () => {
-    for (const mala of ['corta', 'con espacios de más en el medio de la clave larga', 'ñ'.repeat(40), 'a'.repeat(129)]) {
-      assert.throws(
-        () => leerConfig({ NODE_ENV: 'test', AUDIOGUIA_CLAVE: mala }),
-        (err) => /AUDIOGUIA_CLAVE/.test(err.message) && !err.message.includes(mala),
-      )
+  // AG-SEG-05 y AG-COD-08: el sitio nunca deja de arrancar por la audioguía (1.4). Hasta el 24/11/2026 una clave mal
+  // formada tiraba en leerConfig y el sitio entero no arrancaba; ahora la audioguía queda apagada y lo dice el log.
+  test('una clave mal formada deja la audioguía apagada (sin tirar y sin mostrar el valor); con espacios en los bordes, vale; vacía, apagada', () => {
+    for (const mala of ['corta', 'con espacios de más en el medio de la clave larga', 'ñ'.repeat(40), 'a'.repeat(129), `"${CLAVE_SERVIDOR}"`]) {
+      const config = leerConfig({ NODE_ENV: 'test', AUDIOGUIA_CLAVE: mala })
+      assert.equal(config.AUDIOGUIA_CLAVE, undefined, mala)
+      assert.equal(config.audioguiaClaveInvalida, true, mala)
+      assert.ok(!JSON.stringify(config).includes(mala), mala)
     }
-    assert.equal(leerConfig({ NODE_ENV: 'test', AUDIOGUIA_CLAVE: '' }).AUDIOGUIA_CLAVE, undefined)
+    for (const pegada of [`${CLAVE_SERVIDOR}\n`, `${CLAVE_SERVIDOR}\r\n`, ` ${CLAVE_SERVIDOR}`, `\t${CLAVE_SERVIDOR} `]) {
+      const config = leerConfig({ NODE_ENV: 'test', AUDIOGUIA_CLAVE: pegada })
+      assert.equal(config.AUDIOGUIA_CLAVE, CLAVE_SERVIDOR, JSON.stringify(pegada))
+      assert.equal(config.audioguiaClaveInvalida, false)
+    }
+    for (const vacia of ['', '   ']) {
+      assert.equal(leerConfig({ NODE_ENV: 'test', AUDIOGUIA_CLAVE: vacia }).AUDIOGUIA_CLAVE, undefined)
+      assert.equal(leerConfig({ NODE_ENV: 'test', AUDIOGUIA_CLAVE: vacia }).audioguiaClaveInvalida, false)
+    }
+    assert.equal(leerConfig({ NODE_ENV: 'test' }).audioguiaClaveInvalida, false)
     const raiz = join(import.meta.dirname, '..', '..')
     assert.equal(leerConfig({ NODE_ENV: 'test' }).dirAudioguias, join(raiz, 'audioguias'))
     assert.equal(leerConfig({ NODE_ENV: 'test', DIR_AUDIOGUIAS: 'otra' }).dirAudioguias, join(raiz, 'otra'))
     assert.equal(leerConfig({ NODE_ENV: 'test', DIR_AUDIOGUIAS: DIR_AUDIOGUIA }).dirAudioguias, DIR_AUDIOGUIA)
+  })
+
+  test('con una clave mal formada el sitio arranca, la audioguía queda apagada y el log lo dice sin el valor', async () => {
+    const mala = 'una clave mal pegada con espacios en el medio'
+    const logs = escucharLogs()
+    let s
+    try {
+      s = await levantarAudioguia({ AUDIOGUIA_CLAVE: mala })
+      assert.equal((await s.pedir('GET', '/')).status, 200)
+      const qr = await s.pedir('GET', `/audioguia/q/${codigoDe('sala-1')}`)
+      assert.equal(qr.status, 404)
+      assert.equal(qr.h['set-cookie'], undefined)
+      assert.equal((await s.pedir('GET', `/audioguia/pista/02?t=${tokenDe()}`)).status, 404)
+      const eventos = logs.eventos()
+      assert.equal(eventos.filter((e) => e.evento === 'audioguia_clave_invalida' && e.nivel === 'error').length, 1)
+      assert.ok(!eventos.some((e) => e.evento === 'audioguia_prendida'))
+      assert.ok(!logs.lineas.join(' ').includes(mala))
+    } finally {
+      logs.detener()
+      await s?.cerrar()
+    }
   })
 })
 
@@ -1615,6 +1920,18 @@ describe('el script de las URL de los QR (server/scripts/audioguia-urls.js)', ()
     assert.equal(sinClave.status, 1)
     assert.match(sinClave.stderr, /AUDIOGUIA_CLAVE/)
 
+    // Mal formada: server/config.js la deja apagada sin tirar; el script dice que está mal formada, sin el valor.
+    const malPegada = 'una clave con espacios en el medio que no vale'
+    const mala = correr(['--prueba', '--host', 'http://192.168.0.10:5183'], { AUDIOGUIA_CLAVE: malPegada, DIR_AUDIOGUIAS: DIR_AUDIOGUIA })
+    assert.equal(mala.status, 1)
+    assert.equal(mala.stdout, '')
+    assert.match(mala.stderr, /AUDIOGUIA_CLAVE está mal formada/)
+    assert.ok(!mala.stderr.includes(malPegada))
+    // Con un salto de línea al final (pegada de la terminal) vale: los mismos renglones que sin él.
+    const conSalto = correr(['--url', 'https://mupa.ar/'], { AUDIOGUIA_CLAVE: `${CLAVE_SERVIDOR}\n`, DIR_AUDIOGUIAS: DIR_AUDIOGUIA })
+    assert.equal(conSalto.status, 0, conSalto.stderr)
+    assert.deepEqual(conSalto.stdout.trim().split(/\r?\n/), renglones(clavesServidor, cargarPistas(DIR_AUDIOGUIA, { log: () => {} }), 'https://mupa.ar/', codigoDeQr))
+
     const provisoria = correr(['--url', 'https://mupa.ar/'], conClave(conProvisoria))
     assert.equal(provisoria.status, 1)
     assert.equal(provisoria.stdout, '')
@@ -1637,8 +1954,18 @@ describe('el script de las URL de los QR (server/scripts/audioguia-urls.js)', ()
     assert.equal(sinEstaciones.status, 1)
     const opcionRara = correr(['--clave', CLAVE_SERVIDOR], conClave(DIR_AUDIOGUIA))
     assert.equal(opcionRara.status, 1)
+    // Con alguna estación sin grabar (24/11/2026: sin ninguno de sus cuatro archivos), los definitivos no salen (el
+    // espacio que se queda sin estaciones no tendría su QR); los de prueba, sí, con el aviso.
+    const aMedio = carpeta(RECORRIDO_DEL_SERVIDOR, { ...archivosDe(1), ...archivosDe(2), ...archivosDe(3) })
+    const sinGrabar = correr(['--url', 'https://mupa.ar/'], conClave(aMedio))
+    assert.equal(sinGrabar.status, 1)
+    assert.equal(sinGrabar.stdout, '')
+    assert.match(sinGrabar.stderr, /estaciones sin grabar: 04/)
+    const sinGrabarPrueba = correr(['--prueba', '--host', 'http://127.0.0.1:5183/'], conClave(aMedio))
+    assert.equal(sinGrabarPrueba.status, 0, sinGrabarPrueba.stderr)
+    assert.match(sinGrabarPrueba.stderr, /aviso: estaciones sin grabar: 04/)
 
-    for (const r of [sinClave, provisoria, prueba, definitivos, otroHost, sinEstaciones, opcionRara]) {
+    for (const r of [sinClave, provisoria, prueba, definitivos, otroHost, sinEstaciones, opcionRara, sinGrabar, sinGrabarPrueba]) {
       assert.ok(!(r.stdout + r.stderr).includes(CLAVE_SERVIDOR), 'la clave en la salida')
     }
   })
@@ -1867,6 +2194,168 @@ describe('la herramienta de los QR (tools/audioguia-qr.mjs)', () => {
       assert.match(paginas[0], /comparten el margen blanco: para probar uno, tapá el otro/)
     }
   })
+
+  // Los detalles de la verificación de los QR (24/11/2026). Sin Chrome: el HTML de las hojas y revisarPdf con páginas
+  // armadas acá (lo que mide leerPdf en un PDF de verdad lo comprueba la herramienta al correr).
+  test('las URL, solo en su forma canónica: mayúsculas, :443, barras invertidas o /./ no pasan, y el mensaje no repite la URL (AG-QR-06)', () => {
+    const base = qr.leerUrls(urls(2, 'https://mupa.ar/')).renglones
+    const codigo = base[1].url.slice('https://mupa.ar/audioguia/q/'.length)
+    for (const rara of [
+      `HTTPS://MUPA.AR/audioguia/q/${codigo}`,
+      `https://Mupa.ar/audioguia/q/${codigo}`,
+      `https://mupa.ar:443/audioguia/q/${codigo}`,
+      `https://mupa.ar\\audioguia\\q\\${codigo}`,
+      `https://mupa.ar/audioguia/./q/${codigo}`,
+      `https://mupa.ar/x/../audioguia/q/${codigo}`,
+    ]) {
+      const lista = base.map((r) => ({ ...r }))
+      lista[1].url = rara
+      // El renglón no cuenta: además, faltan las URL de sala-1.
+      const { problemas } = qr.validarCarteles(lista, manifiesto(2))
+      assert.equal(problemas.length, 2, rara)
+      assert.match(problemas[0], /^renglón 2 \(sala-1\): la URL no está escrita en su forma canónica/, rara)
+      assert.match(problemas[1], /faltan las URL de sala-1/, rara)
+      assert.ok(!problemas.join('\n').includes(codigo), rara)
+    }
+    // Con --prueba también: el host con mayúsculas.
+    const render = qr.leerUrls(urls(1, 'https://mupa-web.onrender.com/')).renglones
+    render[0].url = render[0].url.replace('mupa-web', 'MUPA-WEB')
+    assert.match(qr.validarCarteles(render, manifiesto(1), { prueba: true, host: 'mupa-web.onrender.com' }).problemas.join('\n'), /forma canónica/)
+  })
+
+  test('el SVG es el símbolo armado, módulo por módulo, y svgDe tira si no (AG-QR-08)', () => {
+    const { simbolos } = qr.armarSimbolos(preparar(2, 'https://mupa.ar/').carteles)
+    for (const s of simbolos) {
+      assert.deepEqual(qr.matrizDelSvg(qr.svgDe(s), s.modulos), qr.matrizDelSimbolo(s.qr), s.id)
+    }
+    // Con el símbolo de otro cartel (otra URL, la misma versión), el SVG dibujado desde la URL no coincide.
+    assert.throws(() => qr.svgDe({ ...simbolos[2], qr: simbolos[3].qr }), /no es el símbolo armado/)
+    // matrizDelSvg entiende el trazado de qrcode: un renglón con dos tramos y un salto.
+    const chico = '<svg><path fill="#ffffff" d="M0 0h10v10H0z"/><path stroke="#000000" d="M4 4.5h1m1 0h1M5 5.5h1"/></svg>'
+    assert.deepEqual(qr.matrizDelSvg(chico, 3), [[true, false, true], [false, true, false], [false, false, false]])
+    assert.throws(() => qr.matrizDelSvg('<svg><path stroke="#000" d="M4 9.5h1"/></svg>', 3), /fuera de los renglones/)
+  })
+
+  test('las hojas: el silencio entre el de 10 y el de 8 más un margen, la versión en cada rótulo, el pie arriba del borde, las esquinas y los espacios que no cortan (AG-QR-03, 04, 05 y 10)', () => {
+    for (const [version, origen, opciones] of [[2, 'https://mupa.ar/', {}], [1, 'https://mupa-web.onrender.com/', { prueba: true, host: 'mupa-web.onrender.com' }]]) {
+      const armados = qr.armarSimbolos(preparar(version, origen, opciones).carteles, { prueba: !!opciones.prueba })
+      for (const s of armados.simbolos) s.svg = qr.svgDe(s)
+      const lista = qr.trabajos(armados.simbolos, { cm: 10, prueba: !!opciones.prueba })
+      const nombre = `QR versión ${armados.version}-Q`
+      const [p1, p2] = lista.find((t) => t.archivo === 'prueba.pdf').html.split('<section ').slice(1)
+      const mm = (estilo, prop) => Number(new RegExp(`(?:^|[ ;])${prop}:([\\d.]+)mm`).exec(estilo)[1])
+      const codigos = (pagina) =>
+        [...pagina.matchAll(/<div class="qr" data-qr data-cm="([\d.]+)" data-lado-mm="([\d.]+)" data-silencio-mm="([\d.]+)" style="([^"]*)"/g)].map(
+          ([, cm, , silencio, estilo]) => ({ cm: Number(cm), silencio: Number(silencio), x: mm(estilo, 'left') }),
+        )
+      const [, de10, de8] = codigos(p1)
+      const fin10 = de10.x + de10.silencio + 100
+      const inicio8 = de8.x + de8.silencio
+      assert.ok(inicio8 - fin10 >= Math.max(de10.silencio, de8.silencio) + qr.MARGEN_ENTRE_CODIGOS_MM - 0.001, `entre el de 10 y el de 8: ${inicio8 - fin10} mm`)
+      assert.ok(de8.x + 2 * de8.silencio + 80 <= 210, 'el de 8 entra en el A4')
+      // Cada rótulo de la hoja de prueba lleva la versión del QR (6 rótulos: 12, 8, 10, 6, 4 y 7 cm).
+      const rotulos = (p1 + p2).replace(/ /g, ' ').match(/\d+ cm, módulo de [\d,]+ mm, QR versión \d+-Q/g)
+      assert.equal(rotulos?.length, 6, String(rotulos))
+      assert.ok(rotulos.every((r) => r.endsWith(nombre)))
+      // Los espacios que no cortan: «versión 6», «corrección Q» (también en el pie de los carteles).
+      const puerta = lista.find((t) => t.archivo === 'sala-1.pdf').html
+      const tarjeta = lista.find((t) => t.archivo === `${qr.ID_AD}.pdf`).html
+      for (const html of [puerta, tarjeta, p1]) {
+        assert.match(html, /versión \d+, corrección Q/)
+        assert.doesNotMatch(html, /corrección Q|versión \d/)
+      }
+      // El pie y la regla a 18 y 11 mm del borde de abajo (AG-QR-05): en el A5, a 192 y 199; en el A6, a 130 y 137.
+      for (const [html, alto] of [[puerta, 210], [tarjeta, 148], [p1, 297]]) {
+        const pie = /<div class="texto chico" style="left:6mm; top:([\d.]+)mm[^"]*">Imprimir al 100/.exec(html)
+        const regla = /<div class="regla" style="left:6mm; top:([\d.]+)mm/.exec(html)
+        assert.equal(Number(pie[1]), alto - 18)
+        assert.equal(Number(regla[1]), alto - 11)
+      }
+      // Las marcas de las esquinas, en el A5 y en el A6 (no en la hoja de prueba), y la indicación balanceada.
+      assert.equal((puerta.match(/data-esquina/g) ?? []).length, 8)
+      assert.equal((tarjeta.match(/data-esquina/g) ?? []).length, 8)
+      assert.equal((p1 + p2).includes('data-esquina'), false)
+      assert.match(puerta, /\.indicacion \{[^}]*text-wrap: balance/)
+      // Las páginas de cada PDF llevan las matrices de sus símbolos, en el orden de sus códigos.
+      const pruebaPdf = lista.find((t) => t.archivo === 'prueba.pdf')
+      assert.equal(pruebaPdf.paginas[0].matrices.length, 3)
+      assert.deepEqual(pruebaPdf.paginas[1].matrices[2], qr.matrizDelSimbolo(armados.simbolos.find((s) => s.ad).qr))
+      assert.equal(lista.find((t) => t.archivo === 'todos.pdf').paginas.length, 13)
+    }
+  })
+
+  test('revisarPdf: el trazo (un módulo, a tope, negro), los módulos contra el símbolo y el silencio entre dos códigos (AG-QR-03 y AG-QR-07)', () => {
+    const { simbolos } = qr.armarSimbolos(preparar(2, 'https://mupa.ar/').carteles)
+    const comun = simbolos[0]
+    const n = comun.modulos
+    const MATRIZ = qr.matrizDelSimbolo(comun.qr)
+    // Un código como lo deja leerPdf: los tramos horizontales por el centro de cada renglón, en mm de la página.
+    const codigoEn = (cm, x, y, matriz = MATRIZ) => {
+      const m = (cm * 10) / n
+      const tramos = []
+      matriz.forEach((fila, f) => {
+        for (let c = 0; c < n; ) {
+          if (!fila[c]) {
+            c++
+            continue
+          }
+          let fin = c
+          while (fin < n && fila[fin]) fin++
+          tramos.push([[x + c * m, y + (f + 0.5) * m], [x + fin * m, y + (f + 0.5) * m]])
+          c = fin
+        }
+      })
+      const xs = tramos.flatMap(([a, b]) => [a[0], b[0]])
+      const ys = tramos.flatMap(([a, b]) => [a[1], b[1]])
+      return {
+        anchoMm: Math.max(...xs) - Math.min(...xs),
+        izquierdaMm: Math.min(...xs),
+        arribaMm: Math.min(...ys),
+        tramos,
+        trazado: true,
+        trazoMm: m,
+        extremo: 0,
+        color: '#000000',
+      }
+    }
+    const silencio10 = (100 * qr.SILENCIO) / n
+    const pagina = (codigos) => [{ anchoMm: 210, altoMm: 297, imagenes: 0, codigos }]
+    const trabajo = (conMatrices = true) => ({
+      archivo: 'prueba.pdf',
+      modulos: n,
+      paginas: [{ hoja: [210, 297], codigos: [10, 8], ...(conMatrices ? { matrices: [MATRIZ, MATRIZ] } : {}) }],
+    })
+    const conSeparacion = (mm, cambio = {}) => pagina([codigoEn(10, 10, 20), { ...codigoEn(8, 10 + 100 + mm, 20), ...cambio }])
+    assert.deepEqual(qr.revisarPdf(conSeparacion(silencio10 + 1.5), trabajo()), [])
+    // Justo el silencio, sin margen (lo de AG-QR-03): un problema.
+    const justo = qr.revisarPdf(conSeparacion(silencio10 - 0.05), trabajo())
+    assert.equal(justo.length, 1)
+    assert.match(justo[0], /entre los códigos de 10 y 8 cm hay 9,71 mm y tenía que haber al menos 10,26/)
+    // Lo que tiene que dar un problema cada uno (en el de 8 cm).
+    const casos = [
+      [{ trazoMm: ((80 / n) * 1.02) }, /el trazo mide/],
+      [{ extremo: 2 }, /no son a tope/],
+      [{ color: '#333333' }, /no es negro/],
+      [{ trazado: false }, /no es un trazo/],
+    ]
+    for (const [cambio, esperado] of casos) {
+      const r = qr.revisarPdf(conSeparacion(silencio10 + 1.5, cambio), trabajo())
+      assert.equal(r.length, 1, JSON.stringify(cambio))
+      assert.match(r[0], esperado)
+    }
+    // Un módulo cambiado en el de 8 cm: sus módulos no son los del símbolo. Sin las matrices, no se compara.
+    const otra = MATRIZ.map((f) => [...f])
+    otra[20][20] = !otra[20][20]
+    const cambiada = pagina([codigoEn(10, 10, 20), codigoEn(8, 10 + 100 + silencio10 + 1.5, 20, otra)])
+    const r = qr.revisarPdf(cambiada, trabajo())
+    assert.equal(r.length, 1)
+    assert.match(r[0], /el código de 8 cm: sus módulos en el PDF no son los del símbolo/)
+    assert.deepEqual(qr.revisarPdf(cambiada, trabajo(false)), [])
+    // matrizDelPdf lee de vuelta la matriz de los tramos.
+    assert.deepEqual(qr.matrizDelPdf(codigoEn(10, 3, 4), n), MATRIZ)
+    // Sin trabajo.modulos (como lo llama la herramienta de medidas de las pruebas), solo los anchos.
+    assert.deepEqual(qr.revisarPdf(conSeparacion(1, { extremo: 2 }), { ...trabajo(), modulos: undefined }), [])
+  })
 })
 
 describe('npm run dev no sirve la audioguía (server/denegados-dev.js: AG-SEG-04 y AG-COD-02)', () => {
@@ -1918,5 +2407,200 @@ describe('npm run dev no sirve la audioguía (server/denegados-dev.js: AG-SEG-04
       await vite?.close()
       rmSync(raiz, { recursive: true, force: true })
     }
+  })
+})
+
+// ——— La carpeta real, audioguias/ (especificación de las audioguías, 9.2; desde el 24/11/2026) ———
+// Recorre la carpeta del repo de verdad, sin servidor. El manifiesto (audioguias/pistas.json) tiene las 35 estaciones
+// del guion desde antes de que lleguen las grabaciones: una estación sin ninguno de sus cuatro archivos está «sin
+// grabar» y es un AVISO (como el relleno), no una falla; con uno, dos o tres, una falla (está a medias). Sin el
+// manifiesto, un aviso («0 estaciones»): el módulo se puede deployar antes de las grabaciones.
+
+/**
+ * Los textos del guion, copiados del resumen que dio el desarrollador (las tablas 1.2.1 y 12 de la especificación)
+ * mientras no llegue el documento del museo («EXPERIENCIA MUPA 2026»): cuando llegue, se cotejan uno por uno, con su
+ * caja, y se corrigen acá y en audioguias/pistas.json en el mismo commit (lo mismo si se aprueba la propuesta de 14.8).
+ * Por grupo: [espacio, nombreGuion, titulo, lema, estaciones]; cada estación, [numero, titulo]. Un título null es una
+ * estación que el guion trajo sin título (la referencial de un espacio): en el manifiesto lleva tituloProvisorio y, de
+ * título, el del espacio o, si no tiene, su lema (1.2).
+ */
+const TEXTOS_DEL_GUION = Object.freeze([
+  ['recepcion', 'RECEPCIÓN', null, null, [[1, 'Bienvenida al MUPA']]],
+  ['sala-1', 'SALA 1', 'EL CICLO DE LA VIDA', 'Empecemos desde cero', [
+    [2, 'Empecemos desde cero'],
+    [3, 'Geología: una historia escrita en las rocas'],
+    [4, 'Paleontología: tras las huellas del tiempo'],
+    [5, 'Biología: los secretos de la vida'],
+  ]],
+  ['sala-2', 'SALA 2', 'ISCHIGUALASTO', 'El origen de los dinosaurios', [
+    [6, 'Ischigualasto: Ecos de un mundo diverso'],
+    [7, 'El origen de los dinosaurios'],
+    [8, 'Taytalura: el antepasado de los lagartos'],
+    [9, 'Sinápsidos: los ancestros de los mamíferos'],
+    [10, 'Pterosaurios: los voladores del Triásico'],
+    [11, 'Rincosaurios: los reptiles más abundantes de Ischigualasto'],
+    [12, 'Crurotarsi: los antecesores de los cocodrilos'],
+    [13, 'Fósiles icónicos de Ischigualasto'],
+  ]],
+  ['sala-3', 'SALA 3', 'EL LABORATORIO', 'Donde los fósiles se transforman en conocimiento', [[14, null]]],
+  ['sala-4', 'SALA 4', 'LA CAMPAÑA', 'Tras las huellas del pasado', [[15, null]]],
+  ['sala-5', 'SALA 5', 'GEOLOGÍA', 'La historia escrita en rocas', [
+    [16, null],
+    [17, 'Ciclo de las rocas: una historia sin fin'],
+    [18, 'Estratigrafía: aprender a leer los paisajes'],
+  ]],
+  ['sala-6', 'SALA 6', 'PALEOBOTÁNICA', 'Las plantas nos cuentan el pasado', [
+    [19, null],
+    [20, 'Plantas primitivas, las primeras en conquistar la Tierra'],
+    [21, 'Los bosques gigantes del Carbonífero'],
+    [22, 'La flora triásica'],
+    [23, 'La llegada de las flores'],
+  ]],
+  ['sala-7', 'SALA 7', 'UN VIAJE AL TRIÁSICO', 'El fin de un mundo, el inicio de otro', [
+    [24, null],
+    [25, 'Ischigualasto en tiempos del Triásico'],
+    [26, 'Quebrada del Barro: nuevos protagonistas del Triásico'],
+    [27, 'Extinción Triásica: una crisis que transformó la vida'],
+  ]],
+  ['jardin-triasico', 'JARDÍN TRIÁSICO', null, 'Paisaje vivo', [[28, null]]],
+  ['sala-educativa', 'PLAZA INTERACTIVA', null, 'Aprender jugando', [[29, null]]],
+  ['sala-8', 'SALA GIGANTISMO', 'GIGANTISMO', 'La grandeza del pasado', [
+    [30, null],
+    [31, 'Patagotitán, la grúa viviente'],
+    [32, 'Mapusaurus, el cazador en equipo'],
+    [33, 'Quetzacoatlus, el rey de los cielos'],
+  ]],
+  ['sala-inmersiva', 'SALA INMERSIVA', null, 'La memoria del tiempo', [[34, null]]],
+  ['recepcion', 'RECEPCIÓN', null, null, [[35, 'Despedida MUPA']]],
+])
+
+const DIR_REAL = fileURLToPath(new URL('../../audioguias/', import.meta.url))
+const MANIFIESTO_REAL = join(DIR_REAL, 'pistas.json')
+
+/** El manifiesto real ya validado (con los nombres del plano), o null si no está. Tira si no pasa el esquema. */
+function manifiestoReal() {
+  if (!existsSync(MANIFIESTO_REAL)) return null
+  const texto = readFileSync(MANIFIESTO_REAL, 'utf8')
+  const r = validarManifiesto(JSON.parse(texto.charCodeAt(0) === 0xfeff ? texto.slice(1) : texto), { nombresDelPlano: NOMBRES_DEL_PLANO })
+  assert.ok(r.ok, `audioguias/pistas.json no pasa el esquema:\n- ${r.problemas?.join('\n- ')}`)
+  return r.manifiesto
+}
+
+/** Cuáles de los cuatro archivos de una estación están en la carpeta real. */
+const presentes = (numero) => archivosDeLaEstacion(numero).filter((nombre) => existsSync(join(DIR_REAL, nombre)))
+
+describe('la carpeta real (audioguias/, 9.2)', () => {
+  test('el manifiesto pasa el esquema: los ids, los nombres del plano, Recepción solo primera y última, los números', (t) => {
+    const m = manifiestoReal()
+    if (!m) {
+      t.diagnostic('AVISO audioguias: sin audioguias/pistas.json (0 estaciones): el módulo queda apagado')
+      return
+    }
+    const recorrido = m.recorrido
+    assert.equal(recorrido[0].espacio, 'recepcion')
+    assert.equal(recorrido.at(-1).espacio, 'recepcion')
+    assert.equal(recorrido.filter((g) => g.espacio === 'recepcion').length, 2)
+    for (const g of recorrido) assert.equal(g.nombre, g.espacio === 'recepcion' ? 'Recepción' : NOMBRES_DEL_PLANO[g.espacio], g.espacio)
+  })
+
+  test('los textos, contra el guion (TEXTOS_DEL_GUION), carácter por carácter; un aviso por cada título provisorio', (t) => {
+    const m = manifiestoReal()
+    if (!m) return
+    const delManifiesto = m.recorrido.map((g) => [
+      g.espacio,
+      g.nombreGuion,
+      g.titulo ?? null,
+      g.lema ?? null,
+      g.estaciones.map((e) => [e.numero, e.tituloProvisorio ? null : e.titulo]),
+    ])
+    assert.deepEqual(delManifiesto, TEXTOS_DEL_GUION.map((g) => structuredClone(g)))
+    // Las provisorias: el título del espacio o, si no tiene, su lema (1.2).
+    const provisorias = []
+    for (const g of m.recorrido) {
+      for (const e of g.estaciones) {
+        if (!e.tituloProvisorio) continue
+        assert.equal(e.titulo, g.titulo ?? g.lema, `la ${e.numero}: el título provisorio es el del espacio o su lema`)
+        provisorias.push(numeroEnDosCifras(e.numero))
+      }
+    }
+    if (provisorias.length) {
+      t.diagnostic(
+        `AVISO audioguias: ${provisorias.length} estaciones con tituloProvisorio (${provisorias.join(', ')}): ` +
+          'pedirle el título al museo; con alguna, npm run audioguia-urls -- --url https://mupa.ar/ se niega',
+      )
+    }
+  })
+
+  test('cada estación tiene sus cuatro archivos (o ninguno: sin grabar, un aviso), y no hay ningún archivo más', (t) => {
+    const m = manifiestoReal()
+    if (!existsSync(DIR_REAL)) return
+    const esperados = new Set(['pistas.json'])
+    for (const e of m?.recorrido.flatMap((g) => g.estaciones) ?? []) for (const nombre of archivosDeLaEstacion(e.numero)) esperados.add(nombre)
+    const demas = readdirSync(DIR_REAL, { withFileTypes: true })
+      .filter((d) => !d.isFile() || !esperados.has(d.name))
+      .map((d) => (d.isFile() ? d.name : `${d.name}/`))
+    assert.deepEqual(demas, [], 'archivos que el manifiesto no explica (un WAV, un 07-v2.mp3 olvidado, un .DS_Store, una carpeta)')
+    if (!m) return
+    const sinGrabar = []
+    const aMedias = []
+    for (const e of m.recorrido.flatMap((g) => g.estaciones)) {
+      const hay = presentes(e.numero)
+      if (!hay.length) sinGrabar.push(numeroEnDosCifras(e.numero))
+      else if (hay.length < 4) aMedias.push(`${numeroEnDosCifras(e.numero)}: faltan ${archivosDeLaEstacion(e.numero).filter((n) => !hay.includes(n)).join(', ')}`)
+    }
+    assert.deepEqual(aMedias, [], 'estaciones a medias (las dos versiones, con sus transcripciones, van juntas)')
+    if (sinGrabar.length) {
+      t.diagnostic(`AVISO audioguias: ${sinGrabar.length} estaciones sin grabar (${sinGrabar.join(', ')}): no salen en la página ni tienen QR`)
+    }
+  })
+
+  test('cada MP3 pasa el validador (CBR, mono, 44,1 kHz, hasta 3 MB, de 20 s a 5 min) con el bitrate que declara su estación; cada transcripción tiene texto, sin BOM ni retornos de carro', (t) => {
+    const m = manifiestoReal()
+    if (!m) return
+    const resumen = { estaciones: 0, bytes: 0, comun: 0, ad: 0 }
+    for (const e of m.recorrido.flatMap((g) => g.estaciones)) {
+      if (presentes(e.numero).length !== 4) continue
+      resumen.estaciones++
+      for (const [version, sufijo] of Object.entries(SUFIJOS)) {
+        const id = `${numeroEnDosCifras(e.numero)}${sufijo}`
+        const mp3 = leerMp3DeArchivo(join(DIR_REAL, `${id}.mp3`))
+        assert.equal(mp3.kbps, (version === 'ad' ? e.kbpsAd : e.kbps) ?? 64, `${id}.mp3: el bitrate que declara la estación`)
+        resumen.bytes += mp3.bytes
+        resumen[version] += mp3.duracionS
+        const texto = readFileSync(join(DIR_REAL, `${id}.txt`), 'utf8')
+        assert.ok(!texto.includes(String.fromCharCode(0xfeff)), `${id}.txt: sin BOM`)
+        assert.ok(!texto.includes('\r'), `${id}.txt: sin \\r (en git va con eol=lf: .gitattributes)`)
+        assert.ok(texto.length <= 20_000, `${id}.txt: hasta 20.000 caracteres`)
+        assert.ok(parrafosDe(texto).length > 0, `${id}.txt: tiene texto`)
+      }
+    }
+    // Lo mismo que va a leer el servidor al arrancar: nada salteado por un error.
+    const leida = cargarPistas(DIR_REAL, { log: () => {}, nombresDelPlano: NOMBRES_DEL_PLANO })
+    assert.deepEqual(leida.problemas, [])
+    assert.equal(leida.estaciones.size, resumen.estaciones * 2)
+    const minutos = (s) => `${Math.floor(s / 60)} min ${s % 60} s`
+    t.diagnostic(
+      `audioguias: ${resumen.estaciones} estaciones grabadas de ${m.recorrido.flatMap((g) => g.estaciones).length}, ` +
+        `${(resumen.bytes / 1e6).toFixed(1)} MB; la común, ${minutos(resumen.comun)}; con audiodescripción, ${minutos(resumen.ad)}`,
+    )
+  })
+
+  test('las 35 del guion: del 1 al 35, sin huecos (mientras el manifiesto esté a medias, un aviso)', (t) => {
+    const m = manifiestoReal()
+    if (!m) return
+    const numeros = m.recorrido.flatMap((g) => g.estaciones.map((e) => e.numero))
+    if (numeros.length === 35) assert.deepEqual(numeros, Array.from({ length: 35 }, (_, i) => i + 1))
+    else t.diagnostic(`AVISO audioguias: el manifiesto tiene ${numeros.length} estaciones de las 35 del guion`)
+  })
+
+  test('el control: un archivo de más o una estación a medias hacen fallar la comprobación de la carpeta', () => {
+    // La misma regla de arriba, sobre una copia del manifiesto real con un WAV y un 07-v2.mp3 de más y la 02 a medias.
+    const m = manifiestoReal() ?? RECORRIDO
+    const dir = carpeta(m, { '01-bienvenida.wav': 'RIFF', '07-v2.mp3': armarMp3(), '02.mp3': armarMp3() })
+    const esperados = new Set(['pistas.json', ...m.recorrido.flatMap((g) => g.estaciones).flatMap((e) => archivosDeLaEstacion(e.numero))])
+    const demas = readdirSync(dir).filter((n) => !esperados.has(n)).sort()
+    assert.deepEqual(demas, ['01-bienvenida.wav', '07-v2.mp3'])
+    const r = cargarPistas(dir, { log: () => {} })
+    assert.deepEqual(r.problemas, ['02: falta 02.txt'])
   })
 })

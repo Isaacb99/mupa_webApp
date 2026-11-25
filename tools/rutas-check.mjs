@@ -19,7 +19,20 @@
 // JS y el CSS públicos (con hash, un año e immutable; sin zod ni el editor; el JS de la Home contra el tope del plan
 // 6.2), /administracion/ (no-store, noindex y su CSP), la API del panel sin sesión (401), una foto inexistente (404 y
 // no-store) y una real si alguna página la usa (immutable, ETag, 304, la maestra 404). Y, en el HTML de cada página
-// (las fijas, las del sitemap y la página 2 de /novedades), las marcas del relleno y del contenido de ejemplo.
+// (las fijas, las del sitemap y la página 2 de /novedades), las marcas del relleno y del contenido de ejemplo. Y la
+// audioguía (24/11/2026, especificación de las audioguías, 9.4), en su sección: sin un QR, /audioguia y /audioguia?v=ad
+// (403, o la 404 del sitio si está apagada, y lo dice: «Todo bien» con la nota «apagada»), HTML, private, no-store,
+// Vary: Cookie, noindex en la cabecera y en el meta también en el host canónico, Referrer-Policy no-referrer, la CSP
+// pública y sin Set-Cookie; un QR que no vale (con y sin ?v=ad), 303 a /audioguia?motivo=codigo sin cookie; /Audioguia,
+// 404; el audio sin t, 403 o 404 con no-store; y que el sitemap no la nombre. Con --audioguia-codigo-archivo (un QR de
+// verdad), el camino entero: el 303 con la cookie de día y el Location sin el código, la página en 200 con la cookie y
+// en 403 sin ella, el primer audio con Range (206, Content-Range, Accept-Ranges, sin Content-Encoding, private), sin t
+// 403, la prueba del borde de Render (el mismo audio dos veces y una con t cambiado, que tiene que dar 403; ninguna
+// respuesta con cf-cache-status: HIT ni Age mayor que 0) y la de audiodescripción (el QR con ?v=ad, el 303 con v=ad, el
+// h1 de la versión, la cookie de preferencia y el primer audio en -ad). Esos pedidos con un código o un token van aparte
+// de «ninguna respuesta pone Set-Cookie» (el QR válido y la página con ?v= sí la ponen) y la herramienta nunca escribe
+// la URL, el código ni el token (dice «el QR (recepcion)»), tampoco en el --json. Con --audioguia-codigo-viejo-archivo,
+// un QR de una versión anterior: 303 a /audioguia?motivo=codigo, sin cookie.
 //
 // Qué espera:
 // - noindex (cabecera X-Robots-Tag y <meta name="robots">) en todo, salvo cuando el host del pedido es el de la URL
@@ -89,6 +102,11 @@
 //   --json ARCHIVO             guardar el resultado completo (con el relleno página por página, en «relleno», y
 //                              cuántos comentarios «RELLENO DEL TABLERO:» tiene src/content.js, en
 //                              «relleno.comentariosEnContentJs»)
+//   --audioguia-codigo-archivo ARCHIVO   un archivo FUERA del repo con la URL de un QR de verdad (la de la PC:
+//                              tools/salida/audioguias/qr/urls.txt, que trae los 12: se usa el de Recepción), o - para
+//                              pegarla sin eco. Nunca la URL en la línea de comandos ni en una variable (quedaría en el
+//                              historial: E5-13); si se la pasa, corta con código 1
+//   --audioguia-codigo-viejo-archivo ARCHIVO   lo mismo, con un QR de una versión anterior de los códigos
 // Una opción que no es ninguna de estas, también si empieza con una raya tipográfica o el signo menos en vez de los
 // guiones («—relleno falla», pegado de un documento), corta con código 1 y lo dice (RT-07, 17/11/2026).
 // Sale con 0 si todo dio bien (los avisos no cuentan) y con 1 si algo falló o el sitio no respondió.
@@ -121,6 +139,9 @@ if (!opcion('--url') || tiene('--ayuda') || tiene('-h')) {
   console.log('              (https://mupa.ar/ después del corte) y avisa en los demás casos (Render antes del corte, la')
   console.log('              producción local). El relleno sin marca no lo ve: dice cuántos comentarios «RELLENO DEL')
   console.log('              TABLERO:» tiene src/content.js.')
+  console.log('  --audioguia-codigo-archivo ARCHIVO|-   la URL de un QR de verdad, en un archivo fuera del repo (o - para')
+  console.log('              pegarla sin eco), nunca en la línea de comandos: el camino entero de la audioguía')
+  console.log('  --audioguia-codigo-viejo-archivo ARCHIVO|-   lo mismo con un QR de una versión anterior (tiene que no valer)')
   console.log('  Las demás opciones, en el encabezado de tools/rutas-check.mjs y en tools/README.md.')
   process.exit(opcion('--url') ? 0 : 1)
 }
@@ -142,7 +163,18 @@ const ESPERA_NOINDEX = tiene('--esperar-noindex') ? true : tiene('--esperar-inde
 // guion, una raya tipográfica (U+2010 a U+2015: «—relleno falla», pegado de un documento o de un chat que cambió «--»
 // por una raya) o el signo menos (U+2212) y no sea una opción de esta lista también corta con código 1, como en
 // menu-check.mjs: antes se ignoraba sin aviso y quedaba el modo por defecto (contra Render antes del corte, «Todo bien.»).
-const OPCIONES_CON_VALOR = ['--url', '--canonica', '--host', '--relleno', '--redirige', '--tope-js', '--max-paginas', '--json']
+const OPCIONES_CON_VALOR = [
+  '--url',
+  '--canonica',
+  '--host',
+  '--relleno',
+  '--redirige',
+  '--tope-js',
+  '--max-paginas',
+  '--json',
+  '--audioguia-codigo-archivo',
+  '--audioguia-codigo-viejo-archivo',
+]
 const OPCIONES_SOLAS = ['--esperar-noindex', '--esperar-indexable', '--sin-base', '--sin-otros-hosts', '--detalle', '--ayuda', '-h']
 const MODOS_DE_RELLENO = ['falla', 'avisa', 'no']
 const rellenosPedidos = [] // el valor de cada --relleno de la línea de comandos (null: sin valor)
@@ -332,9 +364,10 @@ const sinCompresion = []
 
 /**
  * Un pedido sin seguir redirecciones, con Accept-Encoding: br, gzip (como un navegador). Devuelve el estado, las
- * cabeceras (en minúsculas), el cuerpo ya descomprimido y lo que ocupaba por la red.
+ * cabeceras (en minúsculas), el cuerpo ya descomprimido y lo que ocupaba por la red. Con privado (una etiqueta: los
+ * pedidos de la audioguía con un código o un token), fuera de la lista de Set-Cookie y sin la URL en ninguna lista.
  */
-function pedir(url, { metodo = 'GET', cabeceras = {}, host = null } = {}) {
+function pedir(url, { metodo = 'GET', cabeceras = {}, host = null, privado = null } = {}) {
   const u = new URL(url)
   const mod = u.protocol === 'https:' ? https : http
   const propias = { 'User-Agent': UA, 'Accept-Encoding': 'br, gzip', Accept: '*/*', ...cabeceras }
@@ -357,8 +390,12 @@ function pedir(url, { metodo = 'GET', cabeceras = {}, host = null } = {}) {
           // Un cuerpo que no se puede descomprimir queda crudo; la comprobación que lo lea va a fallar.
         }
         const r = { url, status: res.statusCode, h: res.headers, cuerpo, texto: cuerpo.toString('utf8'), bytesRed: crudo.length, codificacion }
-        if (r.h['set-cookie']) conCookie.push(`${metodo} ${rel(url)}`)
-        if (r.h['x-powered-by']) conPoweredBy.push(`${metodo} ${rel(url)}`)
+        if (privado) {
+          if (r.h['x-powered-by']) conPoweredBy.push(`${metodo} ${privado}`)
+        } else {
+          if (r.h['set-cookie']) conCookie.push(`${metodo} ${rel(url)}`)
+          if (r.h['x-powered-by']) conPoweredBy.push(`${metodo} ${rel(url)}`)
+        }
         ok(r)
       })
     })
@@ -920,6 +957,291 @@ async function enParalelo(items, n, fn) {
   return salida
 }
 
+// --- La audioguía (especificación de las audioguías, 9.4; 24/11/2026) ---
+// Su propio router, fuera de la tabla de rutas y del sitemap (server/audioguia/rutas.js): noindex siempre (también en
+// el host canónico), Referrer-Policy no-referrer y, la página, private, no-store y Vary: Cookie. Sin código, lo que
+// se puede ver de afuera: /audioguia sin permiso (403, o la 404 del sitio si está apagada, y lo dice), el QR que no
+// vale (303 a /audioguia?motivo=codigo, sin cookie), las mayúsculas y el audio sin token. Con
+// --audioguia-codigo-archivo, el camino entero con un QR de verdad, siempre con Range (nunca un audio entero), y la
+// prueba del borde de Render (que no guarde el audio: un HIT o un Age mayor que 0 es una falla). Esos pedidos van
+// aparte de «ninguna respuesta pone Set-Cookie» (el QR válido y la página con ?v= SÍ la ponen) y nunca se escribe la
+// URL, el código ni el token: se dice «el QR (<espacio>)», y en el --json tampoco están.
+
+/** La forma de un código de QR (server/audioguia/firma.js, FORMA_DEL_CODIGO), copiada: la herramienta no carga el servidor. */
+const FORMA_DEL_CODIGO_QR = /^([a-z0-9-]{1,40})\.([1-9][0-9]{0,2})\.([A-Za-z0-9_-]{22})$/
+/** Un código con la forma y una firma que no vale: el inválido de siempre (no es un secreto). */
+const CODIGO_INVALIDO = 'recepcion.1.AAAAAAAAAAAAAAAAAAAAAA'
+const DESTINO_INVALIDO = '/audioguia?motivo=codigo'
+
+/**
+ * Lee un QR de un archivo o de la entrada (-), nunca de la línea de comandos (E5-13: quedaría en el historial). Acepta
+ * la URL sola o el urls.txt de npm run audioguia-urls (<espacio><TAB><url>, un renglón por espacio): ahí toma el de
+ * Recepción, o el primero. Devuelve { espacio, ruta } (la ruta, /audioguia/q/<código>, sin el origen), o corta con 1.
+ */
+async function leerQrDe(nombreOpcion, valor) {
+  if (/^https?:\/\//i.test(valor) || valor.includes('/audioguia/q/')) {
+    console.error(`${nombreOpcion} recibe un ARCHIVO con la URL del QR (o - para pegarla), nunca la URL: quedaría en el historial de la terminal.`)
+    process.exit(1)
+  }
+  let texto
+  try {
+    texto = valor === '-' ? await leerEntrada(nombreOpcion) : readFileSync(valor, 'utf8')
+  } catch (err) {
+    console.error(`${nombreOpcion}: no se pudo leer el archivo (${err.code ?? err.message}).`)
+    process.exit(1)
+  }
+  const urls = []
+  for (const renglon of texto.replace(/^﻿/, '').split(/\r?\n/)) {
+    const m = /(?:https?:\/\/[^\s/]+)?(\/audioguia\/q\/([^\s?#/]+))/.exec(renglon)
+    if (m) urls.push({ ruta: m[1], codigo: decodeURIComponent(m[2]) })
+  }
+  const elegida = urls.find((u) => u.codigo.startsWith('recepcion.')) ?? urls[0]
+  const forma = elegida && FORMA_DEL_CODIGO_QR.exec(elegida.codigo)
+  if (!forma) {
+    console.error(`${nombreOpcion}: el archivo no trae la URL de un QR de la audioguía (…/audioguia/q/<espacio>.<versión>.<firma>).`)
+    process.exit(1)
+  }
+  return { espacio: forma[1], ruta: elegida.ruta }
+}
+
+/** La entrada entera; si es una terminal, sin eco (lo que se pega no se ve), hasta Enter. */
+function leerEntrada(nombreOpcion) {
+  const entrada = process.stdin
+  if (!entrada.isTTY) {
+    return new Promise((ok, mal) => {
+      const partes = []
+      entrada.on('data', (c) => partes.push(c))
+      entrada.on('end', () => ok(Buffer.concat(partes).toString('utf8')))
+      entrada.on('error', mal)
+    })
+  }
+  process.stderr.write(`${nombreOpcion}: pegá la URL del QR (no se muestra) y Enter: `)
+  return new Promise((ok) => {
+    let texto = ''
+    entrada.setRawMode(true)
+    entrada.resume()
+    entrada.setEncoding('utf8')
+    const alLeer = (c) => {
+      for (const letra of c) {
+        if (letra === '\r' || letra === '\n') {
+          entrada.setRawMode(false)
+          entrada.pause()
+          entrada.off('data', alLeer)
+          process.stderr.write('\n')
+          return ok(texto)
+        }
+        if (letra === '\u0003') process.exit(130)
+        if (letra === '\u007f' || letra === '\b') texto = texto.slice(0, -1)
+        else texto += letra
+      }
+    }
+    entrada.on('data', alLeer)
+  })
+}
+
+const CODIGO_QR = opcion('--audioguia-codigo-archivo')
+const CODIGO_VIEJO = opcion('--audioguia-codigo-viejo-archivo')
+if (CODIGO_QR === '-' && CODIGO_VIEJO === '-') {
+  console.error('--audioguia-codigo-archivo y --audioguia-codigo-viejo-archivo no pueden leer los dos de la entrada (-).')
+  process.exit(1)
+}
+const QR = CODIGO_QR ? await leerQrDe('--audioguia-codigo-archivo', CODIGO_QR) : null
+const QR_VIEJO = CODIGO_VIEJO ? await leerQrDe('--audioguia-codigo-viejo-archivo', CODIGO_VIEJO) : null
+
+/** Un pedido de la audioguía con un código o un token: fuera de la lista de Set-Cookie y sin la URL en ningún lado. */
+async function pedirPrivado(etiqueta, ruta, opcionesPedido = {}) {
+  try {
+    return await pedir(enBase(ruta), { host: HOST, privado: etiqueta, ...opcionesPedido })
+  } catch (err) {
+    comprobar(`${etiqueta}: responde`, false, err.message)
+    return null
+  }
+}
+
+/** Lo que llevan todas las respuestas de la audioguía (server/audioguia/rutas.js) y helmet. */
+function cabecerasDeAudioguia(nombre, r) {
+  comprobar(`${nombre}: X-Robots-Tag noindex, nofollow (siempre, también en el host canónico)`, /noindex/i.test(r.h['x-robots-tag'] ?? '') && /nofollow/i.test(r.h['x-robots-tag'] ?? ''), r.h['x-robots-tag'] ?? '(nada)')
+  comprobar(`${nombre}: Referrer-Policy no-referrer`, r.h['referrer-policy'] === 'no-referrer', r.h['referrer-policy'] ?? '(nada)')
+  comprobar(`${nombre}: X-Content-Type-Options nosniff`, r.h['x-content-type-options'] === 'nosniff', r.h['x-content-type-options'] ?? '(nada)')
+  if (ES_HTTPS) {
+    const maxAge = Number(/max-age=(\d+)/i.exec(String(r.h['strict-transport-security'] ?? ''))?.[1] ?? 0)
+    comprobar(`${nombre}: HSTS de al menos un día`, maxAge >= 86_400, r.h['strict-transport-security'] ?? '(nada)')
+  }
+}
+
+/** La página de la audioguía (403 o 200): HTML, private, no-store, Vary: Cookie, noindex también en el meta y la CSP pública. */
+function paginaDeAudioguia(nombre, r) {
+  tipoEs(nombre, r, /^text\/html;\s*charset=utf-8/i, 'text/html; charset=utf-8')
+  cacheTiene(nombre, r, 'private', 'no-store')
+  comprobar(`${nombre}: Vary: Cookie`, /(^|,)\s*cookie\s*(,|$)/i.test(String(r.h.vary ?? '')), r.h.vary ?? '(nada)')
+  cabecerasDeAudioguia(nombre, r)
+  cspPublica(nombre, r)
+  comprobar(`${nombre}: <meta name="robots"> noindex`, /<meta name="robots" content="[^"]*noindex/i.test(r.texto), '(sin noindex)')
+  comprobar(`${nombre}: sin canonical`, !/rel="canonical"/.test(r.texto), '(tiene canonical)')
+  comprobar(`${nombre}: un solo h1`, (r.texto.match(/<h1[\s>]/g) ?? []).length === 1, `${(r.texto.match(/<h1[\s>]/g) ?? []).length}`)
+}
+
+const cookiesDe = (r) => [].concat(r.h['set-cookie'] ?? [])
+const estadoDeLaPagina = (html) => {
+  try {
+    return JSON.parse(/<script id="estado" type="application\/json">(.*?)<\/script>/s.exec(html)?.[1] ?? 'null')
+  } catch {
+    return null
+  }
+}
+const textoDelH1 = (html) => decodificar((/<h1[^>]*>([\s\S]*?)<\/h1>/.exec(html)?.[1] ?? '').replace(/<[^>]+>/g, '')).replace(/­/g, '')
+const primerSrc = (html) => decodificar(/<audio [^>]*src="([^"]*)"/.exec(html)?.[1] ?? '')
+
+/** El borde (Render, con Cloudflare delante): ninguna respuesta del audio puede venir guardada. */
+function sinElBorde(nombre, r) {
+  const cache = String(r.h['cf-cache-status'] ?? '')
+  const edad = Number(r.h.age ?? 0)
+  comprobar(`${nombre}: el borde no lo guardó (sin cf-cache-status: HIT ni Age)`, !/^hit$/i.test(cache) && !(edad > 0), `cf-cache-status: ${cache || '(nada)'}, Age: ${r.h.age ?? '(nada)'}`)
+}
+
+async function audioguia(rutasDelSitemap) {
+  seccion = 'Audioguía'
+  comprobar('el sitemap no la nombra', !rutasDelSitemap.some((p) => p.startsWith('/audioguia')), rutasDelSitemap.filter((p) => p.startsWith('/audioguia')).join(', '))
+  const pagina = await pedirO('/audioguia', enBase('/audioguia'), { cabeceras: { Accept: 'text/html' } })
+  if (!pagina) return
+  const mayusculas = await pedirO('/Audioguia', enBase('/Audioguia'))
+  if (mayusculas) estado('/Audioguia (distingue mayúsculas)', mayusculas, 404)
+
+  if (pagina.status === 404) {
+    // Apagada (sin AUDIOGUIA_CLAVE o sin ninguna estación válida): todo lo suyo es la 404 del sitio, sin cookies.
+    notasDeSeccion.set(seccion, 'apagada')
+    info.push('audioguía: apagada (sin AUDIOGUIA_CLAVE o sin ninguna estación grabada): sus rutas dan la 404 del sitio')
+    for (const ruta of ['/audioguia?v=ad', '/audioguia/sala-1', `/audioguia/q/${CODIGO_INVALIDO}`, '/audioguia/pista/07']) {
+      const r = await pedirO(ruta, enBase(ruta))
+      if (r) estado(`${ruta} (apagada)`, r, 404)
+    }
+    if (QR || QR_VIEJO) comprobar('con un código: la audioguía tiene que estar prendida', false, 'se pasó un QR y /audioguia da la 404 del sitio')
+    return
+  }
+
+  // Prendida.
+  info.push(`audioguía: prendida${QR ? '' : ' (sin --audioguia-codigo-archivo: solo lo que se ve sin un QR)'}`)
+  if (estado('/audioguia sin permiso', pagina, 403)) paginaDeAudioguia('/audioguia sin permiso', pagina)
+  const conV = await pedirO('/audioguia?v=ad', enBase('/audioguia?v=ad'), { cabeceras: { Accept: 'text/html' } })
+  if (conV && estado('/audioguia?v=ad sin permiso', conV, 403)) {
+    paginaDeAudioguia('/audioguia?v=ad sin permiso', conV)
+    // Sin permiso no se elige versión: el h1 es el de siempre (la de preferencia no se pone: ver Set-Cookie, abajo).
+    comprobar('/audioguia?v=ad sin permiso: sin ningún <audio>', !/<audio[\s>]/.test(conV.texto), '(tiene audios)')
+  }
+  for (const ruta of [`/audioguia/q/${CODIGO_INVALIDO}`, `/audioguia/q/${CODIGO_INVALIDO}?v=ad`]) {
+    const r = await pedirO(ruta, enBase(ruta))
+    if (!r || !estado(`${ruta} (no vale)`, r, 303)) continue
+    comprobar(`${ruta}: Location ${DESTINO_INVALIDO}`, r.h.location === DESTINO_INVALIDO, r.h.location ?? '(nada)')
+    cacheTiene(ruta, r, 'no-store')
+    cabecerasDeAudioguia(ruta, r)
+  }
+  const sinT = await pedirO('/audioguia/pista/07 sin t', enBase('/audioguia/pista/07'))
+  if (sinT) {
+    estado('/audioguia/pista/07 sin t', sinT, [403, 404])
+    cacheTiene('/audioguia/pista/07 sin t', sinT, 'no-store')
+    comprobar('/audioguia/pista/07 sin t: no es el audio', !/^audio\//.test(tipo(sinT)), tipo(sinT))
+  }
+
+  if (QR_VIEJO) {
+    const n = `el QR viejo (${QR_VIEJO.espacio})`
+    const r = await pedirPrivado(n, QR_VIEJO.ruta)
+    if (r && estado(n, r, 303)) {
+      comprobar(`${n}: Location ${DESTINO_INVALIDO}`, r.h.location === DESTINO_INVALIDO, r.h.location?.includes('/q/') ? '(otra)' : (r.h.location ?? '(nada)'))
+      comprobar(`${n}: sin Set-Cookie`, !cookiesDe(r).length, `${cookiesDe(r).length} cookies`)
+    }
+  }
+  if (!QR) return
+
+  // El camino entero con un QR de verdad.
+  const n = `el QR (${QR.espacio})`
+  const firma = QR.ruta.split('.').at(-1)
+  const qr = await pedirPrivado(n, QR.ruta)
+  if (!qr || !estado(n, qr, 303)) return
+  cacheTiene(n, qr, 'no-store')
+  cabecerasDeAudioguia(n, qr)
+  const destino = qr.h.location ?? ''
+  comprobar(`${n}: el Location no lleva el código`, destino && !destino.includes(firma) && !destino.includes('/q/'), '(lo lleva)')
+  comprobar(
+    `${n}: Location a la página del espacio, con r=1`,
+    new RegExp(`^/audioguia/${QR.espacio}\\?r=1(#espacio-${QR.espacio})?$`).test(destino),
+    destino.includes(firma) ? '(con el código)' : destino || '(nada)',
+  )
+  const nombreCookie = ES_HTTPS ? '__Secure-mupa_audioguia' : 'mupa_audioguia'
+  const deDia = cookiesDe(qr).find((c) => c.startsWith(`${nombreCookie}=`))
+  if (!comprobar(`${n}: la cookie de día (${nombreCookie})`, deDia, `${cookiesDe(qr).length} cookies, ninguna ${nombreCookie}`)) return
+  comprobar(
+    `${n}: la cookie con Path=/audioguia, HttpOnly, SameSite=Lax${ES_HTTPS ? ' y Secure' : ''}, Max-Age y sin Domain`,
+    /;\s*Path=\/audioguia(;|$)/.test(deDia) && /;\s*HttpOnly/i.test(deDia) && /;\s*SameSite=Lax/i.test(deDia) && /;\s*Max-Age=\d+/.test(deDia) &&
+      !/;\s*Domain=/i.test(deDia) && (ES_HTTPS ? /;\s*Secure/i.test(deDia) : !/;\s*Secure/i.test(deDia)),
+    deDia.split(';').slice(1).join(';').trim(),
+  )
+  const cookie = deDia.split(';')[0]
+  const rutaPagina = destino.split('#')[0]
+  const con = await pedirPrivado(`la página del QR (${QR.espacio})`, rutaPagina, { cabeceras: { Accept: 'text/html', Cookie: cookie } })
+  if (!con || !estado(`la página del QR (${QR.espacio}) con la cookie`, con, 200)) return
+  paginaDeAudioguia(`la página del QR (${QR.espacio}) con la cookie`, con)
+  comprobar(`la página del QR (${QR.espacio}): sin Set-Cookie (sin v)`, !cookiesDe(con).length, `${cookiesDe(con).length} cookies`)
+  comprobar(`la página del QR (${QR.espacio}): con acceso en el estado`, estadoDeLaPagina(con.texto)?.datos?.acceso === true, '(sin acceso)')
+  const sinCookie = await pedirPrivado(`la página del QR (${QR.espacio}) sin la cookie`, rutaPagina, { cabeceras: { Accept: 'text/html' } })
+  if (sinCookie) estado(`la página del QR (${QR.espacio}) sin la cookie`, sinCookie, 403)
+
+  // El audio de la primera estación, siempre con Range (dos bytes).
+  const src = primerSrc(con.texto)
+  if (!comprobar('la página tiene audios con su token (?t=)', /^\/audioguia\/pista\/\d{2}\?t=/.test(src), src ? '(otra forma)' : '(ningún <audio>)')) return
+  const rango = { cabeceras: { Range: 'bytes=0-1' } }
+  const a1 = await pedirPrivado('el audio de la primera estación', src, rango)
+  if (a1 && estado('el audio con su token y Range', a1, 206)) {
+    tipoEs('el audio', a1, /^audio\/mpeg/, 'audio/mpeg')
+    comprobar('el audio: Content-Range bytes 0-1/…', /^bytes 0-1\/\d+$/.test(a1.h['content-range'] ?? ''), a1.h['content-range'] ?? '(nada)')
+    comprobar('el audio: Accept-Ranges bytes', a1.h['accept-ranges'] === 'bytes', a1.h['accept-ranges'] ?? '(nada)')
+    comprobar('el audio: sin Content-Encoding (ni el borde lo comprime)', !a1.h['content-encoding'], a1.h['content-encoding'])
+    comprobar('el audio: dos bytes, no el archivo entero', a1.cuerpo.length === 2, `${a1.cuerpo.length} B`)
+    cacheTiene('el audio', a1, 'private')
+    comprobar('el audio: Cross-Origin-Resource-Policy same-origin', a1.h['cross-origin-resource-policy'] === 'same-origin', a1.h['cross-origin-resource-policy'] ?? '(nada)')
+    cabecerasDeAudioguia('el audio', a1)
+    sinElBorde('el audio (1.º pedido)', a1)
+  }
+  const a2 = await pedirPrivado('el audio otra vez', src, rango)
+  if (a2) {
+    estado('el audio otra vez, con su token', a2, 206)
+    sinElBorde('el audio (2.º pedido)', a2)
+  }
+  const sinToken = src.split('?')[0]
+  const a3 = await pedirPrivado('el audio sin t', sinToken, rango)
+  if (a3) {
+    estado('el audio sin t', a3, 403)
+    cacheTiene('el audio sin t', a3, 'no-store')
+  }
+  // El mismo audio con el token cambiado (la última letra): si el borde lo hubiera guardado, daría el audio.
+  const tocado = src.replace(/.$/, (c) => (c === 'A' ? 'B' : 'A'))
+  const a4 = await pedirPrivado('el audio con t cambiado', tocado, rango)
+  if (a4) {
+    estado('el audio con t cambiado (el borde no lo sirve de lo guardado)', a4, 403)
+    sinElBorde('el audio con t cambiado', a4)
+  }
+
+  // La versión con audiodescripción: el mismo QR con ?v=ad.
+  const nAd = `el QR (${QR.espacio}) con ?v=ad`
+  const qrAd = await pedirPrivado(nAd, `${QR.ruta}?v=ad`)
+  if (!qrAd || !estado(nAd, qrAd, 303)) return
+  const destinoAd = qrAd.h.location ?? ''
+  comprobar(`${nAd}: Location con v=ad y sin el código`, /[?&]v=ad(&|#|$)/.test(destinoAd) && !destinoAd.includes(firma), destinoAd.includes(firma) ? '(con el código)' : destinoAd || '(nada)')
+  comprobar(`${nAd}: la cookie de día`, cookiesDe(qrAd).some((c) => c.startsWith(`${nombreCookie}=`)), `${cookiesDe(qrAd).length} cookies`)
+  comprobar(`${nAd}: sin la cookie de preferencia (se pone en la página)`, !cookiesDe(qrAd).some((c) => c.startsWith('mupa_audioguia_version=')), '(la pone)')
+  const ad = await pedirPrivado(`la página con ?v=ad (${QR.espacio})`, destinoAd.split('#')[0], { cabeceras: { Accept: 'text/html', Cookie: cookie } })
+  if (!ad || !estado(`la página con ?v=ad (${QR.espacio})`, ad, 200)) return
+  paginaDeAudioguia(`la página con ?v=ad (${QR.espacio})`, ad)
+  comprobar('la página con ?v=ad: el h1 «Audioguía con audiodescripción»', textoDelH1(ad.texto) === 'Audioguía con audiodescripción', textoDelH1(ad.texto) || '(sin h1)')
+  const preferencia = cookiesDe(ad).find((c) => c.startsWith('mupa_audioguia_version='))
+  comprobar(
+    'la página con ?v=ad: la cookie de preferencia (ad, Path=/audioguia, HttpOnly, SameSite=Lax, 180 días)',
+    preferencia && /^mupa_audioguia_version=ad;/.test(preferencia) && /;\s*Path=\/audioguia(;|$)/.test(preferencia) &&
+      /;\s*HttpOnly/i.test(preferencia) && /;\s*SameSite=Lax/i.test(preferencia) && /;\s*Max-Age=15552000(;|$)/.test(preferencia),
+    preferencia ?? '(no la pone)',
+  )
+  comprobar('la página con ?v=ad: el primer audio es el de audiodescripción (-ad)', /^\/audioguia\/pista\/\d{2}-ad\?t=/.test(primerSrc(ad.texto)), '(no es -ad)')
+}
+
 // --- Recorrido ---
 const inicio = Date.now()
 console.log(`rutas-check · ${BASE}${HOST !== new URL(BASE).host ? ` (Host: ${HOST})` : ''}`)
@@ -942,10 +1264,11 @@ await redireccionesY404()
 await assets()
 await panel()
 await fotos()
+await audioguia(rutasDelSitemap)
 await otrosHosts()
 
 seccion = 'En todas las respuestas'
-comprobar(`ninguna respuesta pone Set-Cookie (sin sesión)`, !conCookie.length, conCookie.slice(0, 8).join(', '))
+comprobar(`ninguna respuesta pone Set-Cookie (sin sesión; los pedidos de la audioguía con un QR, aparte)`, !conCookie.length, conCookie.slice(0, 8).join(', '))
 comprobar('ninguna respuesta lleva X-Powered-By', !conPoweredBy.length, conPoweredBy.slice(0, 8).join(', '))
 if (sinCompresion.length) {
   const detalle = `${sinCompresion.length} sin Brotli ni gzip: ${sinCompresion.slice(0, 6).join(', ')}${sinCompresion.length > 6 ? '…' : ''}`

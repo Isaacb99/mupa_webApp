@@ -3,3 +3,6 @@
 *.ai binary
 *.png binary
 *.jpg binary
+*.mp3 binary
+*.wav binary
+audioguias/*.txt text eol=lf
